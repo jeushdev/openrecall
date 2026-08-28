@@ -5,12 +5,17 @@ import 'package:open_recall/app.dart';
 import 'package:open_recall/features/auth/application/auth_providers.dart';
 import 'package:open_recall/features/auth/presentation/login_screen.dart';
 import 'package:open_recall/features/auth/presentation/signup_screen.dart';
+import 'package:open_recall/features/decks/application/deck_providers.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../support/fake_auth_repository.dart';
+import '../../support/fake_deck_repository.dart';
 
 Widget _app(FakeAuthRepository fake) => ProviderScope(
-      overrides: [authRepositoryProvider.overrideWithValue(fake)],
+      overrides: [
+        authRepositoryProvider.overrideWithValue(fake),
+        deckRepositoryProvider.overrideWithValue(FakeDeckRepository()),
+      ],
       child: const OpenRecallApp(),
     );
 

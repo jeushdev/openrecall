@@ -20,6 +20,12 @@ abstract final class AppRoutes {
   static const String deckLibraryPath = '/decks';
   static const String deckLibraryName = 'decks';
 
+  /// Deck Creator / card-manager. Nested under [deckLibraryPath] so the back
+  /// button returns to the library. Takes a `deckId` path parameter and,
+  /// optionally, the deck name as `extra` for the app-bar title.
+  static const String deckCreatorPath = ':deckId';
+  static const String deckCreatorName = 'deck-creator';
+
   /// Routes a signed-out user is allowed to sit on.
   static const Set<String> unauthenticatedPaths = {
     loginPath,
