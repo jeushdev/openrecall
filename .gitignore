@@ -58,4 +58,7 @@ app.*.map.json
 # Secrets / local config (used from milestone 3 onward)
 .env
 .env.*
+!.env.example
 **/android/app/google-services.json
+# Widget Preview related
+.widget_preview/

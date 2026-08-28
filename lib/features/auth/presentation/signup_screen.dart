@@ -8,16 +8,17 @@ import '../domain/auth_error_messages.dart';
 import 'widgets/auth_scaffold.dart';
 import 'widgets/email_password_fields.dart';
 
-/// Email + password sign-in. On success the router's redirect moves the user
-/// to the Deck Library, so this screen only navigates for the secondary links.
-class LoginScreen extends ConsumerStatefulWidget {
-  const LoginScreen({super.key});
+/// Email + password account creation. Email confirmation is disabled for the
+/// beta, so a successful sign-up establishes a session and the router's
+/// redirect moves the user straight to the Deck Library.
+class SignupScreen extends ConsumerStatefulWidget {
+  const SignupScreen({super.key});
 
   @override
-  ConsumerState<LoginScreen> createState() => _LoginScreenState();
+  ConsumerState<SignupScreen> createState() => _SignupScreenState();
 }
 
-class _LoginScreenState extends ConsumerState<LoginScreen> {
+class _SignupScreenState extends ConsumerState<SignupScreen> {
   final _formKey = GlobalKey<FormState>();
   final _email = TextEditingController();
   final _password = TextEditingController();
@@ -31,7 +32,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
-    await ref.read(authControllerProvider.notifier).signIn(
+    await ref.read(authControllerProvider.notifier).signUp(
           email: _email.text.trim(),
           password: _password.text,
         );
@@ -49,13 +50,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final busy = ref.watch(authControllerProvider).isLoading;
 
     return AuthScaffold(
-      title: 'Log in',
+      title: 'Create account',
       formKey: _formKey,
       children: [
         EmailPasswordFields(
           emailController: _email,
           passwordController: _password,
           enabled: !busy,
+          passwordHint: 'At least 6 characters',
           onSubmit: _submit,
         ),
         const SizedBox(height: 24),
@@ -66,19 +68,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   dimension: 20,
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
-              : const Text('Log in'),
+              : const Text('Sign up'),
         ),
         const SizedBox(height: 8),
         TextButton(
-          onPressed: busy
-              ? null
-              : () => context.goNamed(AppRoutes.forgotPasswordName),
-          child: const Text('Forgot password?'),
-        ),
-        TextButton(
-          onPressed:
-              busy ? null : () => context.goNamed(AppRoutes.signupName),
-          child: const Text('Create account'),
+          onPressed: busy ? null : () => context.goNamed(AppRoutes.loginName),
+          child: const Text('I already have an account'),
         ),
       ],
     );

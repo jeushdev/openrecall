@@ -22,7 +22,7 @@ A Flutter mobile study app implementing multi-modal active recall (Flip, Cloze, 
 
 ## Commands
 - `flutter pub get` — install dependencies
-- `flutter run` — run on a connected Android device/emulator (requires the Android SDK — not yet installed on the dev machine as of milestone 1)
+- `flutter run` — run on a connected Android device/emulator (the Android SDK is installed and working on this machine as of milestone 3). `flutter doctor` reports "Android license status unknown" — this is known and safe to ignore; `flutter run` and `flutter build apk` work fine regardless.
 - `flutter test` — run the test suite
 - `flutter analyze` — static analysis / lint (must be clean before committing)
 - `flutter build apk` — build the Android APK (`--debug` for a quick sanity build, `--release` for distribution)

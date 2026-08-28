@@ -23,7 +23,22 @@ flutter analyze      # lint — keep clean
 flutter run          # needs an Android device/emulator + Android SDK
 ```
 
+### Supabase config
+
+The app reads its Supabase credentials from a git-ignored `.env` file at the
+repo root:
+
+```
+cp .env.example .env
+```
+
+Then fill in `SUPABASE_URL` and `SUPABASE_ANON_KEY` from your Supabase project
+(Dashboard → Project Settings → API — use the **anon / public** key, never the
+service role key). In the dashboard, also turn **off** "Confirm email" under
+Authentication → Providers → Email so sign-up logs the user straight in.
+
 ## Status
 
-Milestone 1 (repo + scaffold): navigation shell with stub screens
-(Splash → Login → Deck Library). No Supabase wiring yet — that lands in milestone 3.
+Milestone 3 (auth): email + password signup / login / logout and send-email
+password reset, wired to Supabase Auth. Splash does a real session check and
+routes to Login or the Deck Library.

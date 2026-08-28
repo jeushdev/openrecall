@@ -1,20 +1,33 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../features/auth/application/auth_providers.dart';
+import '../features/auth/presentation/forgot_password_screen.dart';
 import '../features/auth/presentation/login_screen.dart';
+import '../features/auth/presentation/signup_screen.dart';
 import '../features/decks/presentation/deck_library_screen.dart';
 import '../features/splash/presentation/splash_screen.dart';
 import 'app_routes.dart';
+import 'auth_redirect.dart';
+import 'go_router_refresh_stream.dart';
 
 /// The app's [GoRouter] instance.
 ///
-/// Milestone 1 has no redirect logic — [SplashScreen] performs the single
-/// Splash → Login transition itself. Real auth-based routing arrives with
-/// Supabase in milestone 3, at which point this provider gains a `redirect`
-/// backed by an auth-state listenable.
+/// Auth is the only routing concern: [authRedirect] gates every navigation
+/// against the current session, and [GoRouterRefreshStream] re-runs it whenever
+/// the session appears or clears. [SplashScreen] is now a passive frame — the
+/// redirect resolves `/` to Login or the Deck Library on the first build.
 final appRouterProvider = Provider<GoRouter>((ref) {
-  return GoRouter(
+  final auth = ref.watch(authRepositoryProvider);
+  final refresh = GoRouterRefreshStream(auth.authStateChanges());
+
+  final router = GoRouter(
     initialLocation: AppRoutes.splashPath,
+    refreshListenable: refresh,
+    redirect: (context, state) => authRedirect(
+      signedIn: auth.isSignedIn,
+      location: state.matchedLocation,
+    ),
     routes: [
       GoRoute(
         path: AppRoutes.splashPath,
@@ -27,10 +40,26 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const LoginScreen(),
       ),
       GoRoute(
+        path: AppRoutes.signupPath,
+        name: AppRoutes.signupName,
+        builder: (context, state) => const SignupScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.forgotPasswordPath,
+        name: AppRoutes.forgotPasswordName,
+        builder: (context, state) => const ForgotPasswordScreen(),
+      ),
+      GoRoute(
         path: AppRoutes.deckLibraryPath,
         name: AppRoutes.deckLibraryName,
         builder: (context, state) => const DeckLibraryScreen(),
       ),
     ],
   );
+
+  ref.onDispose(() {
+    router.dispose();
+    refresh.dispose();
+  });
+  return router;
 });
