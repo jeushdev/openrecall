@@ -21,7 +21,18 @@ A Flutter mobile study app implementing multi-modal active recall (Flip, Cloze, 
 - No ORM — Supabase client queries / plain SQL
 
 ## Commands
-_(fill in once the project is scaffolded: `flutter run`, `flutter test`, `flutter build apk`, etc.)_
+- `flutter pub get` — install dependencies
+- `flutter run` — run on a connected Android device/emulator (requires the Android SDK — not yet installed on the dev machine as of milestone 1)
+- `flutter test` — run the test suite
+- `flutter analyze` — static analysis / lint (must be clean before committing)
+- `flutter build apk` — build the Android APK (`--debug` for a quick sanity build, `--release` for distribution)
+
+## Project layout
+- Feature-first: `lib/features/<feature>/presentation|domain|data/`
+- Cross-cutting: `lib/routing/` (go_router), `lib/theme/`
+- Entry point: `lib/main.dart` → `lib/app.dart` (`OpenRecallApp`)
+- State management: Riverpod (`flutter_riverpod` 3.x, manual provider declarations — the 3.x codegen/lint tooling isn't stable yet)
+- Android application ID: `com.openrecall.app` (namespace stays `com.openrecall.open_recall`)
 
 ## Working style
 - One feature/milestone per session — don't build multiple unrelated features in one sitting, even if there's room in the context window
