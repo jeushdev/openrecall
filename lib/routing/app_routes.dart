@@ -20,10 +20,16 @@ abstract final class AppRoutes {
   static const String deckLibraryPath = '/decks';
   static const String deckLibraryName = 'decks';
 
-  /// Deck Creator / card-manager. Nested under [deckLibraryPath] so the back
-  /// button returns to the library. Takes a `deckId` path parameter and,
-  /// optionally, the deck name as `extra` for the app-bar title.
-  static const String deckCreatorPath = ':deckId';
+  /// Deck Overview (spec §4). Nested under [deckLibraryPath] as `/decks/:deckId`
+  /// so the back button returns to the library. Takes a `deckId` path parameter
+  /// and, optionally, the deck name as `extra` for the app-bar title.
+  static const String deckOverviewPath = ':deckId';
+  static const String deckOverviewName = 'deck-overview';
+
+  /// Deck Creator / card-manager, at `/decks/:deckId/edit`. Reached from
+  /// "+Create deck" (a fresh empty deck) and from the Overview's "Add cards".
+  /// Same `deckId` path parameter and `extra` deck name as the Overview.
+  static const String deckCreatorPath = 'edit';
   static const String deckCreatorName = 'deck-creator';
 
   /// Routes a signed-out user is allowed to sit on.

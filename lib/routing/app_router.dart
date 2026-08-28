@@ -7,6 +7,7 @@ import '../features/auth/presentation/login_screen.dart';
 import '../features/auth/presentation/signup_screen.dart';
 import '../features/decks/presentation/deck_creator_screen.dart';
 import '../features/decks/presentation/deck_library_screen.dart';
+import '../features/decks/presentation/deck_overview_screen.dart';
 import '../features/splash/presentation/splash_screen.dart';
 import 'app_routes.dart';
 import 'auth_redirect.dart';
@@ -56,12 +57,22 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const DeckLibraryScreen(),
         routes: [
           GoRoute(
-            path: AppRoutes.deckCreatorPath,
-            name: AppRoutes.deckCreatorName,
-            builder: (context, state) => DeckCreatorScreen(
+            path: AppRoutes.deckOverviewPath,
+            name: AppRoutes.deckOverviewName,
+            builder: (context, state) => DeckOverviewScreen(
               deckId: state.pathParameters['deckId']!,
               deckName: state.extra as String?,
             ),
+            routes: [
+              GoRoute(
+                path: AppRoutes.deckCreatorPath,
+                name: AppRoutes.deckCreatorName,
+                builder: (context, state) => DeckCreatorScreen(
+                  deckId: state.pathParameters['deckId']!,
+                  deckName: state.extra as String?,
+                ),
+              ),
+            ],
           ),
         ],
       ),

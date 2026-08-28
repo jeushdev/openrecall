@@ -52,20 +52,13 @@ class DeckSummary {
         .cast<Map<String, dynamic>>();
     final levels = cards.map((c) => c['mastery_level'] as int).toList();
 
-    final total = levels.length;
-    final due = levels.where((l) => l < masteredLevel).length;
-    final percent = total == 0
-        ? 0
-        : (levels.reduce((a, b) => a + b) / (total * masteredLevel) * 100)
-            .round();
-
     return DeckSummary(
       id: json['id'] as String,
       name: json['name'] as String,
       lastStudiedAt: _parseNullableDate(json['last_studied_at']),
-      totalCards: total,
-      dueCards: due,
-      masteryPercent: percent,
+      totalCards: levels.length,
+      dueCards: levels.where((l) => l < masteredLevel).length,
+      masteryPercent: masteryPercentFromLevels(levels),
     );
   }
 

@@ -5,6 +5,16 @@ import 'package:flutter/foundation.dart';
 /// reaches this.
 const int masteredLevel = 4;
 
+/// Deck-level mastery %, defined once (spec §6/§88): the average `mastery_level`
+/// across [levels], scaled from the 0–[masteredLevel] range to 0–100 and
+/// rounded. An empty deck is 0%. Shared by the Deck Library and Deck Overview.
+int masteryPercentFromLevels(Iterable<int> levels) {
+  final list = levels.toList();
+  if (list.isEmpty) return 0;
+  final sum = list.reduce((a, b) => a + b);
+  return (sum / (list.length * masteredLevel) * 100).round();
+}
+
 /// The unified card model (spec §3): every card is `front` + `back` +
 /// optional `keyword`, with no stored `type`. Which study modes a card
 /// supports is computed elsewhere, at read time.

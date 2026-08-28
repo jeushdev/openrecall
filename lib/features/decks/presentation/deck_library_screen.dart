@@ -52,7 +52,7 @@ class DeckLibraryScreen extends ConsumerWidget {
                 itemCount: decks.length,
                 itemBuilder: (context, i) => DeckTile(
                   summary: decks[i],
-                  onTap: () => _openDeck(context, decks[i].id, decks[i].name),
+                  onTap: () => _openOverview(context, decks[i].id, decks[i].name),
                 ),
               ),
       ),
@@ -72,12 +72,18 @@ class DeckLibraryScreen extends ConsumerWidget {
         await ref.read(decksControllerProvider.notifier).createDeck(name);
     if (deck == null || !context.mounted) return;
 
-    _openDeck(context, deck.id, deck.name);
-  }
-
-  void _openDeck(BuildContext context, String deckId, String deckName) {
+    // Spec §2: a brand-new deck goes straight into the Deck Creator to add
+    // cards, skipping the (empty) Overview. Back still returns to the library.
     context.pushNamed(
       AppRoutes.deckCreatorName,
+      pathParameters: {'deckId': deck.id},
+      extra: deck.name,
+    );
+  }
+
+  void _openOverview(BuildContext context, String deckId, String deckName) {
+    context.pushNamed(
+      AppRoutes.deckOverviewName,
       pathParameters: {'deckId': deckId},
       extra: deckName,
     );

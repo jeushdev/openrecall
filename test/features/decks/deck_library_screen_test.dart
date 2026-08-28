@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:open_recall/features/decks/domain/deck.dart';
 import 'package:open_recall/features/decks/presentation/deck_creator_screen.dart';
 import 'package:open_recall/features/decks/presentation/deck_library_screen.dart';
+import 'package:open_recall/features/decks/presentation/deck_overview_screen.dart';
 
 import '../../support/fake_deck_repository.dart';
 import '../../support/pump_app.dart';
@@ -73,7 +74,7 @@ void main() {
     expect(find.byType(DeckCreatorScreen), findsOneWidget);
   });
 
-  testWidgets('tapping a deck opens the Deck Creator for it', (tester) async {
+  testWidgets('tapping a deck opens the Deck Overview for it', (tester) async {
     await pumpApp(
       tester,
       signedIn: true,
@@ -83,6 +84,6 @@ void main() {
     await tester.tap(find.text('Biology'));
     await tester.pumpAndSettle();
 
-    expect(find.byType(DeckCreatorScreen), findsOneWidget);
+    expect(find.byType(DeckOverviewScreen), findsOneWidget);
   });
 }
