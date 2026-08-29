@@ -7,6 +7,7 @@ import '../../decks/application/deck_providers.dart';
 import '../../decks/domain/deck_repository.dart';
 import '../../decks/domain/study_mode.dart';
 import '../data/supabase_study_repository.dart';
+import '../domain/cloze_outcome.dart';
 import '../domain/flip_rating.dart';
 import '../domain/session_length.dart';
 import '../domain/session_queue_selection.dart';
@@ -91,8 +92,15 @@ class SessionController extends Notifier<AsyncValue<StudySessionState?>> {
     final existing = _state;
     if (existing != null &&
         existing.deckId == deckId &&
+        existing.session.studyMode == mode &&
         !existing.isComplete) {
-      return; // resume: the live session is already in memory
+      return; // resume: the live session in the same mode is already in memory
+    }
+
+    // Switching modes on a still-live session: let its background writes land
+    // before the queue is rebuilt.
+    if (existing != null && !existing.isComplete) {
+      await _flushAllPendingWrites();
     }
 
     _resetInternals();
@@ -156,11 +164,21 @@ class SessionController extends Notifier<AsyncValue<StudySessionState?>> {
   }
 
   /// Applies a Flip rating to the current card — synchronous and optimistic.
-  void rate(FlipRating rating) {
+  void rate(FlipRating rating) => _applyResult(rating.level);
+
+  /// Applies a Cloze attempt outcome to the current card (spec §5B/§6) —
+  /// synchronous and optimistic, exactly like [rate]. The outcome has already
+  /// been mapped to a `mastery_level`.
+  void submitCloze(ClozeOutcome outcome) => _applyResult(outcome.masteryLevel);
+
+  /// The shared optimistic-progression path for every mode: advance the
+  /// in-memory queue now, then fire the guarded `cards` write and the
+  /// session-scoped `session_cards` write in the background.
+  void _applyResult(int masteryLevel) {
     final current = _state;
     if (current == null || current.phase != SessionPhase.studying) return;
 
-    final result = current.applyRating(rating);
+    final result = current.applyResult(masteryLevel: masteryLevel);
     state = AsyncData(result.state);
 
     final effects = result.effects;

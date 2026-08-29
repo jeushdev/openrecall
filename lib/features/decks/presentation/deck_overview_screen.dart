@@ -17,9 +17,10 @@ import 'widgets/troublemaker_list.dart';
 /// session-length toggle, Troublemaker cards, and the way back into the Deck
 /// Creator to add more cards.
 ///
-/// Reached by tapping a deck in the Library. Tapping Flip & Rate starts a
-/// session (spec §5A); the other modes still show a placeholder. A "Resume
-/// session" button appears while a session for this deck is live in memory.
+/// Reached by tapping a deck in the Library. Flip & Rate and Cloze Type-in
+/// start a session (spec §5A/§5B); List and Feynman still show a placeholder.
+/// A "Resume session" button appears while a session for this deck is live in
+/// memory.
 class DeckOverviewScreen extends ConsumerStatefulWidget {
   const DeckOverviewScreen({super.key, required this.deckId, this.deckName});
 
@@ -64,8 +65,10 @@ class _DeckOverviewScreenState extends ConsumerState<DeckOverviewScreen> {
     );
   }
 
+  static const _launchableModes = {StudyMode.flip, StudyMode.cloze};
+
   void _startMode(StudyMode mode) {
-    if (mode != StudyMode.flip) {
+    if (!_launchableModes.contains(mode)) {
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
         ..showSnackBar(

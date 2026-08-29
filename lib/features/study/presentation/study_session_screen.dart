@@ -2,18 +2,22 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../decks/domain/study_mode.dart';
 import '../application/session_controller.dart';
+import '../domain/cloze_outcome.dart';
 import '../domain/flip_rating.dart';
 import '../domain/study_session_state.dart';
 import 'study_session_args.dart';
+import 'widgets/cloze_card_view.dart';
 import 'widgets/flip_card_view.dart';
 import 'widgets/park_prompt_dialog.dart';
 import 'widgets/rating_bar.dart';
 import 'widgets/session_progress_indicator.dart';
 
-/// The study execution screen. Milestone 6 handles Flip & Rate only (spec §5A);
-/// the other modes route here later. Exiting — the close button, system back, or
-/// completion — returns to the Deck Overview.
+/// The study execution screen. Handles Flip & Rate (spec §5A) and Cloze Type-in
+/// (spec §5B), branching on `session.studyMode`; List and Feynman route here
+/// later. Exiting — the close button, system back, or completion — returns to
+/// the Deck Overview.
 class StudySessionScreen extends ConsumerStatefulWidget {
   const StudySessionScreen({super.key, required this.args});
 
@@ -112,10 +116,12 @@ class _StudySessionScreenState extends ConsumerState<StudySessionScreen> {
         if (state == null || state.current == null) {
           return _Frame(title: widget.args?.deckName, child: const SizedBox());
         }
+        final notifier = ref.read(sessionControllerProvider.notifier);
         return _ActiveBody(
           state: state,
           onExit: _exitAndLeave,
-          onRate: ref.read(sessionControllerProvider.notifier).rate,
+          onRate: notifier.rate,
+          onCloze: notifier.submitCloze,
         );
       },
     );
@@ -127,11 +133,13 @@ class _ActiveBody extends StatefulWidget {
     required this.state,
     required this.onExit,
     required this.onRate,
+    required this.onCloze,
   });
 
   final StudySessionState state;
   final VoidCallback onExit;
   final ValueChanged<FlipRating> onRate;
+  final ValueChanged<ClozeOutcome> onCloze;
 
   @override
   State<_ActiveBody> createState() => _ActiveBodyState();
@@ -183,13 +191,21 @@ class _ActiveBodyState extends State<_ActiveBody> {
               total: state.totalCards,
             ),
             const SizedBox(height: 16),
-            FlipCardView(
-              key: ValueKey(_presentationKey),
-              card: item.card,
-              onFlippedChanged: (f) => setState(() => _flipped = f),
-            ),
-            const SizedBox(height: 24),
-            RatingBar(enabled: _flipped, onRate: widget.onRate),
+            if (state.session.studyMode == StudyMode.cloze)
+              ClozeCardView(
+                key: ValueKey(_presentationKey),
+                card: item.card,
+                onResult: widget.onCloze,
+              )
+            else ...[
+              FlipCardView(
+                key: ValueKey(_presentationKey),
+                card: item.card,
+                onFlippedChanged: (f) => setState(() => _flipped = f),
+              ),
+              const SizedBox(height: 24),
+              RatingBar(enabled: _flipped, onRate: widget.onRate),
+            ],
           ],
         ),
       ),

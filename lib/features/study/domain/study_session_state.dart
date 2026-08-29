@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 
+import '../../decks/domain/card.dart';
 import 'flip_rating.dart';
 import 'requeue.dart';
 import 'study_queue_item.dart';
@@ -120,11 +121,21 @@ class StudySessionState {
   /// [phase] is [SessionPhase.studying].
   ({StudySessionState state, RatingEffects effects}) applyRating(
     FlipRating rating,
-  ) {
+  ) =>
+      applyResult(masteryLevel: rating.level);
+
+  /// Applies a mode-neutral result to the current card: the mode has already
+  /// translated its raw outcome into a `mastery_level` (spec §6). Reaching
+  /// [masteredLevel] retires the card; anything less requeues it, bumps the
+  /// consecutive-fail counter, and prompts a park on the third. Caller must
+  /// ensure [phase] is [SessionPhase.studying].
+  ({StudySessionState state, RatingEffects effects}) applyResult({
+    required int masteryLevel,
+  }) {
     assert(phase == SessionPhase.studying);
     final item = queue.first;
 
-    if (rating.isMastered) {
+    if (masteryLevel >= masteredLevel) {
       final next = _copy(
         queue: queue.sublist(1),
         masteredCardIds: {...masteredCardIds, item.cardId},
@@ -137,7 +148,7 @@ class StudySessionState {
         effects: RatingEffects(
           cardId: item.cardId,
           sessionCardId: item.sessionCardId,
-          newMasteryLevel: rating.level,
+          newMasteryLevel: masteryLevel,
           isFail: false,
           newPosition: null,
           newConsecutiveFails: 0,
@@ -156,7 +167,7 @@ class StudySessionState {
     final requeued = item.copyWith(
       position: newPosition,
       consecutiveFails: fails,
-      masteryLevel: rating.level,
+      masteryLevel: masteryLevel,
     );
     final newQueue = [...rest, requeued]
       ..sort((a, b) => a.position.compareTo(b.position));
@@ -173,7 +184,7 @@ class StudySessionState {
       effects: RatingEffects(
         cardId: item.cardId,
         sessionCardId: item.sessionCardId,
-        newMasteryLevel: rating.level,
+        newMasteryLevel: masteryLevel,
         isFail: true,
         newPosition: newPosition,
         newConsecutiveFails: fails,
