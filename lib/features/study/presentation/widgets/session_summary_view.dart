@@ -35,7 +35,7 @@ class SessionSummaryView extends StatelessWidget {
         StudyMode.flip => 'recalled on the first flip',
         StudyMode.cloze => 'typed right on the first try',
         StudyMode.list => 'recalled with no reveals',
-        StudyMode.feynman => 'fully covered on the first pass',
+        StudyMode.feynman => 'recalled on the first pass',
       };
 
   @override

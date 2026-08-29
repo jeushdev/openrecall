@@ -11,6 +11,8 @@ import '../domain/session_length.dart';
 import '../domain/study_session.dart';
 import '../domain/study_session_state.dart';
 import 'widgets/cloze_reveal_card.dart';
+import 'widgets/feynman_card_view.dart';
+import 'widgets/feynman_timer_picker.dart';
 import 'widgets/flip_card.dart';
 import 'widgets/list_reveal_card.dart';
 import 'widgets/mode_picker.dart';
@@ -23,10 +25,10 @@ import 'widgets/study_progress_bar.dart';
 /// `/study/:deckId?scope=due|all` outside the shell — no bottom nav bar, no
 /// app bar.
 ///
-/// Flow: pick a mode (skipped when the deck supports only one non-Feynman
-/// mode) → the shared [SessionController] builds the queue for [scope] → the
-/// per-mode card surface with a gated rating row → the Session Summary. Feynman
-/// mode is deferred to U6, so it is never offered here.
+/// Flow: pick a mode (skipped when the deck supports only one mode) → for
+/// Feynman only, pick the per-card timer preset (§6.2.1) → the shared
+/// [SessionController] builds the queue for [scope] → the per-mode card surface
+/// with a gated rating row → the Session Summary.
 ///
 /// Every study interaction is optimistic and synchronous — ratings advance the
 /// queue and the progress bar immediately, never awaiting a write (§2).
@@ -48,6 +50,11 @@ class _StudySessionScreenState extends ConsumerState<StudySessionScreen> {
   bool _leaving = false;
   bool _parkPromptOpen = false;
   bool _startRequested = false;
+
+  /// Set when the user picks Feynman: the timer-preset picker (§6.2.1) shows
+  /// before the session starts. Session-local — never a global setting.
+  bool _awaitingFeynmanDuration = false;
+  int? _feynmanSeconds;
 
   bool _isOurSession(StudySessionState? state) =>
       state != null && state.deckId == widget.deckId;
@@ -92,7 +99,21 @@ class _StudySessionScreenState extends ConsumerState<StudySessionScreen> {
 
   void _retry() {
     ref.read(sessionControllerProvider.notifier).reset();
-    setState(() => _startRequested = false);
+    setState(() {
+      _startRequested = false;
+      _awaitingFeynmanDuration = false;
+      _feynmanSeconds = null;
+    });
+  }
+
+  /// Routes a picked mode: Feynman detours through the timer-preset picker
+  /// first (§6.2.1); every other mode starts the session straight away.
+  void _onModeSelected(StudyMode mode) {
+    if (mode == StudyMode.feynman) {
+      setState(() => _awaitingFeynmanDuration = true);
+    } else {
+      _start(mode);
+    }
   }
 
   Future<void> _handleParkPrompt() async {
@@ -143,6 +164,8 @@ class _StudySessionScreenState extends ConsumerState<StudySessionScreen> {
       if (state.current != null) {
         return _ActiveBody(
           state: state,
+          feynmanSeconds:
+              _feynmanSeconds ?? FeynmanTimerPicker.defaultSeconds,
           onExit: _exitAndLeave,
           onRate: (rating) =>
               ref.read(sessionControllerProvider.notifier).rate(rating),
@@ -169,6 +192,18 @@ class _StudySessionScreenState extends ConsumerState<StudySessionScreen> {
       }
     }
 
+    // Feynman: pick the per-card timer preset before the session starts.
+    if (_awaitingFeynmanDuration && !_startRequested) {
+      return _Shell(
+        child: FeynmanTimerPicker(
+          onSelected: (seconds) {
+            setState(() => _feynmanSeconds = seconds);
+            _start(StudyMode.feynman);
+          },
+        ),
+      );
+    }
+
     // Pre-session: choose a study mode.
     final cards = ref.watch(deckCardsProvider(widget.deckId));
     return _Shell(
@@ -185,16 +220,16 @@ class _StudySessionScreenState extends ConsumerState<StudySessionScreen> {
               onBack: _leave,
             );
           }
-          final available = availableModes(list)..remove(StudyMode.feynman);
+          final available = availableModes(list);
           final modes =
               StudyMode.values.where(available.contains).toList();
           if (modes.length == 1) {
             WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (mounted && !_startRequested) _start(modes.first);
+              if (mounted && !_startRequested) _onModeSelected(modes.first);
             });
             return const _Spinner();
           }
-          return ModePicker(modes: modes, onSelected: _start);
+          return ModePicker(modes: modes, onSelected: _onModeSelected);
         },
       ),
     );
@@ -271,11 +306,16 @@ class _Message extends StatelessWidget {
 class _ActiveBody extends StatefulWidget {
   const _ActiveBody({
     required this.state,
+    required this.feynmanSeconds,
     required this.onExit,
     required this.onRate,
   });
 
   final StudySessionState state;
+
+  /// The per-card countdown length for Feynman mode (§6.2.1); ignored by every
+  /// other mode.
+  final int feynmanSeconds;
   final VoidCallback onExit;
   final ValueChanged<FlipRating> onRate;
 
@@ -300,6 +340,8 @@ class _ActiveBodyState extends State<_ActiveBody> {
   }
 
   bool get _isFlip => widget.state.session.studyMode == StudyMode.flip;
+
+  bool get _isFeynman => widget.state.session.studyMode == StudyMode.feynman;
 
   bool get _ratingEnabled => _isFlip ? _flipped : _revealed;
 
@@ -331,8 +373,13 @@ class _ActiveBodyState extends State<_ActiveBody> {
           card: item.card,
           onAllRevealed: () => setState(() => _revealed = true),
         ),
-      // Feynman is never routed here in U5; fall through to Flip.
-      StudyMode.flip || StudyMode.feynman => GestureDetector(
+      StudyMode.feynman => FeynmanCardView(
+          key: key,
+          card: item.card,
+          durationSeconds: widget.feynmanSeconds,
+          onFinished: () => setState(() => _revealed = true),
+        ),
+      StudyMode.flip => GestureDetector(
           onHorizontalDragEnd: _onSwipe,
           child: FlipCard(
             key: key,
@@ -370,13 +417,16 @@ class _ActiveBodyState extends State<_ActiveBody> {
                   child: cardArea,
                 ),
               ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-                child: RatingRow(
-                  enabled: _ratingEnabled,
-                  onRate: widget.onRate,
+              // Feynman only reveals the rating row once the timer stops
+              // (§6.2); every other mode shows it greyed until its own gate.
+              if (!_isFeynman || _revealed)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                  child: RatingRow(
+                    enabled: _ratingEnabled,
+                    onRate: widget.onRate,
+                  ),
                 ),
-              ),
             ],
           ),
         ),

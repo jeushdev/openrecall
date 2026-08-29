@@ -1,319 +1,203 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
+import '../../../../theme/app_tokens.dart';
 import '../../../decks/domain/card.dart';
-import '../../domain/feynman_outcome.dart';
 import '../../domain/list_content.dart';
+import 'feynman_reference_dialog.dart';
+import 'stacked_deck.dart';
 
-/// The Feynman study widget (spec §5D). Shows the single-line side as the topic
-/// prompt with a countdown timer, takes a free-written explanation, then shows
-/// the multi-line side's points as a self-checkoff list. Any point left
-/// unchecked is walked through one at a time as a focused "review the gaps"
-/// step before the result is emitted. The checkoff ratio is mapped to a
-/// `cards.mastery_level` by [feynmanMasteryFromCheckoff]. Emits that level once.
+/// The Feynman-mode card surface (ui-spec-v1 §6.2 / §6.2.1).
 ///
-/// Resets on card change; the study screen also re-keys it per card, so a
-/// requeue of the same card always starts fresh.
+/// No text input anywhere. The card prompt is visible immediately, but the
+/// countdown is strictly gated on a "Ready" tap — a forward-only
+/// Pre-Ready → Running → Finished machine:
+///
+/// - **Pre-Ready**: prompt + a static `m:ss` readout + a "Ready" button. No
+///   "Finished" button yet.
+/// - **Running**: prompt + a live countdown + a "Finished" button. Tapping
+///   Finished *or* the timer reaching `0:00` both go to Finished, paired with
+///   [HapticFeedback.mediumImpact].
+/// - **Finished**: prompt + a "Reveal reference" chip ([FeynmanReferenceDialog]).
+///   The 0–4 rating row is owned by the study screen and it gates on
+///   [onFinished] having fired.
+///
+/// Resets to Pre-Ready whenever [card] changes; the screen also re-keys this
+/// widget per queue position, so a requeued card always starts fresh.
 class FeynmanCardView extends StatefulWidget {
   const FeynmanCardView({
     super.key,
     required this.card,
-    required this.onResult,
+    required this.durationSeconds,
+    required this.onFinished,
   });
 
   final FlashCard card;
 
-  /// Called once with the resolved `cards.mastery_level` (0–4).
-  final ValueChanged<int> onResult;
+  /// The per-card countdown length, chosen once for the session (§6.2.1).
+  final int durationSeconds;
+
+  /// Fired exactly once, when the card enters the Finished state (Finished tap
+  /// or `0:00`). The screen reveals and enables the rating row on this.
+  final VoidCallback onFinished;
 
   @override
   State<FeynmanCardView> createState() => _FeynmanCardViewState();
 }
 
-enum _Stage { synthesis, checkoff, gaps }
-
-/// The starting value of the stage-1 countdown, in seconds (spec §5D). Soft: at
-/// zero the timer just stops and turns red — the input stays editable.
-const int _timerSeconds = 90;
+enum _Phase { preReady, running, finished }
 
 class _FeynmanCardViewState extends State<FeynmanCardView> {
-  final _controller = TextEditingController();
-  final _focusNode = FocusNode();
-
-  late ListContent _content = listContentOf(widget.card);
-  _Stage _stage = _Stage.synthesis;
-
+  _Phase _phase = _Phase.preReady;
+  late int _remaining = widget.durationSeconds;
   Timer? _timer;
-  int _remaining = _timerSeconds;
-
-  late List<bool> _covered = List.filled(_content.lines.length, false);
-  List<String> _missed = const [];
-  int _gapIndex = 0;
-
-  @override
-  void initState() {
-    super.initState();
-    _startTimer();
-  }
 
   @override
   void didUpdateWidget(FeynmanCardView oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.card.id != widget.card.id) {
-      _controller.clear();
       _timer?.cancel();
       setState(() {
-        _content = listContentOf(widget.card);
-        _stage = _Stage.synthesis;
-        _remaining = _timerSeconds;
-        _covered = List.filled(_content.lines.length, false);
-        _missed = const [];
-        _gapIndex = 0;
+        _phase = _Phase.preReady;
+        _remaining = widget.durationSeconds;
       });
-      _startTimer();
     }
   }
 
   @override
   void dispose() {
     _timer?.cancel();
-    _controller.dispose();
-    _focusNode.dispose();
     super.dispose();
   }
 
-  void _startTimer() {
-    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+  void _start() {
+    setState(() => _phase = _Phase.running);
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (_remaining <= 1) {
-        timer.cancel();
-        setState(() => _remaining = 0);
+        _finish();
       } else {
         setState(() => _remaining--);
       }
     });
   }
 
-  bool get _expired => _remaining <= 0;
-
-  void _toCheckoff() {
-    _focusNode.unfocus();
+  void _finish() {
+    if (_phase == _Phase.finished) return;
     _timer?.cancel();
+    HapticFeedback.mediumImpact();
     setState(() {
+      _phase = _Phase.finished;
       _remaining = 0;
-      _stage = _Stage.checkoff;
     });
+    widget.onFinished();
   }
 
-  int get _checkedCount => _covered.where((c) => c).length;
-
-  void _finishCheckoff() {
-    final total = _content.lines.length;
-    final missed = [
-      for (var i = 0; i < total; i++)
-        if (!_covered[i]) _content.lines[i],
-    ];
-    if (missed.isEmpty) {
-      widget.onResult(feynmanMasteryFromCheckoff(checked: total, total: total));
-      return;
-    }
-    setState(() {
-      _missed = missed;
-      _gapIndex = 0;
-      _stage = _Stage.gaps;
-    });
-  }
-
-  void _advanceGap() {
-    if (_gapIndex < _missed.length - 1) {
-      setState(() => _gapIndex++);
-      return;
-    }
-    final total = _content.lines.length;
-    widget.onResult(
-      feynmanMasteryFromCheckoff(checked: total - _missed.length, total: total),
-    );
+  String get _clock {
+    final m = _remaining ~/ 60;
+    final s = _remaining % 60;
+    return '$m:${s.toString().padLeft(2, '0')}';
   }
 
   @override
   Widget build(BuildContext context) {
-    return switch (_stage) {
-      _Stage.synthesis => _buildSynthesis(context),
-      _Stage.checkoff => _buildCheckoff(context),
-      _Stage.gaps => _buildGaps(context),
-    };
-  }
+    final tokens = Theme.of(context).extension<AppTokens>()!;
+    final prompt = listContentOf(widget.card).prompt;
 
-  Widget _buildSynthesis(BuildContext context) {
-    final theme = Theme.of(context);
-    final minutes = _remaining ~/ 60;
-    final seconds = _remaining % 60;
-    final clock = '$minutes:${seconds.toString().padLeft(2, '0')}';
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      'Explain this in your own words',
-                      style: theme.textTheme.labelMedium
-                          ?.copyWith(color: theme.colorScheme.outline),
+    return StackedDeck(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 260),
+        child: Padding(
+          padding: const EdgeInsets.all(28),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'EXPLAIN THIS',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.8,
+                      color: tokens.textTertiary,
                     ),
-                    Text(
-                      clock,
-                      style: theme.textTheme.labelLarge?.copyWith(
-                        color: _expired
-                            ? theme.colorScheme.error
-                            : theme.colorScheme.outline,
-                      ),
+                  ),
+                  Text(
+                    _clock,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: _phase == _Phase.running
+                          ? tokens.textPrimary
+                          : tokens.textTertiary,
                     ),
-                  ],
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              Text(
+                prompt,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 18,
+                  height: 1.4,
+                  color: tokens.textPrimary,
                 ),
-                const SizedBox(height: 12),
-                Text(_content.prompt, style: theme.textTheme.titleMedium),
-              ],
-            ),
+              ),
+              const SizedBox(height: 22),
+              _action(tokens),
+            ],
           ),
         ),
-        const SizedBox(height: 16),
-        TextField(
-          controller: _controller,
-          focusNode: _focusNode,
-          autofocus: true,
-          minLines: 4,
-          maxLines: null,
-          keyboardType: TextInputType.multiline,
-          decoration: const InputDecoration(
-            labelText: 'Your explanation',
-            alignLabelWithHint: true,
-            border: OutlineInputBorder(),
-          ),
-          onChanged: (_) => setState(() {}),
-        ),
-        if (_expired) ...[
-          const SizedBox(height: 8),
-          Text(
-            "Time's up — finish your thought and tap Done.",
-            style: theme.textTheme.bodySmall
-                ?.copyWith(color: theme.colorScheme.error),
-          ),
-        ],
-        const SizedBox(height: 12),
-        FilledButton(
-          onPressed:
-              _controller.text.trim().isEmpty ? null : _toCheckoff,
-          child: const Text('Done'),
-        ),
-      ],
+      ),
     );
   }
 
-  Widget _buildCheckoff(BuildContext context) {
-    final theme = Theme.of(context);
-    final total = _content.lines.length;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Your explanation',
-                  style: theme.textTheme.labelMedium
-                      ?.copyWith(color: theme.colorScheme.outline),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  _controller.text.trim(),
-                  style: theme.textTheme.bodyLarge,
-                ),
-              ],
+  Widget _action(AppTokens tokens) {
+    switch (_phase) {
+      case _Phase.preReady:
+        return Column(
+          children: [
+            Text(
+              'Take a moment, then start the clock.',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 12, color: tokens.textSecondary),
             ),
-          ),
-        ),
-        const SizedBox(height: 16),
-        Text(
-          'Check the points you actually covered',
-          style: theme.textTheme.labelMedium
-              ?.copyWith(color: theme.colorScheme.outline),
-        ),
-        const SizedBox(height: 4),
-        for (var i = 0; i < total; i++)
-          CheckboxListTile(
-            value: _covered[i],
-            onChanged: (v) => setState(() => _covered[i] = v ?? false),
-            controlAffinity: ListTileControlAffinity.leading,
-            contentPadding: EdgeInsets.zero,
-            title: Text(_content.lines[i]),
-          ),
-        const SizedBox(height: 4),
-        Text(
-          '$_checkedCount of $total covered',
-          style: theme.textTheme.bodySmall
-              ?.copyWith(color: theme.colorScheme.outline),
-        ),
-        const SizedBox(height: 12),
-        FilledButton(
-          onPressed: _finishCheckoff,
-          child: const Text('Continue'),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildGaps(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    final isLast = _gapIndex >= _missed.length - 1;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Text(
-          'Review the gaps · ${_gapIndex + 1} of ${_missed.length}',
-          style: theme.textTheme.labelMedium?.copyWith(color: scheme.outline),
-        ),
-        const SizedBox(height: 8),
-        Card(
-          color: scheme.secondaryContainer,
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  "You didn't cover this",
-                  style: theme.textTheme.labelMedium
-                      ?.copyWith(color: scheme.onSecondaryContainer),
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  _missed[_gapIndex],
-                  style: theme.textTheme.titleMedium
-                      ?.copyWith(color: scheme.onSecondaryContainer),
-                ),
-              ],
+            const SizedBox(height: 12),
+            FilledButton(
+              onPressed: _start,
+              child: const Text('Ready'),
             ),
+          ],
+        );
+      case _Phase.running:
+        return Column(
+          children: [
+            Text(
+              'Explain the prompt out loud in your own words.',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 12, color: tokens.textSecondary),
+            ),
+            const SizedBox(height: 12),
+            OutlinedButton(
+              onPressed: _finish,
+              child: const Text('Finished'),
+            ),
+          ],
+        );
+      case _Phase.finished:
+        return Align(
+          child: ActionChip(
+            avatar: const Icon(Icons.visibility_outlined, size: 18),
+            label: const Text('Reveal reference'),
+            onPressed: () =>
+                FeynmanReferenceDialog.show(context, widget.card),
           ),
-        ),
-        const SizedBox(height: 16),
-        FilledButton(
-          onPressed: _advanceGap,
-          child: Text(isLast ? 'Continue' : 'Got it'),
-        ),
-      ],
-    );
+        );
+    }
   }
 }

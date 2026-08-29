@@ -281,14 +281,10 @@ class SessionController extends Notifier<AsyncValue<StudySessionState?>> {
   /// Applies a rating to the current card — synchronous and optimistic.
   ///
   /// Every mode routes through here: Flip picks the rating directly, and since
-  /// the UI revamp (ui-spec-v1 §6.2) Cloze and List reveal their content and
-  /// then use the same 0–4 rating row rather than an auto-derived outcome.
+  /// the UI revamp (ui-spec-v1 §6.2) Cloze, List and Feynman all reveal their
+  /// content (or run their timer) and then use the same 0–4 rating row rather
+  /// than an auto-derived outcome.
   void rate(FlipRating rating) => _applyResult(rating.level);
-
-  /// Applies a Feynman card result to the current card (spec §5D/§6) —
-  /// synchronous and optimistic, exactly like [rate]. The self-checkoff ratio
-  /// has already been mapped to a `mastery_level` by the Feynman widget.
-  void submitFeynman(int masteryLevel) => _applyResult(masteryLevel);
 
   /// The shared optimistic-progression path for every mode: advance the
   /// in-memory queue now, then fire the guarded `cards` write and the
