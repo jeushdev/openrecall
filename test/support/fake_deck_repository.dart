@@ -86,12 +86,15 @@ class FakeDeckRepository implements DeckRepository {
   }
 
   @override
-  Future<Deck> createDeck(String name) async {
-    calls.add('createDeck($name)');
+  Future<Deck> createDeck(String name, {String? courseId}) async {
+    calls.add(courseId == null
+        ? 'createDeck($name)'
+        : 'createDeck($name, course=$courseId)');
     _maybeThrow();
     final deck = Deck(
       id: _nextId('deck'),
       name: name,
+      courseId: courseId,
       lastStudiedAt: null,
       createdAt: _now,
       updatedAt: _now,
@@ -101,6 +104,7 @@ class FakeDeckRepository implements DeckRepository {
       DeckSummary(
         id: deck.id,
         name: deck.name,
+        courseId: courseId,
         lastStudiedAt: null,
         totalCards: 0,
         dueCards: 0,

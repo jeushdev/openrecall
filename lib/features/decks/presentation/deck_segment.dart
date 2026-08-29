@@ -11,4 +11,12 @@ enum DeckSegment {
 
   /// The label shown on the segmented control.
   final String label;
+
+  /// The `scope` query-parameter value for `/study/:deckId` — this enum maps
+  /// 1:1 to `CardScope.due` / `CardScope.all` (§1 naming reconciliation), and
+  /// the router reads it back via `cardScopeFromDb`.
+  String get scopeQueryValue => switch (this) {
+        DeckSegment.due => 'due',
+        DeckSegment.all => 'all',
+      };
 }

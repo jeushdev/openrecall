@@ -18,8 +18,10 @@ abstract interface class DeckRepository {
   /// counts the Deck Library shows.
   Future<List<DeckSummary>> fetchDecks();
 
-  /// Creates an empty deck and returns it.
-  Future<Deck> createDeck(String name);
+  /// Creates an empty deck and returns it. A non-null [courseId] assigns the
+  /// deck to that course; when null, the `decks` before-insert trigger fills in
+  /// the user's default course.
+  Future<Deck> createDeck(String name, {String? courseId});
 
   /// Every card in [deckId], in creation order.
   Future<List<FlashCard>> fetchCards(String deckId);

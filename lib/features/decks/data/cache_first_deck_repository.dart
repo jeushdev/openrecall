@@ -120,7 +120,8 @@ class CacheFirstDeckRepository implements DeckRepository {
   // ---- online-only pass-throughs (spec §3: authoring requires connectivity) --
 
   @override
-  Future<Deck> createDeck(String name) => _remote.createDeck(name);
+  Future<Deck> createDeck(String name, {String? courseId}) =>
+      _remote.createDeck(name, courseId: courseId);
 
   @override
   Future<FlashCard> addCard({

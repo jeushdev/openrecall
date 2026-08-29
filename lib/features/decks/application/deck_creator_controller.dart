@@ -1,0 +1,89 @@
+import 'package:flutter/foundation.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import 'deck_providers.dart';
+
+/// The Deck Creator form's local state (ui-spec-v1 §4).
+@immutable
+class DeckCreatorState {
+  const DeckCreatorState({
+    this.name = '',
+    this.selectedCourseId,
+    this.isSubmitting = false,
+    this.error,
+  });
+
+  final String name;
+  final String? selectedCourseId;
+  final bool isSubmitting;
+
+  /// Set when the create call failed; shown inline, cleared on the next edit.
+  final String? error;
+
+  /// "Create" is enabled only with a non-blank name, an explicitly chosen
+  /// course, and no write in flight. The DB default-course trigger is a safety
+  /// net, not the UX — the user picks a course deliberately.
+  bool get canSubmit =>
+      name.trim().isNotEmpty && selectedCourseId != null && !isSubmitting;
+
+  DeckCreatorState copyWith({
+    String? name,
+    String? Function()? selectedCourseId,
+    bool? isSubmitting,
+    String? Function()? error,
+  }) {
+    return DeckCreatorState(
+      name: name ?? this.name,
+      selectedCourseId:
+          selectedCourseId != null ? selectedCourseId() : this.selectedCourseId,
+      isSubmitting: isSubmitting ?? this.isSubmitting,
+      error: error != null ? error() : this.error,
+    );
+  }
+}
+
+/// Drives the Deck Creator form. `autoDispose` so the form resets every time the
+/// screen is opened — the opposite of [SessionController], which is deliberately
+/// kept alive across navigation.
+final deckCreatorControllerProvider =
+    NotifierProvider.autoDispose<DeckCreatorController, DeckCreatorState>(
+  DeckCreatorController.new,
+);
+
+class DeckCreatorController extends Notifier<DeckCreatorState> {
+  @override
+  DeckCreatorState build() => const DeckCreatorState();
+
+  void nameChanged(String value) {
+    state = state.copyWith(name: value, error: () => null);
+  }
+
+  void courseSelected(String courseId) {
+    state = state.copyWith(
+      selectedCourseId: () => courseId,
+      error: () => null,
+    );
+  }
+
+  /// Creates the deck via [DecksController] (which invalidates `decksProvider`).
+  /// Returns `true` on success; on failure leaves a [DeckCreatorState.error]
+  /// for the screen to show and re-enables the form.
+  Future<bool> submit() async {
+    if (!state.canSubmit) return false;
+    state = state.copyWith(isSubmitting: true, error: () => null);
+
+    final deck = await ref.read(decksControllerProvider.notifier).createDeck(
+          state.name.trim(),
+          courseId: state.selectedCourseId,
+        );
+
+    if (deck != null) return true;
+
+    state = state.copyWith(
+      isSubmitting: false,
+      error: () =>
+          "Couldn't create the deck. Check your connection and try again.",
+    );
+    return false;
+  }
+}

@@ -6,6 +6,7 @@ import '../../../theme/app_tokens.dart';
 import '../../decks/application/deck_providers.dart';
 import '../../decks/domain/study_mode.dart';
 import '../application/feynman_timer_providers.dart';
+import '../application/pre_session_cards_provider.dart';
 import '../application/session_controller.dart';
 import '../domain/flip_rating.dart';
 import '../domain/session_length.dart';
@@ -105,6 +106,11 @@ class _StudySessionScreenState extends ConsumerState<StudySessionScreen> {
       _awaitingFeynmanDuration = false;
       _feynmanSeconds = null;
     });
+  }
+
+  /// Re-runs the pre-session card load after a load error / connection timeout.
+  void _retryLoad() {
+    ref.invalidate(preSessionCardsProvider(widget.deckId));
   }
 
   /// Routes a picked mode: Feynman detours through the timer-preset picker
@@ -208,19 +214,25 @@ class _StudySessionScreenState extends ConsumerState<StudySessionScreen> {
       );
     }
 
-    // Pre-session: choose a study mode.
-    final cards = ref.watch(deckCardsProvider(widget.deckId));
+    // Pre-session: choose a study mode. Reads local-first and is bounded by a
+    // timeout (see [preSessionCardsProvider]) so this can never sit spinning on
+    // an unanswered network call — ui-spec-v1 §2.
+    final cards = ref.watch(preSessionCardsProvider(widget.deckId));
     return _Shell(
       child: cards.when(
         loading: () => const _Spinner(),
-        error: (_, _) => _Message(
-          text: "Couldn't load this deck.",
+        error: (error, _) => _Message(
+          text: error is DeckLoadTimeoutException
+              ? "Couldn't reach your decks — check your connection."
+              : "Couldn't load this deck.",
+          actionLabel: 'Retry',
+          onAction: _retryLoad,
           onBack: _leave,
         ),
         data: (list) {
           if (list.isEmpty) {
             return _Message(
-              text: 'This deck has no cards yet.',
+              text: 'Nothing to study in this deck yet.',
               onBack: _leave,
             );
           }

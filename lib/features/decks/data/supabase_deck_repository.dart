@@ -26,10 +26,17 @@ class SupabaseDeckRepository implements DeckRepository {
   }
 
   @override
-  Future<Deck> createDeck(String name) async {
+  Future<Deck> createDeck(String name, {String? courseId}) async {
+    // A null course_id is left to the decks before-insert trigger, which fills
+    // in the user's default course. RLS (decks_owner) validates that courseId,
+    // when given, belongs to the signed-in user.
     final row = await _client
         .from('decks')
-        .insert({'user_id': _userId, 'name': name})
+        .insert({
+          'user_id': _userId,
+          'name': name,
+          'course_id': ?courseId,
+        })
         .select()
         .single();
     return Deck.fromJson(row);

@@ -21,6 +21,7 @@ import '../domain/study_queue_item.dart';
 import '../domain/study_repository.dart';
 import '../domain/study_session.dart';
 import '../domain/study_session_state.dart';
+import 'pre_session_cards_provider.dart';
 
 /// Thrown by [SessionController.start] when nothing in the deck qualifies for
 /// the picked mode — the study screen shows a "nothing to study" message
@@ -153,7 +154,9 @@ class SessionController extends Notifier<AsyncValue<StudySessionState?>> {
     state = await AsyncValue.guard(() async {
       await _study.abandonActiveSessions(deckId);
 
-      final cards = await _decks.fetchCards(deckId);
+      // Local-first and timeout-bounded (spec §2 / §10) — a started session can
+      // never hang between the mode pick and the first card.
+      final cards = await loadStudyDeckCards(ref, deckId);
       _deckMasteryAtStart = {for (final c in cards) c.id: c.masteryLevel};
       final capNum = lengthMode == SessionLengthMode.capped ? cap : null;
       final ordered = selectSessionCards(
@@ -199,7 +202,7 @@ class SessionController extends Notifier<AsyncValue<StudySessionState?>> {
     state = await AsyncValue.guard(() async {
       await _study.abandonActiveSessions(deckId);
 
-      final cards = await _decks.fetchCards(deckId);
+      final cards = await loadStudyDeckCards(ref, deckId);
       _deckMasteryAtStart = {for (final c in cards) c.id: c.masteryLevel};
       final wanted = parkedCardIds.toSet();
       final ordered = cards.where((c) => wanted.contains(c.id)).toList();

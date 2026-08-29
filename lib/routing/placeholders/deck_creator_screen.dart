@@ -1,19 +1,223 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
-/// Placeholder for the Deck Creator (`/deck-creator`, ui-spec-v1 §4).
+import '../../features/courses/application/course_providers.dart';
+import '../../features/decks/application/deck_creator_controller.dart';
+import '../../features/decks/application/decks_tab_view.dart';
+import '../../features/decks/presentation/widgets/course_selector.dart';
+import '../../theme/app_geometry.dart';
+import '../../theme/app_tokens.dart';
+
+/// The Deck Creator (`/deck-creator`, ui-spec-v1 §4) — name a deck, pick the
+/// course it belongs to, create it.
 ///
-/// A top-level route outside the shell, so the bottom nav bar is naturally
-/// absent while creating a deck. The real card-manager UI arrives in a later
-/// milestone; this shares the [DeckCreatorScreen] name with the not-yet-rewired
-/// screen in `lib/features/decks/presentation/` (different library, never
-/// imported together).
-class DeckCreatorScreen extends StatelessWidget {
+/// A top-level route outside the shell (`app_router.dart`), so the bottom nav
+/// bar is naturally absent while creating a deck. Course selection is read-only
+/// here: it lists the existing courses from [coursesProvider] and sets the new
+/// deck's `course_id` — creating or editing a course is out of scope (blocked,
+/// ui-spec-v1 §7). Accent colour lives on the course, never on the deck, so
+/// there is no colour picker on this screen.
+///
+/// (This file keeps the `placeholders/` path and `DeckCreatorScreen` name the
+/// router and its tests already use; it shares the name with the unrelated,
+/// not-yet-rewired card-manager in `lib/features/decks/presentation/` — a
+/// different library, never imported together.)
+class DeckCreatorScreen extends ConsumerStatefulWidget {
   const DeckCreatorScreen({super.key});
 
   @override
+  ConsumerState<DeckCreatorScreen> createState() => _DeckCreatorScreenState();
+}
+
+class _DeckCreatorScreenState extends ConsumerState<DeckCreatorScreen> {
+  final _nameController = TextEditingController();
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _create() async {
+    final created =
+        await ref.read(deckCreatorControllerProvider.notifier).submit();
+    if (!created || !mounted) return;
+    // The Decks tab's grid reads its own provider (not `decksProvider`), and the
+    // shell stays mounted underneath this route — refresh it so the new deck is
+    // there when we pop back.
+    refreshDecksTab(ref);
+    context.pop();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return const Scaffold(
-      body: Center(child: Text('Deck Creator')),
+    final tokens = Theme.of(context).extension<AppTokens>()!;
+    final form = ref.watch(deckCreatorControllerProvider);
+    final controller = ref.read(deckCreatorControllerProvider.notifier);
+    final courses = ref.watch(coursesProvider);
+
+    return Scaffold(
+      backgroundColor: tokens.background,
+      body: SafeArea(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _Header(
+              createEnabled: form.canSubmit,
+              isSubmitting: form.isSubmitting,
+              onCancel: () => context.pop(),
+              onCreate: _create,
+            ),
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                children: [
+                  TextField(
+                    controller: _nameController,
+                    autofocus: true,
+                    textCapitalization: TextCapitalization.sentences,
+                    onChanged: controller.nameChanged,
+                    onSubmitted: (_) {
+                      if (form.canSubmit) _create();
+                    },
+                    style: TextStyle(color: tokens.textPrimary),
+                    decoration: InputDecoration(
+                      labelText: 'Deck name',
+                      labelStyle: TextStyle(color: tokens.textSecondary),
+                      floatingLabelStyle:
+                          TextStyle(color: tokens.textSecondary),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: AppRadii.inputRadius,
+                        borderSide: BorderSide(
+                          color: tokens.borderHairline,
+                          width: AppBorders.hairline,
+                        ),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: AppRadii.inputRadius,
+                        borderSide: BorderSide(
+                          color: tokens.textSecondary,
+                          width: AppBorders.hairline,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  Text(
+                    'Course',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: tokens.textSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  courses.when(
+                    loading: () => const SizedBox(
+                      height: 56,
+                      child: Center(child: CircularProgressIndicator()),
+                    ),
+                    error: (_, _) => _CoursesError(
+                      onRetry: () => ref.invalidate(coursesProvider),
+                    ),
+                    data: (list) => CourseSelector(
+                      courses: list,
+                      selectedId: form.selectedCourseId,
+                      onSelected: controller.courseSelected,
+                    ),
+                  ),
+                  if (form.error != null) ...[
+                    const SizedBox(height: 16),
+                    Text(
+                      form.error!,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: tokens.accent('red').text,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _Header extends StatelessWidget {
+  const _Header({
+    required this.createEnabled,
+    required this.isSubmitting,
+    required this.onCancel,
+    required this.onCreate,
+  });
+
+  final bool createEnabled;
+  final bool isSubmitting;
+  final VoidCallback onCancel;
+  final VoidCallback onCreate;
+
+  @override
+  Widget build(BuildContext context) {
+    final tokens = Theme.of(context).extension<AppTokens>()!;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(8, 4, 8, 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          TextButton(
+            onPressed: isSubmitting ? null : onCancel,
+            child: Text(
+              'Cancel',
+              style: TextStyle(color: tokens.textSecondary),
+            ),
+          ),
+          TextButton(
+            onPressed: createEnabled ? onCreate : null,
+            child: isSubmitting
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : Text(
+                    'Create',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      color: createEnabled
+                          ? tokens.textPrimary
+                          : tokens.textTertiary,
+                    ),
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CoursesError extends StatelessWidget {
+  const _CoursesError({required this.onRetry});
+
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final tokens = Theme.of(context).extension<AppTokens>()!;
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            "Couldn't load your courses.",
+            style: TextStyle(fontSize: 13, color: tokens.textSecondary),
+          ),
+        ),
+        TextButton(onPressed: onRetry, child: const Text('Retry')),
+      ],
     );
   }
 }

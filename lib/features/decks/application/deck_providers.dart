@@ -68,8 +68,8 @@ class DecksController extends AsyncNotifier<void> {
     }
   }
 
-  Future<Deck?> createDeck(String name) async {
-    final deck = await _run(() => _repo.createDeck(name));
+  Future<Deck?> createDeck(String name, {String? courseId}) async {
+    final deck = await _run(() => _repo.createDeck(name, courseId: courseId));
     if (deck != null) ref.invalidate(decksProvider);
     return deck;
   }

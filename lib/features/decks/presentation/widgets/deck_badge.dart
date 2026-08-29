@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../../../theme/app_tokens.dart';
+import '../../application/decks_tab_view.dart';
 import '../deck_segment.dart';
-import '../mock/mock_decks.dart';
 
 /// The single badge under a deck tile's name (ui-spec-v1 §6.1).
 ///
@@ -21,7 +21,7 @@ class DeckBadge extends StatelessWidget {
     required this.accent,
   });
 
-  final MockDeck deck;
+  final DeckTileView deck;
   final DeckSegment segment;
   final AccentPair accent;
 

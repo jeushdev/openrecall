@@ -265,4 +265,17 @@ void main() {
 
     expect(find.textContaining('Nothing to study'), findsOneWidget);
   });
+
+  testWidgets('a deck with no cards shows the empty state, not a spinner',
+      (tester) async {
+    await _open(
+      tester,
+      decks: FakeDeckRepository(cards: const []),
+      study: FakeStudyRepository(),
+    );
+
+    expect(find.text('Nothing to study in this deck yet.'), findsOneWidget);
+    expect(find.byType(CircularProgressIndicator), findsNothing);
+  });
+
 }
