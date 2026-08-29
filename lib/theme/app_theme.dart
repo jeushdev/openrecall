@@ -1,22 +1,20 @@
 import 'package:flutter/material.dart';
 
-/// App-wide theming. Deliberately minimal for the scaffold — a seeded
-/// [ColorScheme] and Material 3. Real visual design comes later.
+import 'app_tokens.dart';
+
+/// App-wide theming. A single light [ThemeData] carrying the [AppTokens]
+/// extension (UI spec v1 §3). Dark mode is deferred and undesigned — there is
+/// deliberately no dark counterpart here.
 abstract final class AppTheme {
   const AppTheme._();
 
-  static const Color _seed = Color(0xFF3D5AFE);
-
-  static ThemeData get light => ThemeData(
-    colorScheme: ColorScheme.fromSeed(seedColor: _seed),
+  static final ThemeData light = ThemeData(
     useMaterial3: true,
-  );
-
-  static ThemeData get dark => ThemeData(
-    colorScheme: ColorScheme.fromSeed(
-      seedColor: _seed,
-      brightness: Brightness.dark,
+    scaffoldBackgroundColor: AppTokens.light.background,
+    colorScheme:
+        ColorScheme.fromSeed(seedColor: AppTokens.light.textPrimary).copyWith(
+      surface: AppTokens.light.background,
     ),
-    useMaterial3: true,
+    extensions: const <ThemeExtension<dynamic>>[AppTokens.light],
   );
 }
