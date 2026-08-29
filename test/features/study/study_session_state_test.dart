@@ -23,6 +23,7 @@ FlashCard _card(String id) => FlashCard(
 StudySession _session({
   SessionLengthMode lengthMode = SessionLengthMode.untilMastered,
   int? cappedLength,
+  CardScope cardScope = CardScope.due,
 }) =>
     StudySession(
       id: 'session-1',
@@ -31,6 +32,7 @@ StudySession _session({
       studyMode: StudyMode.flip,
       lengthMode: lengthMode,
       cappedLength: cappedLength,
+      cardScope: cardScope,
       masteryDelta: null,
       startedAt: DateTime.utc(2026),
       completedAt: null,
@@ -40,6 +42,8 @@ StudySessionState _stateWith(
   List<String> cardIds, {
   SessionLengthMode lengthMode = SessionLengthMode.untilMastered,
   int? cappedLength,
+  CardScope cardScope = CardScope.due,
+  int seededMastery = 0,
 }) {
   final items = [
     for (var i = 0; i < cardIds.length; i++)
@@ -49,11 +53,15 @@ StudySessionState _stateWith(
         position: (i + 1) * 1000,
         consecutiveFails: 0,
         isParked: false,
-        masteryLevel: 0,
+        masteryLevel: seededMastery,
       ),
   ];
   return StudySessionState.initial(
-    session: _session(lengthMode: lengthMode, cappedLength: cappedLength),
+    session: _session(
+      lengthMode: lengthMode,
+      cappedLength: cappedLength,
+      cardScope: cardScope,
+    ),
     deckId: 'deck-1',
     deckName: 'Biology',
     items: items,
@@ -221,6 +229,30 @@ void main() {
       state = state.applyRating(FlipRating.mastered).state;
       expect(state.phase, SessionPhase.completed);
       expect(state.resolvedCount, 2);
+    });
+  });
+
+  group('card scope', () {
+    test('the session carries its CardScope through initial state', () {
+      final state = _stateWith(['a'], cardScope: CardScope.all);
+      expect(state.session.cardScope, CardScope.all);
+    });
+
+    test('the loop is scope-agnostic: an already-Mastered card rated below 4 '
+        'still requeues and regresses', () {
+      final state = _stateWith(
+        ['a', 'b'],
+        cardScope: CardScope.all,
+        seededMastery: 4,
+      );
+      final result = state.applyRating(FlipRating.forgotten);
+
+      expect(result.state.queue.any((i) => i.cardId == 'a'), isTrue);
+      final requeued = result.state.queue.firstWhere((i) => i.cardId == 'a');
+      expect(requeued.masteryLevel, 1);
+      expect(requeued.consecutiveFails, 1);
+      expect(result.effects.isFail, isTrue);
+      expect(result.effects.newMasteryLevel, 1);
     });
   });
 

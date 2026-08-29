@@ -16,12 +16,15 @@ abstract interface class StudyRepository {
   /// session-conflict rule, run before a new session starts. Idempotent.
   Future<void> abandonActiveSessions(String deckId);
 
-  /// Inserts a new `study_sessions` row and returns it.
+  /// Inserts a new `study_sessions` row and returns it. [cardScope] records
+  /// whether the queue was built from due cards only or the whole deck
+  /// (engine-v2-spec §3.3); it defaults to [CardScope.due], the V1 behaviour.
   Future<StudySession> createSession({
     required String deckId,
     required StudyMode studyMode,
     required SessionLengthMode lengthMode,
     int? cappedLength,
+    CardScope cardScope = CardScope.due,
   });
 
   /// Inserts the queue as `session_cards` rows (sparse positions) and returns

@@ -9,6 +9,7 @@ import 'package:open_recall/features/study/application/session_controller.dart';
 import 'package:open_recall/features/study/domain/flip_rating.dart';
 import 'package:open_recall/features/study/domain/session_length.dart';
 import 'package:open_recall/features/study/domain/session_status.dart';
+import 'package:open_recall/features/study/domain/study_session.dart';
 import 'package:open_recall/features/study/domain/study_session_state.dart';
 
 import '../../support/fake_deck_repository.dart';
@@ -54,6 +55,7 @@ void main() {
   Future<void> start({
     SessionLengthMode lengthMode = SessionLengthMode.untilMastered,
     int? cap,
+    CardScope cardScope = CardScope.due,
   }) =>
       controller().start(
         deckId: 'deck-1',
@@ -61,6 +63,7 @@ void main() {
         mode: StudyMode.flip,
         lengthMode: lengthMode,
         cap: cap,
+        cardScope: cardScope,
       );
 
   group('start', () {
@@ -157,6 +160,69 @@ void main() {
       await start();
 
       expect(study.calls, isEmpty);
+    });
+
+    test('a default (due-scoped) session records card_scope = due', () async {
+      decks = FakeDeckRepository(cards: [_card('a')]);
+      study = FakeStudyRepository();
+      container = makeContainer();
+
+      await start();
+
+      expect(study.sessions.single.cardScope, CardScope.due);
+    });
+  });
+
+  group('start — CardScope.all', () {
+    test(
+        'seeds a non-empty queue from a fully-mastered deck and records '
+        'card_scope = all', () async {
+      decks = FakeDeckRepository(cards: [
+        _card('a', mastery: 4),
+        _card('b', mastery: 4),
+        _card('c', mastery: 4),
+      ]);
+      study = FakeStudyRepository();
+      container = makeContainer();
+
+      await start(cardScope: CardScope.all);
+
+      final session = study.sessions.single;
+      expect(session.cardScope, CardScope.all);
+      expect(
+        study.sessionCardsFor(session.id).map((c) => c.cardId),
+        ['a', 'b', 'c'],
+      );
+      expect(state().totalCards, 3);
+    });
+
+    test('a due-scoped session on the same fully-mastered deck errors', () async {
+      decks = FakeDeckRepository(cards: [
+        _card('a', mastery: 4),
+        _card('b', mastery: 4),
+      ]);
+      study = FakeStudyRepository();
+      container = makeContainer();
+
+      await start();
+
+      expect(container.read(sessionControllerProvider).hasError, isTrue);
+      expect(study.calls.any((c) => c.startsWith('createSession')), isFalse);
+    });
+
+    test('a Mastered card rated below 4 requeues and its mastery_level drops',
+        () async {
+      decks = FakeDeckRepository(cards: [_card('a', mastery: 4)]);
+      study = FakeStudyRepository();
+      container = makeContainer();
+
+      await start(cardScope: CardScope.all);
+      controller().rate(FlipRating.forgotten);
+      await pumpEventQueue();
+
+      expect(state().queue.any((i) => i.cardId == 'a'), isTrue);
+      expect(decks.cardById('a')!.masteryLevel, 1);
+      expect(decks.cardById('a')!.failCount, 1);
     });
   });
 

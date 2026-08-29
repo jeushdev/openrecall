@@ -31,6 +31,7 @@ class SupabaseStudyRepository implements StudyRepository {
     required StudyMode studyMode,
     required SessionLengthMode lengthMode,
     int? cappedLength,
+    CardScope cardScope = CardScope.due,
   }) async {
     final row = await _client
         .from('study_sessions')
@@ -40,6 +41,7 @@ class SupabaseStudyRepository implements StudyRepository {
           'study_mode': studyMode.name,
           'length_mode': lengthMode.db,
           'capped_length': cappedLength,
+          'card_scope': cardScope.db,
         })
         .select()
         .single();

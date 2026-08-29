@@ -53,6 +53,7 @@ class _StudySessionScreenState extends ConsumerState<StudySessionScreen> {
           mode: args.mode,
           lengthMode: args.lengthMode,
           cap: args.cap,
+          cardScope: args.cardScope,
         );
   }
 

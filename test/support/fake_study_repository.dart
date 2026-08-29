@@ -81,9 +81,10 @@ class FakeStudyRepository implements StudyRepository {
     required StudyMode studyMode,
     required SessionLengthMode lengthMode,
     int? cappedLength,
+    CardScope cardScope = CardScope.due,
   }) async {
     calls.add('createSession(deck=$deckId, mode=${studyMode.name}, '
-        'length=${lengthMode.db}, cap=$cappedLength)');
+        'length=${lengthMode.db}, cap=$cappedLength, scope=${cardScope.db})');
     await _maybeThrow();
     final session = StudySession(
       id: _nextId('session'),
@@ -92,6 +93,7 @@ class FakeStudyRepository implements StudyRepository {
       studyMode: studyMode,
       lengthMode: lengthMode,
       cappedLength: cappedLength,
+      cardScope: cardScope,
       masteryDelta: null,
       startedAt: _now,
       completedAt: null,

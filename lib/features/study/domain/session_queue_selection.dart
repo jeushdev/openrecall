@@ -1,6 +1,7 @@
 import '../../decks/domain/card.dart';
 import '../../decks/domain/study_mode.dart';
 import 'queue_seed.dart';
+import 'study_session.dart';
 
 /// The gap between adjacent `session_cards.position` values. Sparse (steps of
 /// 1000, not 1) so a requeue can slot between existing values without
@@ -20,17 +21,21 @@ Iterable<FlashCard> cardsSupportingMode(
       StudyMode.list || StudyMode.feynman => cards.where(cardIsMultiLine),
     };
 
-/// The queue for a new session (spec §4): every card below Mastered, then
-/// filtered to the ones that support [mode], then — only if [cap] is non-null —
-/// truncated to the first [cap] cards. Creation order (the order of [cards]) is
-/// preserved throughout.
+/// The queue for a new session (spec §4, engine-v2-spec §4.2). For
+/// [CardScope.due] (the V1 behaviour) only cards below Mastered are eligible;
+/// for [CardScope.all] every card is, already-Mastered ones included. The
+/// eligible cards are then filtered to the ones that support [mode], then —
+/// only if [cap] is non-null — truncated to the first [cap] cards. Creation
+/// order (the order of [cards]) is preserved throughout.
 List<FlashCard> selectSessionCards({
   required List<FlashCard> cards,
   required StudyMode mode,
   required int? cap,
+  required CardScope cardScope,
 }) {
-  final supported =
-      cardsSupportingMode(cards.where((c) => c.isDue), mode).toList();
+  final eligible =
+      cardScope == CardScope.all ? cards : cards.where((c) => c.isDue);
+  final supported = cardsSupportingMode(eligible, mode).toList();
   if (cap == null || cap >= supported.length) return supported;
   return supported.take(cap).toList();
 }

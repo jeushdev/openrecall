@@ -50,6 +50,7 @@ class CacheFirstStudyRepository implements StudyRepository {
     required StudyMode studyMode,
     required SessionLengthMode lengthMode,
     int? cappedLength,
+    CardScope cardScope = CardScope.due,
   }) async {
     try {
       final session = await _remote.createSession(
@@ -57,6 +58,7 @@ class CacheFirstStudyRepository implements StudyRepository {
         studyMode: studyMode,
         lengthMode: lengthMode,
         cappedLength: cappedLength,
+        cardScope: cardScope,
       );
       if (await _deckLocal.isDownloaded(deckId)) {
         await _local.insertSession(session, _currentUserId(), synced: true);
@@ -71,6 +73,7 @@ class CacheFirstStudyRepository implements StudyRepository {
         studyMode: studyMode,
         lengthMode: lengthMode,
         cappedLength: cappedLength,
+        cardScope: cardScope,
         masteryDelta: null,
         startedAt: DateTime.now().toUtc(),
         completedAt: null,

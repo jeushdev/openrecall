@@ -20,6 +20,7 @@ import '../domain/session_outcome.dart';
 import '../domain/session_queue_selection.dart';
 import '../domain/study_queue_item.dart';
 import '../domain/study_repository.dart';
+import '../domain/study_session.dart';
 import '../domain/study_session_state.dart';
 
 /// Thrown by [SessionController.start] when nothing in the deck qualifies for
@@ -132,6 +133,7 @@ class SessionController extends Notifier<AsyncValue<StudySessionState?>> {
     required StudyMode mode,
     required SessionLengthMode lengthMode,
     required int? cap,
+    CardScope cardScope = CardScope.due,
   }) async {
     final existing = _state;
     if (existing != null &&
@@ -155,8 +157,12 @@ class SessionController extends Notifier<AsyncValue<StudySessionState?>> {
       final cards = await _decks.fetchCards(deckId);
       _deckMasteryAtStart = {for (final c in cards) c.id: c.masteryLevel};
       final capNum = lengthMode == SessionLengthMode.capped ? cap : null;
-      final ordered =
-          selectSessionCards(cards: cards, mode: mode, cap: capNum);
+      final ordered = selectSessionCards(
+        cards: cards,
+        mode: mode,
+        cap: capNum,
+        cardScope: cardScope,
+      );
       if (ordered.isEmpty) throw const EmptyQueueException();
 
       return _seedSession(
@@ -165,6 +171,7 @@ class SessionController extends Notifier<AsyncValue<StudySessionState?>> {
         mode: mode,
         lengthMode: lengthMode,
         cap: capNum,
+        cardScope: cardScope,
         ordered: ordered,
       );
     });
@@ -205,6 +212,7 @@ class SessionController extends Notifier<AsyncValue<StudySessionState?>> {
         mode: mode,
         lengthMode: SessionLengthMode.untilMastered,
         cap: null,
+        cardScope: CardScope.due,
         ordered: ordered,
       );
     });
@@ -224,6 +232,7 @@ class SessionController extends Notifier<AsyncValue<StudySessionState?>> {
     required StudyMode mode,
     required SessionLengthMode lengthMode,
     required int? cap,
+    required CardScope cardScope,
     required List<FlashCard> ordered,
   }) async {
     final session = await _study.createSession(
@@ -231,6 +240,7 @@ class SessionController extends Notifier<AsyncValue<StudySessionState?>> {
       studyMode: mode,
       lengthMode: lengthMode,
       cappedLength: cap,
+      cardScope: cardScope,
     );
     final rows = await _study.createSessionCards(session.id, seedsFrom(ordered));
 
