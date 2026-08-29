@@ -47,6 +47,11 @@ abstract interface class DeckRepository {
   /// Permanently deletes a card.
   Future<void> deleteCard(String id);
 
+  /// Sets `mastery_level = 0` for every card in [deckId], so a fully-mastered
+  /// deck can be studied again. `fail_count` and `updated_at` are left alone
+  /// (fail_count is lifetime; updated_at is the trigger's).
+  Future<void> resetDeckMastery(String deckId);
+
   /// The current `mastery_level` / `fail_count` / `updated_at` for one card —
   /// used by the session engine to rebase a guarded write whose compare-and-set
   /// missed.

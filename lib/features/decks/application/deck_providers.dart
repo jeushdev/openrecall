@@ -117,6 +117,14 @@ class DecksController extends AsyncNotifier<void> {
     return done;
   }
 
+  Future<void> resetDeckMastery(String deckId) async {
+    await _run(() => _repo.resetDeckMastery(deckId));
+    // resetDeckMastery returns void, so success is "no error was recorded".
+    if (!state.hasError) {
+      _refresh(deckId);
+    }
+  }
+
   /// A card change moves both the deck's card list and the Library's counts.
   void _refresh(String deckId) {
     ref.invalidate(deckCardsProvider(deckId));

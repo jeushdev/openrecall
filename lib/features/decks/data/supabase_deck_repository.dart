@@ -95,6 +95,16 @@ class SupabaseDeckRepository implements DeckRepository {
   }
 
   @override
+  Future<void> resetDeckMastery(String deckId) async {
+    // RLS (cards_owner_via_deck) scopes this to the signed-in user's deck.
+    // fail_count is lifetime; updated_at is left to the database trigger.
+    await _client
+        .from('cards')
+        .update({'mastery_level': 0})
+        .eq('deck_id', deckId);
+  }
+
+  @override
   Future<CardMasteryState> readCardMasteryState(String cardId) async {
     final row = await _client
         .from('cards')

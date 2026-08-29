@@ -177,6 +177,17 @@ class FakeDeckRepository implements DeckRepository {
   }
 
   @override
+  Future<void> resetDeckMastery(String deckId) async {
+    calls.add('resetDeckMastery($deckId)');
+    _maybeThrow();
+    for (var i = 0; i < _cards.length; i++) {
+      if (_cards[i].deckId == deckId) {
+        _cards[i] = _rebuild(_cards[i], masteryLevel: 0, updatedAt: _now);
+      }
+    }
+  }
+
+  @override
   Future<CardMasteryState> readCardMasteryState(String cardId) async {
     calls.add('readCardMasteryState($cardId)');
     _maybeThrow();

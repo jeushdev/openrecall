@@ -42,9 +42,31 @@ class _DeckOverviewScreenState extends ConsumerState<DeckOverviewScreen> {
     final canResume = session != null &&
         session.deckId == widget.deckId &&
         !session.isComplete;
+    final hasCards = cards.value?.isNotEmpty ?? false;
+
+    ref.listen(decksControllerProvider, (_, next) {
+      if (next case AsyncError(:final error)) {
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(
+            SnackBar(content: Text('Something went wrong: $error')),
+          );
+      }
+    });
 
     return Scaffold(
-      appBar: AppBar(title: Text(widget.deckName ?? 'Deck')),
+      appBar: AppBar(
+        title: Text(widget.deckName ?? 'Deck'),
+        actions: [
+          if (hasCards)
+            PopupMenuButton<String>(
+              onSelected: (_) => _resetMastery(),
+              itemBuilder: (_) => const [
+                PopupMenuItem(value: 'reset', child: Text('Reset mastery')),
+              ],
+            ),
+        ],
+      ),
       body: cards.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (_, _) => _LoadError(
@@ -60,6 +82,7 @@ class _DeckOverviewScreenState extends ConsumerState<DeckOverviewScreen> {
           onCapChanged: (c) => setState(() => _cap = c),
           onStartMode: _startMode,
           onAddCards: _openCreator,
+          onResetMastery: _resetMastery,
         ),
       ),
     );
@@ -114,6 +137,33 @@ class _DeckOverviewScreenState extends ConsumerState<DeckOverviewScreen> {
       extra: widget.deckName,
     );
   }
+
+  Future<void> _resetMastery() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Reset mastery?'),
+        content: const Text(
+          'Every card in this deck goes back to Unfamiliar and becomes due '
+          'again. Card content and lifetime stats are kept.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Reset'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    await ref
+        .read(decksControllerProvider.notifier)
+        .resetDeckMastery(widget.deckId);
+  }
 }
 
 class _Body extends StatelessWidget {
@@ -127,6 +177,7 @@ class _Body extends StatelessWidget {
     required this.onCapChanged,
     required this.onStartMode,
     required this.onAddCards,
+    required this.onResetMastery,
   });
 
   final DeckOverviewStats stats;
@@ -138,6 +189,7 @@ class _Body extends StatelessWidget {
   final ValueChanged<int?> onCapChanged;
   final ValueChanged<StudyMode> onStartMode;
   final VoidCallback onAddCards;
+  final VoidCallback onResetMastery;
 
   @override
   Widget build(BuildContext context) {
@@ -158,7 +210,7 @@ class _Body extends StatelessWidget {
             const SizedBox(height: 16),
           ],
           if (stats.allCaughtUp) ...[
-            const _CaughtUpBanner(),
+            _CaughtUpBanner(onRestudy: onResetMastery),
             const SizedBox(height: 16),
           ],
           ModeSelector(available: stats.modes, onStart: onStartMode),
@@ -217,7 +269,9 @@ class _StatsCard extends StatelessWidget {
 }
 
 class _CaughtUpBanner extends StatelessWidget {
-  const _CaughtUpBanner();
+  const _CaughtUpBanner({required this.onRestudy});
+
+  final VoidCallback onRestudy;
 
   @override
   Widget build(BuildContext context) {
@@ -226,14 +280,28 @@ class _CaughtUpBanner extends StatelessWidget {
       color: theme.colorScheme.secondaryContainer,
       child: Padding(
         padding: const EdgeInsets.all(16),
-        child: Row(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Icon(Icons.check_circle_outline),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                "You're all caught up — nothing is due right now.",
-                style: theme.textTheme.bodyMedium,
+            Row(
+              children: [
+                const Icon(Icons.check_circle_outline),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    "You're all caught up — nothing is due right now.",
+                    style: theme.textTheme.bodyMedium,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Align(
+              alignment: Alignment.centerRight,
+              child: FilledButton.tonalIcon(
+                onPressed: onRestudy,
+                icon: const Icon(Icons.refresh),
+                label: const Text('Restudy deck'),
               ),
             ),
           ],
