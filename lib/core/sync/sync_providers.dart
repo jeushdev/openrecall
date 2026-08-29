@@ -34,3 +34,22 @@ final syncCoordinatorProvider = Provider<void>((ref) {
     }
   }, fireImmediately: true);
 });
+
+/// Whether the local mirror is holding any write that hasn't reached Supabase
+/// yet — an offline mastery edit, or a session / session-card row from a
+/// fully-offline run. The Profile tab's sign-out dialog reads this so it can
+/// warn before the session (and the device-local rows with it) is cleared
+/// (ui-spec-v1 §6.4).
+///
+/// `false` when there is no local database at all (online-only install —
+/// nothing is ever queued locally).
+final pendingSyncProvider = FutureProvider<bool>((ref) async {
+  final deckLocal = ref.watch(localDeckStoreProvider);
+  final studyLocal = ref.watch(localStudyStoreProvider);
+  if (deckLocal.isNoop && studyLocal.isNoop) return false;
+
+  if ((await deckLocal.unsyncedCards()).isNotEmpty) return true;
+  if ((await studyLocal.unsyncedSessions()).isNotEmpty) return true;
+  if ((await studyLocal.unsyncedSessionCards()).isNotEmpty) return true;
+  return false;
+});

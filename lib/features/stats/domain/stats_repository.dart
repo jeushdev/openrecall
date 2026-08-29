@@ -27,4 +27,10 @@ abstract interface class StatsRepository {
   /// count of `completed` sessions whose `card_scope` was `all`. Decks that have
   /// never been cleared this way are absent from the map.
   Future<Map<String, int>> fetchDeckRunThroughs();
+
+  /// The `started_at` timestamp of every `completed` study session, most-recent
+  /// first — the raw input the Profile tab's streak is derived from
+  /// (ui-spec-v1 §6.4). Offline this returns only sessions recorded on this
+  /// device.
+  Future<List<DateTime>> fetchCompletedSessionStarts();
 }

@@ -13,7 +13,8 @@ import 'package:open_recall/features/study/application/session_controller.dart';
 import 'package:open_recall/features/study/presentation/study_session_screen.dart';
 import 'package:open_recall/routing/glass_bottom_nav_bar.dart';
 import 'package:open_recall/routing/placeholders/deck_creator_screen.dart';
-import 'package:open_recall/routing/placeholders/settings_tab_screen.dart';
+import 'package:open_recall/ui/settings/settings_tab_screen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../support/fake_auth_repository.dart';
 import '../support/fake_deck_repository.dart';
@@ -32,6 +33,8 @@ FlashCard _masteredCard(String id) => FlashCard(
     );
 
 Future<void> _pump(WidgetTester tester, {required bool signedIn}) async {
+  // The real Settings screen reads SharedPreferences when /settings is visited.
+  SharedPreferences.setMockInitialValues(<String, Object>{});
   final fake = FakeAuthRepository(signedIn: signedIn);
   addTearDown(fake.dispose);
 

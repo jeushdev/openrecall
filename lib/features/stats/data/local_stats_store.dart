@@ -59,4 +59,22 @@ class LocalStatsStore {
       for (final r in rows) r['deck_id'] as String: r['c'] as int,
     };
   }
+
+  /// `started_at` of every locally-recorded `completed` session, most-recent
+  /// first — the streak input (ui-spec-v1 §6.4). Partial by nature: only
+  /// sessions that ran on this device are mirrored.
+  Future<List<DateTime>> completedSessionStarts() async {
+    final db = _db;
+    if (db == null) return const [];
+    final rows = await db.query(
+      'offline_study_sessions',
+      columns: ['started_at'],
+      where: 'status = ?',
+      whereArgs: ['completed'],
+      orderBy: 'started_at DESC',
+    );
+    return [
+      for (final r in rows) DateTime.parse(r['started_at'] as String),
+    ];
+  }
 }

@@ -7,11 +7,14 @@ class FakeStatsRepository implements StatsRepository {
   FakeStatsRepository({
     List<TroublemakerCard>? troublemakers,
     Map<String, int>? runThroughs,
+    List<DateTime>? completedSessionStarts,
   })  : _troublemakers = [...?troublemakers],
-        _runThroughs = {...?runThroughs};
+        _runThroughs = {...?runThroughs},
+        _completedSessionStarts = [...?completedSessionStarts];
 
   final List<TroublemakerCard> _troublemakers;
   final Map<String, int> _runThroughs;
+  final List<DateTime> _completedSessionStarts;
 
   final List<String> calls = <String>[];
 
@@ -40,5 +43,12 @@ class FakeStatsRepository implements StatsRepository {
     calls.add('fetchDeckRunThroughs()');
     _maybeThrow();
     return Map.unmodifiable(_runThroughs);
+  }
+
+  @override
+  Future<List<DateTime>> fetchCompletedSessionStarts() async {
+    calls.add('fetchCompletedSessionStarts()');
+    _maybeThrow();
+    return List.unmodifiable(_completedSessionStarts);
   }
 }

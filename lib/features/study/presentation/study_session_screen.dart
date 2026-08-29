@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../theme/app_tokens.dart';
 import '../../decks/application/deck_providers.dart';
 import '../../decks/domain/study_mode.dart';
+import '../application/feynman_timer_providers.dart';
 import '../application/session_controller.dart';
 import '../domain/flip_rating.dart';
 import '../domain/session_length.dart';
@@ -198,6 +199,9 @@ class _StudySessionScreenState extends ConsumerState<StudySessionScreen> {
         child: FeynmanTimerPicker(
           onSelected: (seconds) {
             setState(() => _feynmanSeconds = seconds);
+            // Record the choice for the Settings "last used" row (§6.5).
+            // Fire-and-forget — it never gates starting the session.
+            ref.read(feynmanTimerPreferenceProvider).setLastUsed(seconds);
             _start(StudyMode.feynman);
           },
         ),

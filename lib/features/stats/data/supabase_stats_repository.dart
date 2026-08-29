@@ -42,4 +42,20 @@ class SupabaseStatsRepository implements StatsRepository {
     }
     return counts;
   }
+
+  @override
+  Future<List<DateTime>> fetchCompletedSessionStarts() async {
+    // Only `started_at` is needed — the streak is a pure calendar-day fold over
+    // these. Capped at 500 rows: well over a year of daily study, and the fold
+    // never needs more than the current unbroken run anyway.
+    final rows = await _client
+        .from('study_sessions')
+        .select('started_at')
+        .eq('status', 'completed')
+        .order('started_at', ascending: false)
+        .limit(500);
+    return [
+      for (final row in rows) DateTime.parse(row['started_at'] as String),
+    ];
+  }
 }

@@ -38,4 +38,14 @@ class CacheFirstStatsRepository implements StatsRepository {
       return _local.runThroughsByDeck();
     }
   }
+
+  @override
+  Future<List<DateTime>> fetchCompletedSessionStarts() async {
+    try {
+      return await _remote.fetchCompletedSessionStarts();
+    } catch (_) {
+      if (_local.isNoop) rethrow;
+      return _local.completedSessionStarts();
+    }
+  }
 }

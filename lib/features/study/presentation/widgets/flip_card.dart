@@ -10,10 +10,10 @@ import 'stacked_deck.dart';
 /// front whenever [card] changes (the screen also re-keys this widget per
 /// queue position, so a requeued card always starts face-down).
 ///
-/// Transition is a fade + slide via [AnimatedSwitcher]. The 3D-flip vs.
-/// fade-and-slide choice is a Settings toggle (§6.5) landing in U8 — until then
-/// this is the single style.
-// TODO(U8): honour the §6.5 "Card transition" setting (3D flip / fade & slide).
+/// Transition is a fade + slide via [AnimatedSwitcher]. The §6.5 "Card
+/// transition" Settings toggle exists (`studyAppearanceProvider`) but is not
+/// wired here yet — that, plus building the 3D-flip animation, is a follow-up.
+// TODO: honour the §6.5 "Card transition" setting (3D flip / fade & slide).
 class FlipCard extends StatefulWidget {
   const FlipCard({
     super.key,
