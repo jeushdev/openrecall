@@ -1,0 +1,10 @@
+# Template for android/key.properties (which is gitignored).
+#
+# Release signing for the direct-.apk beta (milestone 14). Copy this file to
+# android/key.properties and fill in real values. `storeFile` is resolved
+# relative to android/app/. If android/key.properties is absent, the release
+# build falls back to the debug signing config so `flutter run` still works.
+storeFile=open-recall-release.jks
+storePassword=
+keyPassword=
+keyAlias=open-recall

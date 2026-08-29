@@ -86,19 +86,58 @@ class DeckLibraryScreen extends ConsumerWidget {
   }
 }
 
-class _EmptyLibrary extends StatelessWidget {
+class _EmptyLibrary extends ConsumerStatefulWidget {
   const _EmptyLibrary();
 
   @override
+  ConsumerState<_EmptyLibrary> createState() => _EmptyLibraryState();
+}
+
+class _EmptyLibraryState extends ConsumerState<_EmptyLibrary> {
+  bool _seeding = false;
+
+  Future<void> _trySampleDeck() async {
+    setState(() => _seeding = true);
+    final deck =
+        await ref.read(decksControllerProvider.notifier).seedSampleDeck();
+    if (!mounted) return;
+    setState(() => _seeding = false);
+    // seedSampleDeck returns null on failure; the error is already surfaced by
+    // the decksControllerProvider SnackBar listener in build().
+    if (deck == null) return;
+    // Land the user on real content rather than back on this empty state.
+    context.pushNamed(
+      AppRoutes.deckOverviewName,
+      pathParameters: {'deckId': deck.id},
+      extra: deck.name,
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return const Center(
+    return Center(
       child: Padding(
-        padding: EdgeInsets.all(24),
-        child: Text(
-          'No decks yet.\nCreate your first deck to get started.',
-          textAlign: TextAlign.center,
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'No decks yet.\nCreate your first deck to get started.',
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 16),
+            FilledButton.tonalIcon(
+              onPressed: _seeding ? null : _trySampleDeck,
+              icon: _seeding
+                  ? const SizedBox.square(
+                      dimension: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.auto_stories_outlined),
+              label: Text(_seeding ? 'Adding sample deck…' : 'Try a sample deck'),
+            ),
+          ],
         ),
-        // TODO(milestone 14): link to a small pre-made sample deck here.
       ),
     );
   }

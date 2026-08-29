@@ -10,6 +10,7 @@ import '../domain/bulk_paste_parser.dart';
 import '../domain/card.dart';
 import '../domain/deck.dart';
 import '../domain/deck_repository.dart';
+import '../domain/sample_deck.dart';
 
 /// The live repository is the Supabase-backed one wrapped in the cache-first
 /// layer (spec §10): reads fall back to the local SQLite mirror for downloaded
@@ -69,6 +70,29 @@ class DecksController extends AsyncNotifier<void> {
 
   Future<Deck?> createDeck(String name) async {
     final deck = await _run(() => _repo.createDeck(name));
+    if (deck != null) ref.invalidate(decksProvider);
+    return deck;
+  }
+
+  /// Creates the pre-made starter deck (spec §2 empty state) and fills it with
+  /// [sampleDeckCards] in one action, so a first-run user has something to study
+  /// every mode against. Reuses the normal create/insert path — no special
+  /// server support. Returns the new deck, or `null` if either step failed.
+  Future<Deck?> seedSampleDeck() async {
+    final deck = await _run(() async {
+      final deck = await _repo.createDeck(sampleDeckName);
+      await _repo.addCards(deck.id, [
+        for (final (i, c) in sampleDeckCards.indexed)
+          ParsedCard(
+            lineNumber: i + 1,
+            raw: '',
+            front: c.front,
+            back: c.back,
+            keyword: c.keyword,
+          ),
+      ]);
+      return deck;
+    });
     if (deck != null) ref.invalidate(decksProvider);
     return deck;
   }

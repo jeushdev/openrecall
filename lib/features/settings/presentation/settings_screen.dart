@@ -75,6 +75,12 @@ class SettingsScreen extends ConsumerWidget {
               ),
             ),
           ),
+          ListTile(
+            leading: const Icon(Icons.feedback_outlined),
+            title: const Text('Submit feedback'),
+            subtitle: const Text('Share bugs and ideas with the beta team.'),
+            onTap: () => _showFeedbackInfo(context),
+          ),
           const Divider(),
 
           _SectionHeader(
@@ -95,6 +101,28 @@ class SettingsScreen extends ConsumerWidget {
             ),
             enabled: !busy,
             onTap: () => _confirmDelete(context, ref),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Placeholder feedback entry point (spec §9 / Beta logistics). The real
+  /// channel is a Google Form shared out-of-band; its URL isn't ready yet, so
+  /// this just tells the tester what's coming.
+  void _showFeedbackInfo(BuildContext context) {
+    showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Feedback link coming soon'),
+        content: const Text(
+          'A Google Form will be shared with beta testers. Thanks for helping '
+          'test ActiveRecall.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('OK'),
           ),
         ],
       ),
