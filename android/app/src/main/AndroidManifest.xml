@@ -5,6 +5,9 @@
          receiver so a pending return-to-study reminder survives a reboot. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
+    <!-- Milestone 13 (Offline & sync): connectivity_plus reads the network
+         state to trigger a sync-on-reconnect pass. -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
     <application
         android:label="OpenRecall"
         android:name="${applicationName}"

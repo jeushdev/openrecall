@@ -10,6 +10,7 @@ import '../domain/deck_overview_stats.dart';
 import '../domain/study_mode.dart';
 import 'widgets/mastery_bar.dart';
 import 'widgets/mode_selector.dart';
+import 'widgets/offline_toggle.dart';
 import 'widgets/session_length_selector.dart';
 import 'widgets/troublemaker_list.dart';
 
@@ -72,6 +73,8 @@ class _DeckOverviewScreenState extends ConsumerState<DeckOverviewScreen> {
           onRetry: () => ref.invalidate(deckCardsProvider(widget.deckId)),
         ),
         data: (list) => _Body(
+          deckId: widget.deckId,
+          deckName: widget.deckName,
           stats: DeckOverviewStats.fromCards(list),
           lengthMode: _lengthMode,
           cap: _cap,
@@ -155,6 +158,8 @@ class _DeckOverviewScreenState extends ConsumerState<DeckOverviewScreen> {
 
 class _Body extends StatelessWidget {
   const _Body({
+    required this.deckId,
+    required this.deckName,
     required this.stats,
     required this.lengthMode,
     required this.cap,
@@ -167,6 +172,8 @@ class _Body extends StatelessWidget {
     required this.onResetMastery,
   });
 
+  final String deckId;
+  final String? deckName;
   final DeckOverviewStats stats;
   final SessionLengthMode lengthMode;
   final int? cap;
@@ -208,6 +215,8 @@ class _Body extends StatelessWidget {
             onModeChanged: onLengthModeChanged,
             onCapChanged: onCapChanged,
           ),
+          const SizedBox(height: 24),
+          OfflineToggle(deckId: deckId, deckName: deckName),
           const SizedBox(height: 24),
           TroublemakerList(cards: stats.troublemakers),
           const SizedBox(height: 24),

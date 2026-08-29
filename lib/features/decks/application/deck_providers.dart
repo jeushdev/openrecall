@@ -3,17 +3,24 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../core/local_db/local_db_providers.dart';
+import '../data/cache_first_deck_repository.dart';
 import '../data/supabase_deck_repository.dart';
 import '../domain/bulk_paste_parser.dart';
 import '../domain/card.dart';
 import '../domain/deck.dart';
 import '../domain/deck_repository.dart';
 
-/// The live repository is backed by the initialized Supabase singleton. Tests
-/// override this with a fake, so nothing else in the decks feature imports
-/// `Supabase`.
+/// The live repository is the Supabase-backed one wrapped in the cache-first
+/// layer (spec §10): reads fall back to the local SQLite mirror for downloaded
+/// decks, and offline study-loop writes are queued locally for sync-on-reconnect.
+/// Tests override this with a fake, so nothing else in the decks feature imports
+/// `Supabase` or the local store.
 final deckRepositoryProvider = Provider<DeckRepository>((ref) {
-  return SupabaseDeckRepository(Supabase.instance.client);
+  return CacheFirstDeckRepository(
+    SupabaseDeckRepository(Supabase.instance.client),
+    ref.watch(localDeckStoreProvider),
+  );
 });
 
 /// The signed-in user's decks with their aggregate counts, for the Deck

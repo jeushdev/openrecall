@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../routing/app_routes.dart';
 import '../application/deck_providers.dart';
+import '../application/offline_providers.dart';
 import 'widgets/create_deck_dialog.dart';
 import 'widgets/deck_tile.dart';
 
@@ -23,6 +24,8 @@ class DeckLibraryScreen extends ConsumerWidget {
     });
 
     final decks = ref.watch(decksProvider);
+    final offlineIds =
+        ref.watch(offlineDeckIdsProvider).asData?.value ?? const <String>{};
 
     return Scaffold(
       appBar: AppBar(
@@ -44,6 +47,7 @@ class DeckLibraryScreen extends ConsumerWidget {
                 itemCount: decks.length,
                 itemBuilder: (context, i) => DeckTile(
                   summary: decks[i],
+                  offline: offlineIds.contains(decks[i].id),
                   onTap: () => _openOverview(context, decks[i].id, decks[i].name),
                 ),
               ),

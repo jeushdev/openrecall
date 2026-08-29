@@ -7,6 +7,7 @@ environment:
   sdk: ^3.13.2
 
 dependencies:
+  connectivity_plus: ^7.3.1
   flutter:
     sdk: flutter
   flutter_dotenv: ^6.0.1
@@ -15,9 +16,12 @@ dependencies:
   go_router: ^18.0.0
   http: ^1.6.0
   package_info_plus: ^8.1.1
+  path: ^1.9.1
   shared_preferences: ^2.3.3
+  sqflite: ^2.4.3
   supabase_flutter: ^2.17.2
   timezone: ^0.9.4
+  uuid: ^4.6.0
 
 dev_dependencies:
   flutter_test:

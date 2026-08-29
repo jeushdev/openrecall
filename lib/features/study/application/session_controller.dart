@@ -3,12 +3,15 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../core/local_db/local_db_providers.dart';
+import '../../../core/sync/sync_providers.dart';
 import '../../decks/application/deck_providers.dart';
 import '../../decks/domain/card.dart';
 import '../../decks/domain/deck_repository.dart';
 import '../../decks/domain/study_mode.dart';
 import '../../notifications/application/notification_providers.dart';
 import '../../notifications/data/notification_service.dart';
+import '../data/cache_first_study_repository.dart';
 import '../data/supabase_study_repository.dart';
 import '../domain/cloze_outcome.dart';
 import '../domain/flip_rating.dart';
@@ -28,10 +31,17 @@ class EmptyQueueException implements Exception {
   String toString() => 'EmptyQueueException';
 }
 
-/// The live study repository, backed by the Supabase singleton. Tests override
-/// it with a fake.
+/// The live study repository: the Supabase-backed one wrapped in the cache-first
+/// layer (spec §10), so a downloaded deck's session runs from the local SQLite
+/// mirror when offline and its results sync on reconnect. Tests override it with
+/// a fake.
 final studyRepositoryProvider = Provider<StudyRepository>((ref) {
-  return SupabaseStudyRepository(Supabase.instance.client);
+  return CacheFirstStudyRepository(
+    SupabaseStudyRepository(Supabase.instance.client),
+    ref.watch(localStudyStoreProvider),
+    ref.watch(localDeckStoreProvider),
+    () => Supabase.instance.client.auth.currentUser?.id,
+  );
 });
 
 /// The one live study session, app-wide (the session-conflict rule assumes a
@@ -79,6 +89,13 @@ class SessionController extends Notifier<AsyncValue<StudySessionState?>> {
   StudyRepository get _study => ref.read(studyRepositoryProvider);
   NotificationService get _notifications =>
       ref.read(notificationServiceProvider);
+
+  /// Kick a best-effort sync of anything the local mirror queued while offline
+  /// (spec §10). Never awaited, never throws into a study interaction.
+  void _triggerSync() {
+    final sync = ref.read(syncServiceProvider);
+    if (sync != null) unawaited(sync.syncPending());
+  }
 
   /// Fire-and-forget a notification call. Study interactions must never block on
   /// or fail because of a reminder write (see CLAUDE.md "Performance").
@@ -370,6 +387,7 @@ class SessionController extends Notifier<AsyncValue<StudySessionState?>> {
     if (current == null) return;
     ref.invalidate(deckCardsProvider(current.deckId));
     ref.invalidate(decksProvider);
+    _triggerSync();
 
     if (!current.isComplete) {
       // Cards still below Mastered: the ones left in the queue plus any parked
@@ -417,6 +435,7 @@ class SessionController extends Notifier<AsyncValue<StudySessionState?>> {
 
     ref.invalidate(deckCardsProvider(current.deckId));
     ref.invalidate(decksProvider);
+    _triggerSync();
   }
 
   void _scheduleCardWrite(String cardId) {
