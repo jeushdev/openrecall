@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import 'glass_bottom_nav_bar.dart';
+
 /// The shell chrome wrapped around the four tab branches
 /// (`/decks`, `/mastery`, `/profile`, `/settings`).
 ///
@@ -9,8 +11,9 @@ import 'package:go_router/go_router.dart';
 /// widget tree for the top-level routes (`/study/:deckId`, `/deck-creator`) —
 /// not hidden via opacity/visibility (ui-spec-v1 §4).
 ///
-/// This is a throwaway [NavigationBar]. The real floating glassmorphic pill with
-/// the inline Create button is milestone U3 (§5.1).
+/// The bar itself is [GlassBottomNavBar] (§5.1). The scaffold runs
+/// `extendBody: true` so each branch renders full-height behind the floating
+/// pill and its [BackdropFilter] has live content to blur.
 class ScaffoldWithNavBar extends StatelessWidget {
   const ScaffoldWithNavBar({super.key, required this.navigationShell});
 
@@ -27,19 +30,11 @@ class ScaffoldWithNavBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      extendBody: true,
       body: navigationShell,
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: navigationShell.currentIndex,
-        onDestinationSelected: _goBranch,
-        destinations: const [
-          NavigationDestination(icon: Icon(Icons.style_outlined), label: 'Decks'),
-          NavigationDestination(
-              icon: Icon(Icons.insights_outlined), label: 'Mastery'),
-          NavigationDestination(
-              icon: Icon(Icons.person_outline), label: 'Profile'),
-          NavigationDestination(
-              icon: Icon(Icons.settings_outlined), label: 'Settings'),
-        ],
+      bottomNavigationBar: GlassBottomNavBar(
+        currentIndex: navigationShell.currentIndex,
+        onSelectTab: _goBranch,
       ),
     );
   }

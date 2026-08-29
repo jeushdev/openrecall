@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:open_recall/app.dart';
 import 'package:open_recall/features/auth/application/auth_providers.dart';
 import 'package:open_recall/features/auth/presentation/login_screen.dart';
+import 'package:open_recall/routing/glass_bottom_nav_bar.dart';
 import 'package:open_recall/routing/placeholders/deck_creator_screen.dart';
 import 'package:open_recall/routing/placeholders/decks_tab_screen.dart';
 import 'package:open_recall/routing/placeholders/mastery_tab_screen.dart';
@@ -47,7 +48,7 @@ void main() {
 
     expect(find.byType(DecksTabScreen), findsOneWidget);
     expect(find.byType(LoginScreen), findsNothing);
-    expect(find.byType(NavigationBar), findsOneWidget);
+    expect(find.byType(GlassBottomNavBar), findsOneWidget);
   });
 
   testWidgets('switching tabs preserves the inactive branch in the IndexedStack',
@@ -75,7 +76,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(StudySessionScreen), findsOneWidget);
-    expect(find.byType(NavigationBar), findsNothing);
+    expect(find.byType(GlassBottomNavBar), findsNothing);
     expect(find.text('Study deck-1 · due'), findsOneWidget);
   });
 
@@ -100,13 +101,13 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(DeckCreatorScreen), findsOneWidget);
-    expect(find.byType(NavigationBar), findsNothing);
+    expect(find.byType(GlassBottomNavBar), findsNothing);
 
     router.pop();
     await tester.pumpAndSettle();
 
     expect(find.byType(DeckCreatorScreen), findsNothing);
-    expect(find.byType(NavigationBar), findsOneWidget);
+    expect(find.byType(GlassBottomNavBar), findsOneWidget);
     expect(find.byType(SettingsTabScreen), findsOneWidget);
   });
 }
