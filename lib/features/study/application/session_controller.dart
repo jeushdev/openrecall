@@ -4,12 +4,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../decks/application/deck_providers.dart';
+import '../../decks/domain/card.dart';
 import '../../decks/domain/deck_repository.dart';
 import '../../decks/domain/study_mode.dart';
 import '../data/supabase_study_repository.dart';
 import '../domain/cloze_outcome.dart';
 import '../domain/flip_rating.dart';
 import '../domain/session_length.dart';
+import '../domain/session_outcome.dart';
 import '../domain/session_queue_selection.dart';
 import '../domain/study_queue_item.dart';
 import '../domain/study_repository.dart';
@@ -77,6 +79,15 @@ class SessionController extends Notifier<AsyncValue<StudySessionState?>> {
   final Map<String, _CardSync> _sync = {};
   final Map<String, Future<void>> _writeChains = {};
 
+  /// Every deck card's `mastery_level` snapshotted at session start — the
+  /// baseline for the Session Summary's whole-deck mastery delta (spec §7).
+  Map<String, int> _deckMasteryAtStart = const {};
+
+  /// Session-scoped recall counters (spec §7). A "miss" is any result short of
+  /// Mastered, i.e. every requeue.
+  int _requeues = 0;
+  final Set<String> _missedCardIds = {};
+
   StudySessionState? get _state => state.value;
 
   /// Starts (or, if one is already live for [deckId], quietly re-attaches to) a
@@ -109,58 +120,113 @@ class SessionController extends Notifier<AsyncValue<StudySessionState?>> {
       await _study.abandonActiveSessions(deckId);
 
       final cards = await _decks.fetchCards(deckId);
+      _deckMasteryAtStart = {for (final c in cards) c.id: c.masteryLevel};
       final capNum = lengthMode == SessionLengthMode.capped ? cap : null;
       final ordered =
           selectSessionCards(cards: cards, mode: mode, cap: capNum);
       if (ordered.isEmpty) throw const EmptyQueueException();
 
-      final session = await _study.createSession(
-        deckId: deckId,
-        studyMode: mode,
-        lengthMode: lengthMode,
-        cappedLength: capNum,
-      );
-      final rows = await _study.createSessionCards(
-        session.id,
-        seedsFrom(ordered),
-      );
-
-      try {
-        await _decks.markDeckStudied(deckId);
-      } catch (_) {
-        // Non-fatal: the session rows already exist.
-      }
-
-      final byCardId = {for (final c in ordered) c.id: c};
-      final items = [
-        for (final row in rows)
-          if (byCardId[row.cardId] case final card?)
-            StudyQueueItem(
-              sessionCardId: row.id,
-              card: card,
-              position: row.position,
-              consecutiveFails: row.consecutiveFails,
-              isParked: row.isParked,
-              masteryLevel: card.masteryLevel,
-            ),
-      ];
-      for (final card in ordered) {
-        _sync[card.id] = _CardSync(
-          baseMastery: card.masteryLevel,
-          baseFailCount: card.failCount,
-          baseUpdatedAt: card.updatedAt,
-        );
-      }
-
-      return StudySessionState.initial(
-        session: session,
+      return _seedSession(
         deckId: deckId,
         deckName: deckName,
-        items: items,
+        mode: mode,
+        lengthMode: lengthMode,
+        cap: capNum,
+        ordered: ordered,
       );
     });
 
     if (state.hasValue) ref.invalidate(decksProvider);
+  }
+
+  /// Starts the "drill parked cards now" session from the Session Summary
+  /// (spec §7): a scoped run over exactly [parkedCardIds] — the cards parked in
+  /// the session just finished — in the same [mode]. Uncapped and
+  /// until-mastered; this is the deliberate exception to §4's queue-selection
+  /// rule, so it does not go through [selectSessionCards].
+  Future<void> startParkedDrill({
+    required String deckId,
+    required String? deckName,
+    required StudyMode mode,
+    required List<String> parkedCardIds,
+  }) async {
+    await _flushAllPendingWrites();
+    _resetInternals();
+    state = const AsyncLoading();
+    state = await AsyncValue.guard(() async {
+      await _study.abandonActiveSessions(deckId);
+
+      final cards = await _decks.fetchCards(deckId);
+      _deckMasteryAtStart = {for (final c in cards) c.id: c.masteryLevel};
+      final wanted = parkedCardIds.toSet();
+      final ordered = cards.where((c) => wanted.contains(c.id)).toList();
+      if (ordered.isEmpty) throw const EmptyQueueException();
+
+      return _seedSession(
+        deckId: deckId,
+        deckName: deckName,
+        mode: mode,
+        lengthMode: SessionLengthMode.untilMastered,
+        cap: null,
+        ordered: ordered,
+      );
+    });
+
+    if (state.hasValue) ref.invalidate(decksProvider);
+  }
+
+  /// Inserts the `study_sessions` + `session_cards` rows for [ordered], stamps
+  /// `last_studied_at`, seeds the `_sync` map, and returns the initial
+  /// in-memory state. Shared by [start] and [startParkedDrill].
+  Future<StudySessionState> _seedSession({
+    required String deckId,
+    required String? deckName,
+    required StudyMode mode,
+    required SessionLengthMode lengthMode,
+    required int? cap,
+    required List<FlashCard> ordered,
+  }) async {
+    final session = await _study.createSession(
+      deckId: deckId,
+      studyMode: mode,
+      lengthMode: lengthMode,
+      cappedLength: cap,
+    );
+    final rows = await _study.createSessionCards(session.id, seedsFrom(ordered));
+
+    try {
+      await _decks.markDeckStudied(deckId);
+    } catch (_) {
+      // Non-fatal: the session rows already exist.
+    }
+
+    final byCardId = {for (final c in ordered) c.id: c};
+    final items = [
+      for (final row in rows)
+        if (byCardId[row.cardId] case final card?)
+          StudyQueueItem(
+            sessionCardId: row.id,
+            card: card,
+            position: row.position,
+            consecutiveFails: row.consecutiveFails,
+            isParked: row.isParked,
+            masteryLevel: card.masteryLevel,
+          ),
+    ];
+    for (final card in ordered) {
+      _sync[card.id] = _CardSync(
+        baseMastery: card.masteryLevel,
+        baseFailCount: card.failCount,
+        baseUpdatedAt: card.updatedAt,
+      );
+    }
+
+    return StudySessionState.initial(
+      session: session,
+      deckId: deckId,
+      deckName: deckName,
+      items: items,
+    );
   }
 
   /// Applies a Flip rating to the current card — synchronous and optimistic.
@@ -176,6 +242,11 @@ class SessionController extends Notifier<AsyncValue<StudySessionState?>> {
   /// mapped to a `mastery_level` by the List widget.
   void submitList(int masteryLevel) => _applyResult(masteryLevel);
 
+  /// Applies a Feynman card result to the current card (spec §5D/§6) —
+  /// synchronous and optimistic, exactly like [rate]. The self-checkoff ratio
+  /// has already been mapped to a `mastery_level` by the Feynman widget.
+  void submitFeynman(int masteryLevel) => _applyResult(masteryLevel);
+
   /// The shared optimistic-progression path for every mode: advance the
   /// in-memory queue now, then fire the guarded `cards` write and the
   /// session-scoped `session_cards` write in the background.
@@ -184,9 +255,15 @@ class SessionController extends Notifier<AsyncValue<StudySessionState?>> {
     if (current == null || current.phase != SessionPhase.studying) return;
 
     final result = current.applyResult(masteryLevel: masteryLevel);
-    state = AsyncData(result.state);
-
     final effects = result.effects;
+
+    if (effects.isFail) {
+      _requeues++;
+      _missedCardIds.add(effects.cardId);
+    }
+
+    state = AsyncData(_attachOutcomeIfDone(result.state));
+
     final sync = _sync[effects.cardId];
     if (sync != null) {
       sync.desiredMastery = effects.newMasteryLevel;
@@ -207,6 +284,25 @@ class SessionController extends Notifier<AsyncValue<StudySessionState?>> {
     }
   }
 
+  /// If [next] is the completed transition, builds the Session Summary figures
+  /// (spec §7) and attaches them; otherwise returns [next] unchanged.
+  StudySessionState _attachOutcomeIfDone(StudySessionState next) {
+    if (next.phase != SessionPhase.completed) return next;
+    final afterLevels = _deckMasteryAtStart.entries
+        .map((e) => _sync[e.key]?.desiredMastery ?? e.value);
+    return next.withOutcome(SessionOutcome(
+      masteryPercentBefore:
+          masteryPercentFromLevels(_deckMasteryAtStart.values),
+      masteryPercentAfter: masteryPercentFromLevels(afterLevels),
+      cardsStudied: next.totalCards,
+      mastered: next.masteredCardIds.length,
+      parked: next.parkedCardIds.length,
+      firstTryMastered:
+          next.masteredCardIds.difference(_missedCardIds).length,
+      requeues: _requeues,
+    ));
+  }
+
   /// Parks the prompted card.
   void confirmPark() {
     final current = _state;
@@ -214,7 +310,7 @@ class SessionController extends Notifier<AsyncValue<StudySessionState?>> {
     final sessionCardId = current.pendingParkSessionCardId;
 
     final next = current.confirmPark();
-    state = AsyncData(next);
+    state = AsyncData(_attachOutcomeIfDone(next));
 
     if (sessionCardId != null) {
       unawaited(_study.updateSessionCard(
@@ -264,9 +360,13 @@ class SessionController extends Notifier<AsyncValue<StudySessionState?>> {
     if (current == null) return;
     await _flushAllPendingWrites();
     try {
-      await _study.completeSession(current.session.id);
+      await _study.completeSession(
+        current.session.id,
+        masteryDelta: current.outcome?.masteryDelta,
+      );
     } catch (_) {
-      // Non-fatal for the beta — the summary screen is a later milestone.
+      // Non-fatal: the Session Summary is driven by in-memory state, not this
+      // write.
     }
     ref.invalidate(deckCardsProvider(current.deckId));
     ref.invalidate(decksProvider);
@@ -337,5 +437,8 @@ class SessionController extends Notifier<AsyncValue<StudySessionState?>> {
   void _resetInternals() {
     _sync.clear();
     _writeChains.clear();
+    _deckMasteryAtStart = const {};
+    _requeues = 0;
+    _missedCardIds.clear();
   }
 }

@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import '../../decks/domain/card.dart';
 import 'flip_rating.dart';
 import 'requeue.dart';
+import 'session_outcome.dart';
 import 'study_queue_item.dart';
 import 'study_session.dart';
 
@@ -69,6 +70,7 @@ class StudySessionState {
     required this.totalCards,
     required this.phase,
     required this.pendingParkSessionCardId,
+    this.outcome,
   });
 
   /// Builds the starting state from the seeded queue items. Sorts by position,
@@ -110,6 +112,10 @@ class StudySessionState {
   /// The `session_cards.id` awaiting a park answer, set iff [phase] is
   /// [SessionPhase.parkPrompt].
   final String? pendingParkSessionCardId;
+
+  /// The Session Summary figures (spec §7), set by the controller once [phase]
+  /// reaches [SessionPhase.completed]. `null` until then.
+  final SessionOutcome? outcome;
 
   StudyQueueItem? get current => queue.isEmpty ? null : queue.first;
 
@@ -233,6 +239,11 @@ class StudySessionState {
 
   static const int _parkThreshold = 3;
 
+  /// Attaches the finished-session [SessionOutcome] (spec §7). Called by the
+  /// controller on the transition into [SessionPhase.completed].
+  StudySessionState withOutcome(SessionOutcome outcome) =>
+      _copy(outcome: outcome);
+
   StudySessionState _copy({
     List<StudyQueueItem>? queue,
     Set<String>? masteredCardIds,
@@ -240,6 +251,7 @@ class StudySessionState {
     SessionPhase? phase,
     String? pendingParkSessionCardId,
     bool clearPending = false,
+    SessionOutcome? outcome,
   }) {
     final nextQueue = queue ?? this.queue;
     return StudySessionState(
@@ -254,6 +266,7 @@ class StudySessionState {
       pendingParkSessionCardId: clearPending
           ? null
           : (pendingParkSessionCardId ?? this.pendingParkSessionCardId),
+      outcome: outcome ?? this.outcome,
     );
   }
 }

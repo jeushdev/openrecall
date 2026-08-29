@@ -9,16 +9,19 @@ import '../domain/flip_rating.dart';
 import '../domain/study_session_state.dart';
 import 'study_session_args.dart';
 import 'widgets/cloze_card_view.dart';
+import 'widgets/feynman_card_view.dart';
 import 'widgets/flip_card_view.dart';
 import 'widgets/list_card_view.dart';
 import 'widgets/park_prompt_dialog.dart';
 import 'widgets/rating_bar.dart';
 import 'widgets/session_progress_indicator.dart';
+import 'widgets/session_summary_view.dart';
 
 /// The study execution screen. Handles Flip & Rate (spec §5A), Cloze Type-in
-/// (spec §5B), and List Unmask (spec §5C), branching on `session.studyMode`;
-/// Feynman routes here later. Exiting — the close button, system back, or
-/// completion — returns to the Deck Overview.
+/// (spec §5B), List Unmask (spec §5C), and Feynman Synthesis (spec §5D),
+/// branching on `session.studyMode`. On completion it shows the Session Summary
+/// (spec §7); the close button or system back exits mid-session. Either way the
+/// route back is the Deck Overview.
 class StudySessionScreen extends ConsumerStatefulWidget {
   const StudySessionScreen({super.key, required this.args});
 
@@ -64,6 +67,13 @@ class _StudySessionScreenState extends ConsumerState<StudySessionScreen> {
     _leave();
   }
 
+  /// "Done" on the Session Summary (spec §7): clear the finished session so the
+  /// next one builds fresh, then return to the Deck Overview.
+  void _doneFromSummary() {
+    ref.read(sessionControllerProvider.notifier).reset();
+    _leave();
+  }
+
   Future<void> _handleParkPrompt() async {
     if (_parkPromptOpen) return;
     _parkPromptOpen = true;
@@ -83,10 +93,9 @@ class _StudySessionScreenState extends ConsumerState<StudySessionScreen> {
     ref.listen<AsyncValue<StudySessionState?>>(sessionControllerProvider,
         (prev, next) {
       switch (next.value?.phase) {
-        case SessionPhase.completed:
-          _leave();
         case SessionPhase.parkPrompt:
           _handleParkPrompt();
+        case SessionPhase.completed:
         case SessionPhase.studying:
         case null:
           break;
@@ -114,6 +123,22 @@ class _StudySessionScreenState extends ConsumerState<StudySessionScreen> {
         ),
       ),
       data: (state) {
+        if (state != null && state.isComplete && state.outcome != null) {
+          return SessionSummaryView(
+            mode: state.session.studyMode,
+            deckName: state.deckName,
+            outcome: state.outcome!,
+            hasParked: state.parkedCardIds.isNotEmpty,
+            onDrillParked: () =>
+                ref.read(sessionControllerProvider.notifier).startParkedDrill(
+                      deckId: state.deckId,
+                      deckName: state.deckName,
+                      mode: state.session.studyMode,
+                      parkedCardIds: state.parkedCardIds.toList(),
+                    ),
+            onDone: _doneFromSummary,
+          );
+        }
         if (state == null || state.current == null) {
           return _Frame(title: widget.args?.deckName, child: const SizedBox());
         }
@@ -124,6 +149,7 @@ class _StudySessionScreenState extends ConsumerState<StudySessionScreen> {
           onRate: notifier.rate,
           onCloze: notifier.submitCloze,
           onList: notifier.submitList,
+          onFeynman: notifier.submitFeynman,
         );
       },
     );
@@ -137,6 +163,7 @@ class _ActiveBody extends StatefulWidget {
     required this.onRate,
     required this.onCloze,
     required this.onList,
+    required this.onFeynman,
   });
 
   final StudySessionState state;
@@ -144,6 +171,7 @@ class _ActiveBody extends StatefulWidget {
   final ValueChanged<FlipRating> onRate;
   final ValueChanged<ClozeOutcome> onCloze;
   final ValueChanged<int> onList;
+  final ValueChanged<int> onFeynman;
 
   @override
   State<_ActiveBody> createState() => _ActiveBodyState();
@@ -206,6 +234,12 @@ class _ActiveBodyState extends State<_ActiveBody> {
                 key: ValueKey(_presentationKey),
                 card: item.card,
                 onResult: widget.onList,
+              )
+            else if (state.session.studyMode == StudyMode.feynman)
+              FeynmanCardView(
+                key: ValueKey(_presentationKey),
+                card: item.card,
+                onResult: widget.onFeynman,
               )
             else ...[
               FlipCardView(

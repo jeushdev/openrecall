@@ -67,6 +67,12 @@ Widget _host({
   );
 }
 
+void _useTallSurface(WidgetTester tester) {
+  tester.view.physicalSize = const Size(1200, 3200);
+  tester.view.devicePixelRatio = 1.0;
+  addTearDown(tester.view.reset);
+}
+
 Future<void> _openSession(
   WidgetTester tester, {
   required FakeDeckRepository decks,
@@ -132,8 +138,9 @@ void main() {
     expect(find.text('front-b'), findsOneWidget);
   });
 
-  testWidgets('completing every card returns to the Deck Overview',
-      (tester) async {
+  testWidgets('completing every card shows the Session Summary, then Done '
+      'returns to the Deck Overview', (tester) async {
+    _useTallSurface(tester);
     await _openSession(
       tester,
       decks: FakeDeckRepository(cards: [_card('a')]),
@@ -145,12 +152,20 @@ void main() {
     await tester.tap(find.widgetWithText(FilledButton, 'Mastered'));
     await tester.pumpAndSettle();
 
+    expect(find.text('This session'), findsOneWidget);
+    expect(find.widgetWithText(FilledButton, 'Drill parked cards now'),
+        findsNothing);
+
+    await tester.tap(find.widgetWithText(TextButton, 'Done'));
+    await tester.pumpAndSettle();
+
     expect(find.text('Deck Overview'), findsOneWidget);
     expect(find.byType(StudySessionScreen), findsNothing);
   });
 
-  testWidgets('three fails prompt the park dialog; parking the last card exits',
+  testWidgets('parking the last card shows the Summary with a drill button',
       (tester) async {
+    _useTallSurface(tester);
     await _openSession(
       tester,
       decks: FakeDeckRepository(cards: [_card('a')]),
@@ -166,6 +181,12 @@ void main() {
 
     expect(find.text('Park this card?'), findsOneWidget);
     await tester.tap(find.widgetWithText(FilledButton, 'Park it'));
+    await tester.pumpAndSettle();
+
+    expect(find.widgetWithText(FilledButton, 'Drill parked cards now'),
+        findsOneWidget);
+
+    await tester.tap(find.widgetWithText(TextButton, 'Done'));
     await tester.pumpAndSettle();
 
     expect(find.text('Deck Overview'), findsOneWidget);
