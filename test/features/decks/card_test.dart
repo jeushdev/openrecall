@@ -47,4 +47,17 @@ void main() {
   test('masteredLevel is 4', () {
     expect(masteredLevel, 4);
   });
+
+  group('CardMasteryState.fromJson', () {
+    test('maps the three columns the session engine guards on', () {
+      final state = CardMasteryState.fromJson({
+        'mastery_level': 2,
+        'fail_count': 5,
+        'updated_at': '2026-08-02T00:00:00Z',
+      });
+      expect(state.masteryLevel, 2);
+      expect(state.failCount, 5);
+      expect(state.updatedAt, DateTime.utc(2026, 8, 2));
+    });
+  });
 }

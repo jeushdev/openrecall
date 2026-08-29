@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../routing/app_routes.dart';
+import '../../study/application/session_controller.dart';
+import '../../study/presentation/study_session_args.dart';
 import '../application/deck_providers.dart';
 import '../domain/deck_overview_stats.dart';
 import '../domain/study_mode.dart';
@@ -15,8 +17,9 @@ import 'widgets/troublemaker_list.dart';
 /// session-length toggle, Troublemaker cards, and the way back into the Deck
 /// Creator to add more cards.
 ///
-/// Reached by tapping a deck in the Library. Starting a session is milestone 6 —
-/// mode buttons here only reflect what the deck supports.
+/// Reached by tapping a deck in the Library. Tapping Flip & Rate starts a
+/// session (spec §5A); the other modes still show a placeholder. A "Resume
+/// session" button appears while a session for this deck is live in memory.
 class DeckOverviewScreen extends ConsumerStatefulWidget {
   const DeckOverviewScreen({super.key, required this.deckId, this.deckName});
 
@@ -34,6 +37,10 @@ class _DeckOverviewScreenState extends ConsumerState<DeckOverviewScreen> {
   @override
   Widget build(BuildContext context) {
     final cards = ref.watch(deckCardsProvider(widget.deckId));
+    final session = ref.watch(sessionControllerProvider).value;
+    final canResume = session != null &&
+        session.deckId == widget.deckId &&
+        !session.isComplete;
 
     return Scaffold(
       appBar: AppBar(title: Text(widget.deckName ?? 'Deck')),
@@ -46,6 +53,8 @@ class _DeckOverviewScreenState extends ConsumerState<DeckOverviewScreen> {
           stats: DeckOverviewStats.fromCards(list),
           lengthMode: _lengthMode,
           cap: _cap,
+          canResume: canResume,
+          onResume: _resumeSession,
           onLengthModeChanged: (m) => setState(() => _lengthMode = m),
           onCapChanged: (c) => setState(() => _cap = c),
           onStartMode: _startMode,
@@ -56,12 +65,43 @@ class _DeckOverviewScreenState extends ConsumerState<DeckOverviewScreen> {
   }
 
   void _startMode(StudyMode mode) {
-    // Sessions arrive in milestone 6 — for now the button just acknowledges.
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(content: Text('${mode.label} sessions arrive in the next update.')),
-      );
+    if (mode != StudyMode.flip) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            content: Text('${mode.label} sessions arrive in a later update.'),
+          ),
+        );
+      return;
+    }
+    context.pushNamed(
+      AppRoutes.studySessionName,
+      pathParameters: {'deckId': widget.deckId},
+      extra: StudySessionArgs(
+        deckId: widget.deckId,
+        deckName: widget.deckName,
+        mode: mode,
+        lengthMode: _lengthMode,
+        cap: _lengthMode == SessionLengthMode.capped ? _cap : null,
+      ),
+    );
+  }
+
+  void _resumeSession() {
+    final session = ref.read(sessionControllerProvider).value?.session;
+    if (session == null) return;
+    context.pushNamed(
+      AppRoutes.studySessionName,
+      pathParameters: {'deckId': widget.deckId},
+      extra: StudySessionArgs(
+        deckId: widget.deckId,
+        deckName: widget.deckName,
+        mode: session.studyMode,
+        lengthMode: session.lengthMode,
+        cap: session.cappedLength,
+      ),
+    );
   }
 
   void _openCreator() {
@@ -78,6 +118,8 @@ class _Body extends StatelessWidget {
     required this.stats,
     required this.lengthMode,
     required this.cap,
+    required this.canResume,
+    required this.onResume,
     required this.onLengthModeChanged,
     required this.onCapChanged,
     required this.onStartMode,
@@ -87,6 +129,8 @@ class _Body extends StatelessWidget {
   final DeckOverviewStats stats;
   final SessionLengthMode lengthMode;
   final int? cap;
+  final bool canResume;
+  final VoidCallback onResume;
   final ValueChanged<SessionLengthMode> onLengthModeChanged;
   final ValueChanged<int?> onCapChanged;
   final ValueChanged<StudyMode> onStartMode;
@@ -102,6 +146,14 @@ class _Body extends StatelessWidget {
         else ...[
           _StatsCard(stats: stats),
           const SizedBox(height: 16),
+          if (canResume) ...[
+            FilledButton.icon(
+              onPressed: onResume,
+              icon: const Icon(Icons.play_arrow),
+              label: const Text('Resume session'),
+            ),
+            const SizedBox(height: 16),
+          ],
           if (stats.allCaughtUp) ...[
             const _CaughtUpBanner(),
             const SizedBox(height: 16),

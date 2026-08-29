@@ -82,3 +82,26 @@ class FlashCard {
         updatedAt,
       );
 }
+
+/// Just the three `cards` columns the session engine needs to rebase a guarded
+/// background write after the `updated_at` compare-and-set misses (see
+/// [DeckRepository.updateCardMasteryGuarded]).
+@immutable
+class CardMasteryState {
+  const CardMasteryState({
+    required this.masteryLevel,
+    required this.failCount,
+    required this.updatedAt,
+  });
+
+  factory CardMasteryState.fromJson(Map<String, dynamic> json) =>
+      CardMasteryState(
+        masteryLevel: json['mastery_level'] as int,
+        failCount: json['fail_count'] as int,
+        updatedAt: DateTime.parse(json['updated_at'] as String),
+      );
+
+  final int masteryLevel;
+  final int failCount;
+  final DateTime updatedAt;
+}

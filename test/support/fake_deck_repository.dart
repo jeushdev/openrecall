@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:open_recall/features/decks/domain/bulk_paste_parser.dart';
 import 'package:open_recall/features/decks/domain/card.dart';
 import 'package:open_recall/features/decks/domain/deck.dart';
@@ -6,7 +8,10 @@ import 'package:open_recall/features/decks/domain/deck_repository.dart';
 /// In-memory [DeckRepository] for provider and widget tests.
 ///
 /// Records every mutating call, holds decks and cards in plain lists, and can
-/// be armed to throw on the next call.
+/// be armed to throw on the next call. Also backs the session engine's guarded
+/// `cards` writes ([updateCardMasteryGuarded] / [readCardMasteryState]) and
+/// [markDeckStudied]; [guardGate] and [failNextGuard] drive the write-race and
+/// guard-miss tests.
 class FakeDeckRepository implements DeckRepository {
   FakeDeckRepository({List<DeckSummary>? decks, List<FlashCard>? cards})
       : _decks = [...?decks],
@@ -21,6 +26,14 @@ class FakeDeckRepository implements DeckRepository {
   /// When set, the next repository call throws this and then clears it.
   Object? throwOnNextCall;
 
+  /// When set, [updateCardMasteryGuarded] awaits this before applying — lets a
+  /// test hold a background write open while another rating happens.
+  Completer<void>? guardGate;
+
+  /// When true, the next [updateCardMasteryGuarded] call reports a guard miss
+  /// (returns `null`) after nudging the row's `updated_at`, then clears.
+  bool failNextGuard = false;
+
   int _idSeq = 0;
   String _nextId(String prefix) => '$prefix-${++_idSeq}';
 
@@ -32,13 +45,26 @@ class FakeDeckRepository implements DeckRepository {
     }
   }
 
-  DateTime get _now => DateTime.utc(2026, 1, 1);
+  // A monotonic clock so every write moves `updated_at` — the compare-and-set
+  // guard is only observable if timestamps actually change.
+  int _tick = 0;
+  DateTime get _now =>
+      DateTime.utc(2026, 1, 1).add(Duration(seconds: _tick++));
+
+  FlashCard? cardById(String id) {
+    for (final c in _cards) {
+      if (c.id == id) return c;
+    }
+    return null;
+  }
 
   FlashCard _card({
     required String deckId,
     required String front,
     required String back,
     String? keyword,
+    int masteryLevel = 0,
+    int failCount = 0,
   }) =>
       FlashCard(
         id: _nextId('card'),
@@ -46,8 +72,8 @@ class FakeDeckRepository implements DeckRepository {
         front: front,
         back: back,
         keyword: keyword,
-        masteryLevel: 0,
-        failCount: 0,
+        masteryLevel: masteryLevel,
+        failCount: failCount,
         createdAt: _now,
         updatedAt: _now,
       );
@@ -149,4 +175,85 @@ class FakeDeckRepository implements DeckRepository {
     _maybeThrow();
     _cards.removeWhere((c) => c.id == id);
   }
+
+  @override
+  Future<CardMasteryState> readCardMasteryState(String cardId) async {
+    calls.add('readCardMasteryState($cardId)');
+    _maybeThrow();
+    final card = _cards.firstWhere((c) => c.id == cardId);
+    return CardMasteryState(
+      masteryLevel: card.masteryLevel,
+      failCount: card.failCount,
+      updatedAt: card.updatedAt,
+    );
+  }
+
+  @override
+  Future<FlashCard?> updateCardMasteryGuarded({
+    required String cardId,
+    required int masteryLevel,
+    required int failCount,
+    required DateTime expectedUpdatedAt,
+  }) async {
+    calls.add('updateCardMasteryGuarded(id=$cardId, mastery=$masteryLevel, '
+        'fail=$failCount)');
+    _maybeThrow();
+    await guardGate?.future;
+    final i = _cards.indexWhere((c) => c.id == cardId);
+    final existing = _cards[i];
+
+    if (failNextGuard) {
+      failNextGuard = false;
+      // Simulate a concurrent write: move updated_at so this and any later
+      // guard with the old timestamp miss.
+      _cards[i] = _rebuild(existing, updatedAt: _now);
+      return null;
+    }
+    if (existing.updatedAt != expectedUpdatedAt) return null;
+
+    final updated = _rebuild(
+      existing,
+      masteryLevel: masteryLevel,
+      failCount: failCount,
+      updatedAt: _now,
+    );
+    _cards[i] = updated;
+    return updated;
+  }
+
+  @override
+  Future<void> markDeckStudied(String deckId) async {
+    calls.add('markDeckStudied($deckId)');
+    _maybeThrow();
+    final i = _decks.indexWhere((d) => d.id == deckId);
+    if (i != -1) {
+      final d = _decks[i];
+      _decks[i] = DeckSummary(
+        id: d.id,
+        name: d.name,
+        lastStudiedAt: _now,
+        totalCards: d.totalCards,
+        dueCards: d.dueCards,
+        masteryPercent: d.masteryPercent,
+      );
+    }
+  }
+
+  FlashCard _rebuild(
+    FlashCard c, {
+    int? masteryLevel,
+    int? failCount,
+    DateTime? updatedAt,
+  }) =>
+      FlashCard(
+        id: c.id,
+        deckId: c.deckId,
+        front: c.front,
+        back: c.back,
+        keyword: c.keyword,
+        masteryLevel: masteryLevel ?? c.masteryLevel,
+        failCount: failCount ?? c.failCount,
+        createdAt: c.createdAt,
+        updatedAt: updatedAt ?? c.updatedAt,
+      );
 }

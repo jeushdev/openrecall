@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 
-/// Whether a session runs until every card is Mastered or parked (spec §5), or
-/// stops after a fixed number of distinct cards (spec §4).
-enum SessionLengthMode { untilMastered, capped }
+import '../../../study/domain/session_length.dart';
 
-/// The fixed cap presets (spec §4: "10/20/30/All", not freeform entry). `null`
-/// is the "All" preset — capped in name only, i.e. every card enters the queue.
-const List<int?> sessionCapPresets = [10, 20, 30, null];
+// The SessionLengthMode enum and sessionCapPresets now live in the study
+// feature's domain (the session engine owns them); re-exported here so the
+// Deck Overview and its tests keep importing them from this widget.
+export '../../../study/domain/session_length.dart'
+    show SessionLengthMode, sessionCapPresets;
 
 /// The session-length toggle on the Deck Overview (spec §4).
 ///

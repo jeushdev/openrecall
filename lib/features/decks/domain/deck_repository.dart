@@ -8,9 +8,11 @@ import 'deck.dart';
 /// through this interface — never `Supabase.instance` directly — so widget and
 /// provider tests run against an in-memory fake.
 ///
-/// Card authoring is online-only (spec §3), so these methods may await the
+/// Card authoring is online-only (spec §3), so those methods may await the
 /// network. The "never block on the network" rule is about *study*
-/// interactions, which this milestone does not touch.
+/// interactions — the session engine calls [updateCardMasteryGuarded] /
+/// [readCardMasteryState] / [markDeckStudied] here, but only ever in the
+/// background, never awaited before the next card.
 abstract interface class DeckRepository {
   /// Every deck the signed-in user owns, newest first, each with the aggregate
   /// counts the Deck Library shows.
@@ -44,4 +46,24 @@ abstract interface class DeckRepository {
 
   /// Permanently deletes a card.
   Future<void> deleteCard(String id);
+
+  /// The current `mastery_level` / `fail_count` / `updated_at` for one card —
+  /// used by the session engine to rebase a guarded write whose compare-and-set
+  /// missed.
+  Future<CardMasteryState> readCardMasteryState(String cardId);
+
+  /// Compare-and-set on `cards`: writes [masteryLevel] and [failCount] only if
+  /// the row's `updated_at` still equals [expectedUpdatedAt], and returns the
+  /// new row. Returns `null` if the guard missed (the row changed underneath).
+  /// `updated_at` itself is left to the database trigger.
+  Future<FlashCard?> updateCardMasteryGuarded({
+    required String cardId,
+    required int masteryLevel,
+    required int failCount,
+    required DateTime expectedUpdatedAt,
+  });
+
+  /// Stamps `decks.last_studied_at = now()`. Called when a session *starts*
+  /// (spec §2/§4), not when it completes.
+  Future<void> markDeckStudied(String deckId);
 }

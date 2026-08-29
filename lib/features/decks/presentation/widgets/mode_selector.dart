@@ -6,8 +6,8 @@ import '../../domain/study_mode.dart';
 ///
 /// Every mode is always shown; a mode the deck has no qualifying card for is
 /// rendered disabled with a caption, so it's clear the option exists but needs
-/// the right kind of card. Starting an actual session is milestone 6 — for now
-/// [onStart] just surfaces a placeholder.
+/// the right kind of card. [onStart] launches a session for Flip & Rate; the
+/// other modes are still placeholders until milestones 7–9.
 class ModeSelector extends StatelessWidget {
   const ModeSelector({
     super.key,

@@ -94,6 +94,44 @@ class SupabaseDeckRepository implements DeckRepository {
     await _client.from('cards').delete().eq('id', id);
   }
 
+  @override
+  Future<CardMasteryState> readCardMasteryState(String cardId) async {
+    final row = await _client
+        .from('cards')
+        .select('mastery_level, fail_count, updated_at')
+        .eq('id', cardId)
+        .single();
+    return CardMasteryState.fromJson(row);
+  }
+
+  @override
+  Future<FlashCard?> updateCardMasteryGuarded({
+    required String cardId,
+    required int masteryLevel,
+    required int failCount,
+    required DateTime expectedUpdatedAt,
+  }) async {
+    // Compare-and-set: the write only lands if updated_at hasn't moved since we
+    // last saw this row (Performance & Responsiveness: never a blind update).
+    // updated_at itself is left to the trigger.
+    final row = await _client
+        .from('cards')
+        .update({'mastery_level': masteryLevel, 'fail_count': failCount})
+        .eq('id', cardId)
+        .eq('updated_at', expectedUpdatedAt.toUtc().toIso8601String())
+        .select()
+        .maybeSingle();
+    return row == null ? null : FlashCard.fromJson(row);
+  }
+
+  @override
+  Future<void> markDeckStudied(String deckId) async {
+    await _client
+        .from('decks')
+        .update({'last_studied_at': DateTime.now().toUtc().toIso8601String()})
+        .eq('id', deckId);
+  }
+
   Map<String, dynamic> _cardValues(
     String deckId,
     String front,

@@ -9,6 +9,8 @@ import '../features/decks/presentation/deck_creator_screen.dart';
 import '../features/decks/presentation/deck_library_screen.dart';
 import '../features/decks/presentation/deck_overview_screen.dart';
 import '../features/splash/presentation/splash_screen.dart';
+import '../features/study/presentation/study_session_args.dart';
+import '../features/study/presentation/study_session_screen.dart';
 import 'app_routes.dart';
 import 'auth_redirect.dart';
 import 'go_router_refresh_stream.dart';
@@ -70,6 +72,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 builder: (context, state) => DeckCreatorScreen(
                   deckId: state.pathParameters['deckId']!,
                   deckName: state.extra as String?,
+                ),
+              ),
+              GoRoute(
+                path: AppRoutes.studySessionPath,
+                name: AppRoutes.studySessionName,
+                builder: (context, state) => StudySessionScreen(
+                  args: state.extra as StudySessionArgs?,
                 ),
               ),
             ],

@@ -32,6 +32,11 @@ abstract final class AppRoutes {
   static const String deckCreatorPath = 'edit';
   static const String deckCreatorName = 'deck-creator';
 
+  /// Study session (spec §5), at `/decks/:deckId/study`. Nested under the
+  /// Overview so exiting returns there. Takes a `StudySessionArgs` as `extra`.
+  static const String studySessionPath = 'study';
+  static const String studySessionName = 'study-session';
+
   /// Routes a signed-out user is allowed to sit on.
   static const Set<String> unauthenticatedPaths = {
     loginPath,
