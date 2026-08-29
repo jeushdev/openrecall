@@ -3,13 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:open_recall/features/decks/application/deck_providers.dart';
 import 'package:open_recall/features/decks/domain/card.dart';
-import 'package:open_recall/features/decks/domain/deck.dart';
-import 'package:open_recall/features/decks/presentation/deck_creator_screen.dart';
 import 'package:open_recall/features/decks/presentation/deck_overview_screen.dart';
-import 'package:open_recall/features/study/presentation/study_session_screen.dart';
 
 import '../../support/fake_deck_repository.dart';
-import '../../support/pump_app.dart';
 
 FlashCard _card({
   String id = 'card-1',
@@ -108,35 +104,6 @@ void main() {
     expect(_enabled(tester, 'Cloze Type-in'), isFalse);
   });
 
-  testWidgets('tapping Flip & Rate opens the study session', (tester) async {
-    _useTallSurface(tester);
-    await pumpApp(
-      tester,
-      signedIn: true,
-      decks: FakeDeckRepository(
-        decks: [
-          const DeckSummary(
-            id: 'deck-1',
-            name: 'Biology',
-            lastStudiedAt: null,
-            totalCards: 1,
-            dueCards: 1,
-            masteryPercent: 0,
-          ),
-        ],
-        cards: [_card()],
-      ),
-    );
-
-    await tester.tap(find.text('Biology'));
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.widgetWithText(FilledButton, 'Flip & Rate'));
-    await tester.pumpAndSettle();
-
-    expect(find.byType(StudySessionScreen), findsOneWidget);
-  });
-
   testWidgets('the capped toggle reveals the fixed presets', (tester) async {
     await tester.pumpWidget(_host(FakeDeckRepository(cards: [_card()])));
     await tester.pumpAndSettle();
@@ -191,33 +158,4 @@ void main() {
     expect(find.text('Troublemaker cards'), findsNothing);
   });
 
-  testWidgets('"Add cards" opens the Deck Creator for this deck', (tester) async {
-    _useTallSurface(tester);
-    await pumpApp(
-      tester,
-      signedIn: true,
-      decks: FakeDeckRepository(
-        decks: [
-          const DeckSummary(
-            id: 'deck-1',
-            name: 'Biology',
-            lastStudiedAt: null,
-            totalCards: 1,
-            dueCards: 1,
-            masteryPercent: 0,
-          ),
-        ],
-        cards: [_card()],
-      ),
-    );
-
-    await tester.tap(find.text('Biology'));
-    await tester.pumpAndSettle();
-    expect(find.byType(DeckOverviewScreen), findsOneWidget);
-
-    await tester.tap(find.widgetWithText(OutlinedButton, 'Add cards'));
-    await tester.pumpAndSettle();
-
-    expect(find.byType(DeckCreatorScreen), findsOneWidget);
-  });
 }

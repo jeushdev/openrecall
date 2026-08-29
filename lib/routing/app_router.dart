@@ -1,3 +1,4 @@
+import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -5,28 +6,37 @@ import '../features/auth/application/auth_providers.dart';
 import '../features/auth/presentation/forgot_password_screen.dart';
 import '../features/auth/presentation/login_screen.dart';
 import '../features/auth/presentation/signup_screen.dart';
-import '../features/decks/presentation/deck_creator_screen.dart';
-import '../features/decks/presentation/deck_library_screen.dart';
-import '../features/decks/presentation/deck_overview_screen.dart';
-import '../features/settings/presentation/settings_screen.dart';
 import '../features/splash/presentation/splash_screen.dart';
-import '../features/study/presentation/study_session_args.dart';
-import '../features/study/presentation/study_session_screen.dart';
+import '../features/study/domain/study_session.dart';
 import 'app_routes.dart';
 import 'auth_redirect.dart';
 import 'go_router_refresh_stream.dart';
+import 'placeholders/deck_creator_screen.dart';
+import 'placeholders/decks_tab_screen.dart';
+import 'placeholders/mastery_tab_screen.dart';
+import 'placeholders/profile_tab_screen.dart';
+import 'placeholders/settings_tab_screen.dart';
+import 'placeholders/study_session_screen.dart';
+import 'scaffold_with_nav_bar.dart';
 
-/// The app's [GoRouter] instance.
+/// The app's [GoRouter] instance (ui-spec-v1 §4).
 ///
-/// Auth is the only routing concern: [authRedirect] gates every navigation
-/// against the current session, and [GoRouterRefreshStream] re-runs it whenever
-/// the session appears or clears. [SplashScreen] is now a passive frame — the
-/// redirect resolves `/` to Login or the Deck Library on the first build.
+/// A [StatefulShellRoute.indexedStack] preserves each tab branch's state across
+/// switches; [ScaffoldWithNavBar] supplies the shell chrome. Everything else —
+/// the study session and the deck creator — is a top-level route outside the
+/// shell, so the bottom nav bar is naturally absent there.
+///
+/// Auth is the other routing concern: [authRedirect] gates every navigation
+/// against the current session and [GoRouterRefreshStream] re-runs it whenever
+/// the session appears or clears. [SplashScreen] is a passive frame — the
+/// redirect resolves `/` to Login or `/decks` on the first build.
 final appRouterProvider = Provider<GoRouter>((ref) {
   final auth = ref.watch(authRepositoryProvider);
   final refresh = GoRouterRefreshStream(auth.authStateChanges());
+  final rootNavigatorKey = GlobalKey<NavigatorState>();
 
   final router = GoRouter(
+    navigatorKey: rootNavigatorKey,
     initialLocation: AppRoutes.splashPath,
     refreshListenable: refresh,
     redirect: (context, state) => authRedirect(
@@ -54,42 +64,64 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         name: AppRoutes.forgotPasswordName,
         builder: (context, state) => const ForgotPasswordScreen(),
       ),
-      GoRoute(
-        path: AppRoutes.settingsPath,
-        name: AppRoutes.settingsName,
-        builder: (context, state) => const SettingsScreen(),
-      ),
-      GoRoute(
-        path: AppRoutes.deckLibraryPath,
-        name: AppRoutes.deckLibraryName,
-        builder: (context, state) => const DeckLibraryScreen(),
-        routes: [
-          GoRoute(
-            path: AppRoutes.deckOverviewPath,
-            name: AppRoutes.deckOverviewName,
-            builder: (context, state) => DeckOverviewScreen(
-              deckId: state.pathParameters['deckId']!,
-              deckName: state.extra as String?,
-            ),
+      StatefulShellRoute.indexedStack(
+        builder: (context, state, navigationShell) =>
+            ScaffoldWithNavBar(navigationShell: navigationShell),
+        branches: [
+          StatefulShellBranch(
             routes: [
               GoRoute(
-                path: AppRoutes.deckCreatorPath,
-                name: AppRoutes.deckCreatorName,
-                builder: (context, state) => DeckCreatorScreen(
-                  deckId: state.pathParameters['deckId']!,
-                  deckName: state.extra as String?,
-                ),
+                path: AppRoutes.deckLibraryPath,
+                name: AppRoutes.deckLibraryName,
+                builder: (context, state) => const DecksTabScreen(),
               ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
               GoRoute(
-                path: AppRoutes.studySessionPath,
-                name: AppRoutes.studySessionName,
-                builder: (context, state) => StudySessionScreen(
-                  args: state.extra as StudySessionArgs?,
-                ),
+                path: AppRoutes.masteryPath,
+                name: AppRoutes.masteryName,
+                builder: (context, state) => const MasteryTabScreen(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: AppRoutes.profilePath,
+                name: AppRoutes.profileName,
+                builder: (context, state) => const ProfileTabScreen(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: AppRoutes.settingsPath,
+                name: AppRoutes.settingsName,
+                builder: (context, state) => const SettingsTabScreen(),
               ),
             ],
           ),
         ],
+      ),
+      GoRoute(
+        path: AppRoutes.studySessionPath,
+        name: AppRoutes.studySessionName,
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) => StudySessionScreen(
+          deckId: state.pathParameters['deckId']!,
+          // `scope` maps directly to CardScope; anything but `all` (including
+          // absent or malformed) resolves to `due` per §4.
+          scope: cardScopeFromDb(state.uri.queryParameters['scope'] ?? 'due'),
+        ),
+      ),
+      GoRoute(
+        path: AppRoutes.deckCreatorPath,
+        name: AppRoutes.deckCreatorName,
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) => const DeckCreatorScreen(),
       ),
     ],
   );

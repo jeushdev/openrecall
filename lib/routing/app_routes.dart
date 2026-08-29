@@ -17,30 +17,40 @@ abstract final class AppRoutes {
   static const String forgotPasswordPath = '/forgot-password';
   static const String forgotPasswordName = 'forgot-password';
 
+  // --- Shell tabs (ui-spec-v1 §4). Four branches of a
+  //     StatefulShellRoute.indexedStack; the bottom nav bar is part of the
+  //     shell scaffold and never mounts outside it.
+
   static const String deckLibraryPath = '/decks';
   static const String deckLibraryName = 'decks';
 
-  /// Settings & account management (spec §9). Top-level, signed-in only —
-  /// [authRedirect] already permits any unlisted path for a signed-in user.
+  static const String masteryPath = '/mastery';
+  static const String masteryName = 'mastery';
+
+  static const String profilePath = '/profile';
+  static const String profileName = 'profile';
+
+  /// Settings & account management (spec §9, ui-spec-v1 §6.5).
   static const String settingsPath = '/settings';
   static const String settingsName = 'settings';
 
-  /// Deck Overview (spec §4). Nested under [deckLibraryPath] as `/decks/:deckId`
-  /// so the back button returns to the library. Takes a `deckId` path parameter
-  /// and, optionally, the deck name as `extra` for the app-bar title.
-  static const String deckOverviewPath = ':deckId';
-  static const String deckOverviewName = 'deck-overview';
+  // --- Top-level routes, outside the shell (ui-spec-v1 §4). No bottom bar.
 
-  /// Deck Creator / card-manager, at `/decks/:deckId/edit`. Reached from
-  /// "+Create deck" (a fresh empty deck) and from the Overview's "Add cards".
-  /// Same `deckId` path parameter and `extra` deck name as the Overview.
-  static const String deckCreatorPath = 'edit';
+  /// Study session (ui-spec-v1 §6.2), at `/study/:deckId`. Accepts an optional
+  /// `scope=due|all` query parameter mapping to `CardScope`; defaults to `due`.
+  static const String studySessionPath = '/study/:deckId';
+  static const String studySessionName = 'study-session';
+
+  /// Deck Creator / card-manager (ui-spec-v1 §4). Pushed by the shell's centre
+  /// Create action so back-navigation returns to whichever tab launched it.
+  static const String deckCreatorPath = '/deck-creator';
   static const String deckCreatorName = 'deck-creator';
 
-  /// Study session (spec §5), at `/decks/:deckId/study`. Nested under the
-  /// Overview so exiting returns there. Takes a `StudySessionArgs` as `extra`.
-  static const String studySessionPath = 'study';
-  static const String studySessionName = 'study-session';
+  // --- Legacy — screens not yet rewired into the revamp shell (U4/U5). The
+  //     `DeckLibraryScreen` / `DeckOverviewScreen` widgets still reference
+  //     `deckOverviewName` and compile, but no route is registered for it, so
+  //     a `pushNamed` would throw at runtime. They are unreachable until U4.
+  static const String deckOverviewName = 'deck-overview';
 
   /// Routes a signed-out user is allowed to sit on.
   static const Set<String> unauthenticatedPaths = {
