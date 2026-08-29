@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'app.dart';
+import 'features/notifications/application/notification_providers.dart';
+import 'features/notifications/data/notification_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -16,5 +18,11 @@ Future<void> main() async {
     publishableKey: dotenv.env['SUPABASE_ANON_KEY']!,
   );
 
-  runApp(const ProviderScope(child: OpenRecallApp()));
+  final notifications = NotificationService();
+  await notifications.init();
+
+  runApp(ProviderScope(
+    overrides: [notificationServiceProvider.overrideWithValue(notifications)],
+    child: const OpenRecallApp(),
+  ));
 }

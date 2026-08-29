@@ -7,6 +7,8 @@ import '../../decks/application/deck_providers.dart';
 import '../../decks/domain/card.dart';
 import '../../decks/domain/deck_repository.dart';
 import '../../decks/domain/study_mode.dart';
+import '../../notifications/application/notification_providers.dart';
+import '../../notifications/data/notification_service.dart';
 import '../data/supabase_study_repository.dart';
 import '../domain/cloze_outcome.dart';
 import '../domain/flip_rating.dart';
@@ -75,6 +77,20 @@ class SessionController extends Notifier<AsyncValue<StudySessionState?>> {
 
   DeckRepository get _decks => ref.read(deckRepositoryProvider);
   StudyRepository get _study => ref.read(studyRepositoryProvider);
+  NotificationService get _notifications =>
+      ref.read(notificationServiceProvider);
+
+  /// Fire-and-forget a notification call. Study interactions must never block on
+  /// or fail because of a reminder write (see CLAUDE.md "Performance").
+  void _notify(Future<void> Function() action) {
+    unawaited(Future(() async {
+      try {
+        await action();
+      } catch (_) {
+        // A missing permission or platform hiccup must not surface here.
+      }
+    }));
+  }
 
   final Map<String, _CardSync> _sync = {};
   final Map<String, Future<void>> _writeChains = {};
@@ -136,7 +152,11 @@ class SessionController extends Notifier<AsyncValue<StudySessionState?>> {
       );
     });
 
-    if (state.hasValue) ref.invalidate(decksProvider);
+    if (state.hasValue) {
+      ref.invalidate(decksProvider);
+      // The user is back studying — drop any pending "come back" reminder.
+      _notify(_notifications.cancelReturnReminder);
+    }
   }
 
   /// Starts the "drill parked cards now" session from the Session Summary
@@ -172,7 +192,10 @@ class SessionController extends Notifier<AsyncValue<StudySessionState?>> {
       );
     });
 
-    if (state.hasValue) ref.invalidate(decksProvider);
+    if (state.hasValue) {
+      ref.invalidate(decksProvider);
+      _notify(_notifications.cancelReturnReminder);
+    }
   }
 
   /// Inserts the `study_sessions` + `session_cards` rows for [ordered], stamps
@@ -347,6 +370,18 @@ class SessionController extends Notifier<AsyncValue<StudySessionState?>> {
     if (current == null) return;
     ref.invalidate(deckCardsProvider(current.deckId));
     ref.invalidate(decksProvider);
+
+    if (!current.isComplete) {
+      // Cards still below Mastered: the ones left in the queue plus any parked
+      // this session (spec §8 — the "most recent session" reminder).
+      final outstanding = current.queue.length + current.parkedCardIds.length;
+      if (outstanding > 0) {
+        _notify(() => _notifications.scheduleReturnReminder(
+              deckName: current.deckName,
+              unfinishedCount: outstanding,
+            ));
+      }
+    }
   }
 
   /// Clears the finished/errored session so the next `start` builds fresh.
@@ -368,6 +403,18 @@ class SessionController extends Notifier<AsyncValue<StudySessionState?>> {
       // Non-fatal: the Session Summary is driven by in-memory state, not this
       // write.
     }
+
+    // Spec §8: a completed session still leaves parked cards for next time.
+    final parked = current.parkedCardIds.length;
+    if (parked > 0) {
+      _notify(() => _notifications.scheduleReturnReminder(
+            deckName: current.deckName,
+            unfinishedCount: parked,
+          ));
+    } else {
+      _notify(_notifications.cancelReturnReminder);
+    }
+
     ref.invalidate(deckCardsProvider(current.deckId));
     ref.invalidate(decksProvider);
   }
