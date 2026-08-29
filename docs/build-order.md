@@ -1,6 +1,8 @@
 # ActiveRecall — Build Order
 
-14 milestones, in dependency order — each assumes the ones above it work. Use these as your GitHub issues, same as Synapse. Point Claude Code at exactly one per session (see the loop in CLAUDE.md / our planning chat).
+17 milestones, in dependency order — each assumes the ones above it work. Use these as your GitHub issues, same as Synapse. Point Claude Code at exactly one per session (see the loop in CLAUDE.md / our planning chat).
+
+Milestones 1–14 are v1 / Beta. Milestones 15–17 are **Engine V2** — see `docs/engine-v2-spec.md` for the full decision-by-decision spec.
 
 ---
 
@@ -73,3 +75,27 @@
 - Scope: sample starter deck, signed release APK build, Google Form link placed somewhere reachable, final check against Beta Logistics
 - Spec refs: Phase scope, Beta logistics
 - Done when: a classmate can install the signed APK with zero developer tools and it runs
+
+---
+
+## Engine V2 (milestones 15–17)
+
+Data layer, one queue-scope option, and a local aggregation layer — the plumbing for a
+later UI revamp. No new screens in these milestones. Full spec: `docs/engine-v2-spec.md`.
+
+**15. Engine V2 data layer**
+- Scope: new `courses` table (RLS, `updated_at` trigger, `user_id` index, `is_default` partial-unique index, named `accent_color` check); `decks.course_id` (`NO ACTION` FK) + index + `before insert` default-course trigger + course-ownership clause on the `decks` RLS `with check`; `study_sessions.card_scope`; `handle_new_user` extended to create the default course; rewrite `supabase/schema.sql` and re-apply to the fresh (test-only) project; `Course` model + `CourseRepository` (read path); `Deck`/`DeckSummary`/`StudySession`/`StudySessionArgs` field additions; `fetchDecks`/`fetchDeck` select updates; SQLite `_version` → 2 + `onUpgrade` + `offline_courses` + `offline_decks.course_id` + `offline_study_sessions.card_scope` + store map updates + schema-parity test
+- Spec refs: engine-v2-spec.md §3, §5
+- Done when: the schema re-applies cleanly to a fresh project, a new signup auto-creates a `profiles` row and a default `courses` row, every existing deck ends up on its owner's default course, `flutter analyze` is clean, and `flutter test` is green (including the schema-parity test) — with zero visible change to the app
+
+**16. "Study all cards" queue option**
+- Scope: `CardScope` argument on `selectSessionCards` (skips the `isDue` filter for `all`); `SessionController.start` threads `cardScope` from args → queue selection → `_seedSession`'s `card_scope` write; extend the `session_queue_selection` / `session_controller` / `study_session_state` suites. Plumbing only — the toggle widget is part of the UI revamp
+- Spec refs: engine-v2-spec.md §4
+- Done when: a test session seeded with `CardScope.all` on a fully-mastered deck builds a non-empty queue containing the Mastered cards, its `study_sessions` row records `card_scope = 'all'`, and a `due` session behaves exactly as before
+
+**17. Local aggregation layer**
+- Scope: `overallMasteryProvider` (card-weighted, pure); app-wide Troublemakers repo method + provider (targeted `cards` query); per-deck run-through count derived from `study_sessions` (`card_scope = 'all' and status = 'completed'`); `CourseSummary` per-course rollups. Providers + repo methods + tests, no widgets
+- Spec refs: engine-v2-spec.md §6
+- Done when: each provider returns correct values against a fixture dataset, the pure functions have no DB dependency, and `flutter test` is green
+
+(16 and 17 are both light and can be done in one session if preferred; 15 stands alone.)
