@@ -8,11 +8,11 @@ import 'package:open_recall/features/auth/presentation/login_screen.dart';
 import 'package:open_recall/features/decks/application/deck_providers.dart';
 import 'package:open_recall/features/decks/domain/card.dart';
 import 'package:open_recall/features/decks/presentation/decks_tab_screen.dart';
+import 'package:open_recall/features/stats/presentation/mastery_tab_screen.dart';
 import 'package:open_recall/features/study/application/session_controller.dart';
 import 'package:open_recall/features/study/presentation/study_session_screen.dart';
 import 'package:open_recall/routing/glass_bottom_nav_bar.dart';
 import 'package:open_recall/routing/placeholders/deck_creator_screen.dart';
-import 'package:open_recall/routing/placeholders/mastery_tab_screen.dart';
 import 'package:open_recall/routing/placeholders/settings_tab_screen.dart';
 
 import '../support/fake_auth_repository.dart';

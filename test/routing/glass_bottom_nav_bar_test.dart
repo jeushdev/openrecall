@@ -3,9 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:open_recall/app.dart';
 import 'package:open_recall/features/auth/application/auth_providers.dart';
+import 'package:open_recall/features/stats/presentation/mastery_tab_screen.dart';
 import 'package:open_recall/routing/glass_bottom_nav_bar.dart';
 import 'package:open_recall/routing/placeholders/deck_creator_screen.dart';
-import 'package:open_recall/routing/placeholders/mastery_tab_screen.dart';
 import 'package:open_recall/theme/app_tokens.dart';
 
 import '../support/fake_auth_repository.dart';
