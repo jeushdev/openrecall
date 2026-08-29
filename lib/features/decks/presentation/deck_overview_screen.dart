@@ -88,7 +88,11 @@ class _DeckOverviewScreenState extends ConsumerState<DeckOverviewScreen> {
     );
   }
 
-  static const _launchableModes = {StudyMode.flip, StudyMode.cloze};
+  static const _launchableModes = {
+    StudyMode.flip,
+    StudyMode.cloze,
+    StudyMode.list,
+  };
 
   void _startMode(StudyMode mode) {
     if (!_launchableModes.contains(mode)) {

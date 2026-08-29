@@ -10,14 +10,15 @@ import '../domain/study_session_state.dart';
 import 'study_session_args.dart';
 import 'widgets/cloze_card_view.dart';
 import 'widgets/flip_card_view.dart';
+import 'widgets/list_card_view.dart';
 import 'widgets/park_prompt_dialog.dart';
 import 'widgets/rating_bar.dart';
 import 'widgets/session_progress_indicator.dart';
 
-/// The study execution screen. Handles Flip & Rate (spec §5A) and Cloze Type-in
-/// (spec §5B), branching on `session.studyMode`; List and Feynman route here
-/// later. Exiting — the close button, system back, or completion — returns to
-/// the Deck Overview.
+/// The study execution screen. Handles Flip & Rate (spec §5A), Cloze Type-in
+/// (spec §5B), and List Unmask (spec §5C), branching on `session.studyMode`;
+/// Feynman routes here later. Exiting — the close button, system back, or
+/// completion — returns to the Deck Overview.
 class StudySessionScreen extends ConsumerStatefulWidget {
   const StudySessionScreen({super.key, required this.args});
 
@@ -122,6 +123,7 @@ class _StudySessionScreenState extends ConsumerState<StudySessionScreen> {
           onExit: _exitAndLeave,
           onRate: notifier.rate,
           onCloze: notifier.submitCloze,
+          onList: notifier.submitList,
         );
       },
     );
@@ -134,12 +136,14 @@ class _ActiveBody extends StatefulWidget {
     required this.onExit,
     required this.onRate,
     required this.onCloze,
+    required this.onList,
   });
 
   final StudySessionState state;
   final VoidCallback onExit;
   final ValueChanged<FlipRating> onRate;
   final ValueChanged<ClozeOutcome> onCloze;
+  final ValueChanged<int> onList;
 
   @override
   State<_ActiveBody> createState() => _ActiveBodyState();
@@ -196,6 +200,12 @@ class _ActiveBodyState extends State<_ActiveBody> {
                 key: ValueKey(_presentationKey),
                 card: item.card,
                 onResult: widget.onCloze,
+              )
+            else if (state.session.studyMode == StudyMode.list)
+              ListCardView(
+                key: ValueKey(_presentationKey),
+                card: item.card,
+                onResult: widget.onList,
               )
             else ...[
               FlipCardView(

@@ -6,8 +6,8 @@ import '../../domain/study_mode.dart';
 ///
 /// Every mode is always shown; a mode the deck has no qualifying card for is
 /// rendered disabled with a caption, so it's clear the option exists but needs
-/// the right kind of card. [onStart] launches a session for Flip & Rate and
-/// Cloze Type-in; List and Feynman are still placeholders until milestones 8–9.
+/// the right kind of card. [onStart] launches a session for Flip & Rate, Cloze
+/// Type-in, and List Unmask; Feynman is still a placeholder until milestone 9.
 class ModeSelector extends StatelessWidget {
   const ModeSelector({
     super.key,

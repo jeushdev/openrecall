@@ -171,6 +171,11 @@ class SessionController extends Notifier<AsyncValue<StudySessionState?>> {
   /// been mapped to a `mastery_level`.
   void submitCloze(ClozeOutcome outcome) => _applyResult(outcome.masteryLevel);
 
+  /// Applies a List card result to the current card (spec §5C/§6) — synchronous
+  /// and optimistic, exactly like [rate]. The reveal ratio has already been
+  /// mapped to a `mastery_level` by the List widget.
+  void submitList(int masteryLevel) => _applyResult(masteryLevel);
+
   /// The shared optimistic-progression path for every mode: advance the
   /// in-memory queue now, then fire the guarded `cards` write and the
   /// session-scoped `session_cards` write in the background.
