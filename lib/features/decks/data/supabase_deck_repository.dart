@@ -19,7 +19,7 @@ class SupabaseDeckRepository implements DeckRepository {
   Future<List<DeckSummary>> fetchDecks() async {
     final rows = await _client
         .from('decks')
-        .select('id, name, last_studied_at, created_at, updated_at, '
+        .select('id, name, course_id, last_studied_at, created_at, updated_at, '
             'cards(mastery_level)')
         .order('created_at', ascending: false);
     return rows.map(DeckSummary.fromJson).toList();

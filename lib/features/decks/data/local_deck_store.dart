@@ -58,6 +58,7 @@ class LocalDeckStore {
   Future<void> downloadDeck({
     required String deckId,
     required String name,
+    String? courseId,
     DateTime? lastStudiedAt,
     required List<FlashCard> cards,
   }) async {
@@ -69,6 +70,7 @@ class LocalDeckStore {
         {
           'id': deckId,
           'name': name,
+          'course_id': courseId,
           'last_studied_at': lastStudiedAt?.toUtc().toIso8601String(),
         },
         conflictAlgorithm: ConflictAlgorithm.replace,
@@ -117,6 +119,7 @@ class LocalDeckStore {
         'offline_decks',
         {
           'name': d.name,
+          'course_id': d.courseId,
           'last_studied_at': d.lastStudiedAt?.toUtc().toIso8601String(),
         },
         where: 'id = ?',
@@ -179,6 +182,7 @@ class LocalDeckStore {
       result.add(DeckSummary(
         id: id,
         name: d['name'] as String,
+        courseId: d['course_id'] as String?,
         lastStudiedAt: _parseNullable(d['last_studied_at']),
         totalCards: levels.length,
         dueCards: levels.where((l) => l < masteredLevel).length,

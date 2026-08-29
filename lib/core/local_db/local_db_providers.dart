@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sqflite/sqflite.dart';
 
+import '../../features/courses/data/local_course_store.dart';
 import '../../features/decks/data/local_deck_store.dart';
 import '../../features/study/data/local_study_store.dart';
 import 'app_database.dart';
@@ -21,3 +22,7 @@ final localDeckStoreProvider =
 /// The DAO for `offline_study_sessions` / `offline_session_cards`.
 final localStudyStoreProvider =
     Provider<LocalStudyStore>((ref) => LocalStudyStore(_db(ref)));
+
+/// The DAO for `offline_courses`.
+final localCourseStoreProvider =
+    Provider<LocalCourseStore>((ref) => LocalCourseStore(_db(ref)));

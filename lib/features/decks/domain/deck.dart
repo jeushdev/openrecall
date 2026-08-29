@@ -11,11 +11,13 @@ class Deck {
     required this.lastStudiedAt,
     required this.createdAt,
     required this.updatedAt,
+    this.courseId,
   });
 
   factory Deck.fromJson(Map<String, dynamic> json) => Deck(
         id: json['id'] as String,
         name: json['name'] as String,
+        courseId: json['course_id'] as String?,
         lastStudiedAt: _parseNullableDate(json['last_studied_at']),
         createdAt: DateTime.parse(json['created_at'] as String),
         updatedAt: DateTime.parse(json['updated_at'] as String),
@@ -23,6 +25,11 @@ class Deck {
 
   final String id;
   final String name;
+
+  /// The `courses` row this deck belongs to (engine-v2-spec §3.2). Nullable in
+  /// the model only because the local mirror may not have it yet; a deck fetched
+  /// from Supabase always has one (the column is NOT NULL, filled by a trigger).
+  final String? courseId;
   final DateTime? lastStudiedAt;
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -43,6 +50,7 @@ class DeckSummary {
     required this.totalCards,
     required this.dueCards,
     required this.masteryPercent,
+    this.courseId,
   });
 
   /// Builds from a `decks` row with an embedded `cards(mastery_level)` list,
@@ -55,6 +63,7 @@ class DeckSummary {
     return DeckSummary(
       id: json['id'] as String,
       name: json['name'] as String,
+      courseId: json['course_id'] as String?,
       lastStudiedAt: _parseNullableDate(json['last_studied_at']),
       totalCards: levels.length,
       dueCards: levels.where((l) => l < masteredLevel).length,
@@ -64,6 +73,9 @@ class DeckSummary {
 
   final String id;
   final String name;
+
+  /// See [Deck.courseId].
+  final String? courseId;
   final DateTime? lastStudiedAt;
   final int totalCards;
   final int dueCards;
