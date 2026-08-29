@@ -46,6 +46,13 @@ abstract final class AppRoutes {
   static const String deckCreatorPath = '/deck-creator';
   static const String deckCreatorName = 'deck-creator';
 
+  /// Add Card — a rapid single-card entry screen for one deck, at
+  /// `/deck/:deckId/add-card` (optional `name` query parameter for the title).
+  /// Reached straight after creating a deck and from the study-session
+  /// dead-ends. Outside the shell, like the study session.
+  static const String addCardPath = '/deck/:deckId/add-card';
+  static const String addCardName = 'add-card';
+
   // --- Legacy — screens not yet rewired into the revamp shell (U4/U5). The
   //     `DeckLibraryScreen` / `DeckOverviewScreen` widgets still reference
   //     `deckOverviewName` and compile, but no route is registered for it, so

@@ -8,6 +8,7 @@ import '../../features/decks/application/decks_tab_view.dart';
 import '../../features/decks/presentation/widgets/course_selector.dart';
 import '../../theme/app_geometry.dart';
 import '../../theme/app_tokens.dart';
+import '../app_routes.dart';
 
 /// The Deck Creator (`/deck-creator`, ui-spec-v1 §4) — name a deck, pick the
 /// course it belongs to, create it.
@@ -40,14 +41,20 @@ class _DeckCreatorScreenState extends ConsumerState<DeckCreatorScreen> {
   }
 
   Future<void> _create() async {
-    final created =
+    final deckId =
         await ref.read(deckCreatorControllerProvider.notifier).submit();
-    if (!created || !mounted) return;
+    if (deckId == null || !mounted) return;
     // The Decks tab's grid reads its own provider (not `decksProvider`), and the
     // shell stays mounted underneath this route — refresh it so the new deck is
-    // there when we pop back.
+    // there when we come back.
     refreshDecksTab(ref);
-    context.pop();
+    // Straight into Add Card for the brand-new deck. `pushReplacement` so Back
+    // from there returns to the Decks tab, not this now-stale form.
+    context.pushReplacementNamed(
+      AppRoutes.addCardName,
+      pathParameters: {'deckId': deckId},
+      queryParameters: {'name': _nameController.text.trim()},
+    );
   }
 
   @override

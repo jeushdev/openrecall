@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../routing/app_routes.dart';
 import '../../../theme/app_tokens.dart';
 import '../../decks/application/deck_providers.dart';
 import '../../decks/domain/study_mode.dart';
@@ -113,6 +114,18 @@ class _StudySessionScreenState extends ConsumerState<StudySessionScreen> {
     ref.invalidate(preSessionCardsProvider(widget.deckId));
   }
 
+  /// Opens Add Card for this deck from a "can't study" dead-end. On return the
+  /// pre-session load is invalidated so a now-populated deck can be studied
+  /// without leaving the screen.
+  Future<void> _addCards() async {
+    await context.pushNamed(
+      AppRoutes.addCardName,
+      pathParameters: {'deckId': widget.deckId},
+    );
+    if (!mounted) return;
+    ref.invalidate(preSessionCardsProvider(widget.deckId));
+  }
+
   /// Routes a picked mode: Feynman detours through the timer-preset picker
   /// first (§6.2.1); every other mode starts the session straight away.
   void _onModeSelected(StudyMode mode) {
@@ -191,8 +204,8 @@ class _StudySessionScreenState extends ConsumerState<StudySessionScreen> {
             text: empty
                 ? 'Nothing to study — every card here is already mastered.'
                 : "Couldn't start this session.",
-            actionLabel: empty ? null : 'Retry',
-            onAction: empty ? null : _retry,
+            actionLabel: empty ? 'Add cards' : 'Retry',
+            onAction: empty ? _addCards : _retry,
             onBack: _leave,
           ),
         );
@@ -233,6 +246,8 @@ class _StudySessionScreenState extends ConsumerState<StudySessionScreen> {
           if (list.isEmpty) {
             return _Message(
               text: 'Nothing to study in this deck yet.',
+              actionLabel: 'Add cards',
+              onAction: _addCards,
               onBack: _leave,
             );
           }

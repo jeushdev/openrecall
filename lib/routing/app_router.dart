@@ -6,6 +6,7 @@ import '../features/auth/application/auth_providers.dart';
 import '../features/auth/presentation/forgot_password_screen.dart';
 import '../features/auth/presentation/login_screen.dart';
 import '../features/auth/presentation/signup_screen.dart';
+import '../features/decks/presentation/add_card_screen.dart';
 import '../features/decks/presentation/decks_tab_screen.dart';
 import '../features/splash/presentation/splash_screen.dart';
 import '../features/stats/presentation/mastery_tab_screen.dart';
@@ -122,6 +123,15 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         name: AppRoutes.deckCreatorName,
         parentNavigatorKey: rootNavigatorKey,
         builder: (context, state) => const DeckCreatorScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.addCardPath,
+        name: AppRoutes.addCardName,
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) => AddCardScreen(
+          deckId: state.pathParameters['deckId']!,
+          deckName: state.uri.queryParameters['name'],
+        ),
       ),
     ],
   );

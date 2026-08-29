@@ -10,6 +10,7 @@ import 'package:open_recall/features/study/presentation/study_session_screen.dar
 import 'package:open_recall/features/study/presentation/widgets/cloze_reveal_card.dart';
 import 'package:open_recall/features/study/presentation/widgets/flip_card.dart';
 import 'package:open_recall/features/study/presentation/widgets/session_summary_view.dart';
+import 'package:open_recall/routing/app_routes.dart';
 import 'package:open_recall/theme/app_theme.dart';
 
 import '../../support/fake_deck_repository.dart';
@@ -54,6 +55,13 @@ Widget _host({
             ),
           ),
         ],
+      ),
+      GoRoute(
+        path: AppRoutes.addCardPath,
+        name: AppRoutes.addCardName,
+        builder: (_, state) => Scaffold(
+          body: Text('add-card ${state.pathParameters['deckId']}'),
+        ),
       ),
     ],
   );
@@ -278,4 +286,30 @@ void main() {
     expect(find.byType(CircularProgressIndicator), findsNothing);
   });
 
+  testWidgets('the no-cards empty state opens Add Card for the deck',
+      (tester) async {
+    await _open(
+      tester,
+      decks: FakeDeckRepository(cards: const []),
+      study: FakeStudyRepository(),
+    );
+
+    await tester.tap(find.widgetWithText(FilledButton, 'Add cards'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('add-card deck-1'), findsOneWidget);
+  });
+
+  testWidgets('the all-mastered dead-end offers Add Card', (tester) async {
+    await _open(
+      tester,
+      decks: FakeDeckRepository(cards: [_card('a', mastery: 4)]),
+      study: FakeStudyRepository(),
+    );
+
+    await tester.tap(find.widgetWithText(FilledButton, 'Add cards'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('add-card deck-1'), findsOneWidget);
+  });
 }

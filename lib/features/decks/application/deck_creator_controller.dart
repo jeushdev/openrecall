@@ -66,10 +66,11 @@ class DeckCreatorController extends Notifier<DeckCreatorState> {
   }
 
   /// Creates the deck via [DecksController] (which invalidates `decksProvider`).
-  /// Returns `true` on success; on failure leaves a [DeckCreatorState.error]
-  /// for the screen to show and re-enables the form.
-  Future<bool> submit() async {
-    if (!state.canSubmit) return false;
+  /// Returns the new deck's id on success — the screen navigates straight to Add
+  /// Card for it — or `null` on failure, leaving a [DeckCreatorState.error] for
+  /// the screen to show and re-enabling the form.
+  Future<String?> submit() async {
+    if (!state.canSubmit) return null;
     state = state.copyWith(isSubmitting: true, error: () => null);
 
     final deck = await ref.read(decksControllerProvider.notifier).createDeck(
@@ -77,13 +78,13 @@ class DeckCreatorController extends Notifier<DeckCreatorState> {
           courseId: state.selectedCourseId,
         );
 
-    if (deck != null) return true;
+    if (deck != null) return deck.id;
 
     state = state.copyWith(
       isSubmitting: false,
       error: () =>
           "Couldn't create the deck. Check your connection and try again.",
     );
-    return false;
+    return null;
   }
 }

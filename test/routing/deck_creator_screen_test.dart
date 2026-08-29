@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:open_recall/features/courses/application/course_providers.dart';
 import 'package:open_recall/features/decks/application/deck_providers.dart';
+import 'package:open_recall/routing/app_routes.dart';
 import 'package:open_recall/routing/placeholders/deck_creator_screen.dart';
 import 'package:open_recall/theme/app_theme.dart';
 
@@ -28,6 +29,13 @@ Future<void> _pump(
       GoRoute(
         path: '/deck-creator',
         builder: (_, _) => const DeckCreatorScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.addCardPath,
+        name: AppRoutes.addCardName,
+        builder: (_, state) => Scaffold(
+          body: Text('add-card ${state.pathParameters['deckId']}'),
+        ),
       ),
     ],
   );
@@ -79,7 +87,8 @@ void main() {
     expect(_createEnabled(tester), isTrue);
   });
 
-  testWidgets('Create calls createDeck with the name and course id, then pops',
+  testWidgets(
+      'Create calls createDeck with the name and course id, then opens Add Card',
       (tester) async {
     final decks = FakeDeckRepository();
     await _pump(tester, decks: decks);
@@ -91,7 +100,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(decks.calls, contains('createDeck(Cells, course=course-2)'));
-    expect(find.text('home'), findsOneWidget);
+    // The freshly-created deck's id (FakeDeckRepository mints 'deck-1').
+    expect(find.text('add-card deck-1'), findsOneWidget);
     expect(find.byType(DeckCreatorScreen), findsNothing);
   });
 
