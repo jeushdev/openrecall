@@ -9,6 +9,7 @@ import '../features/auth/presentation/signup_screen.dart';
 import '../features/decks/presentation/decks_tab_screen.dart';
 import '../features/splash/presentation/splash_screen.dart';
 import '../features/study/domain/study_session.dart';
+import '../features/study/presentation/study_session_screen.dart';
 import 'app_routes.dart';
 import 'auth_redirect.dart';
 import 'go_router_refresh_stream.dart';
@@ -16,7 +17,6 @@ import 'placeholders/deck_creator_screen.dart';
 import 'placeholders/mastery_tab_screen.dart';
 import 'placeholders/profile_tab_screen.dart';
 import 'placeholders/settings_tab_screen.dart';
-import 'placeholders/study_session_screen.dart';
 import 'scaffold_with_nav_bar.dart';
 
 /// The app's [GoRouter] instance (ui-spec-v1 §4).

@@ -28,3 +28,58 @@ String blankKeyword(String text, String? keyword) {
   }
   return buffer.toString();
 }
+
+/// One piece of a card side split for Cloze reveal: either a run of literal
+/// [text], or a blank standing in for the keyword (identified by its
+/// card-wide [blankIndex], counting front then back).
+class ClozeSegment {
+  const ClozeSegment.text(this.text) : blankIndex = null;
+  const ClozeSegment.blank(this.blankIndex, this.text);
+
+  final String text;
+
+  /// `null` for literal text; otherwise this blank's index across the whole
+  /// card (front blanks first, then back).
+  final int? blankIndex;
+
+  bool get isBlank => blankIndex != null;
+}
+
+/// Splits [text] into literal and blank [ClozeSegment]s, numbering blanks from
+/// [startIndex] (so a card's back can continue the front's numbering). Matching
+/// is the same case-insensitive substring scan [blankKeyword] uses. Returns the
+/// segments and the next unused blank index.
+(List<ClozeSegment>, int) clozeSegments(
+  String text,
+  String? keyword, {
+  int startIndex = 0,
+}) {
+  final needle = keyword?.trim() ?? '';
+  if (needle.isEmpty) {
+    return ([ClozeSegment.text(text)], startIndex);
+  }
+
+  final lowerText = text.toLowerCase();
+  final lowerNeedle = needle.toLowerCase();
+  final segments = <ClozeSegment>[];
+  var start = 0;
+  var index = startIndex;
+  while (true) {
+    final match = lowerText.indexOf(lowerNeedle, start);
+    if (match < 0) {
+      if (start < text.length) {
+        segments.add(ClozeSegment.text(text.substring(start)));
+      }
+      break;
+    }
+    if (match > start) {
+      segments.add(ClozeSegment.text(text.substring(start, match)));
+    }
+    segments.add(
+      ClozeSegment.blank(index, text.substring(match, match + needle.length)),
+    );
+    index++;
+    start = match + lowerNeedle.length;
+  }
+  return (segments, index);
+}

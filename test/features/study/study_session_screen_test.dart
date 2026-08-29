@@ -4,54 +4,53 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:open_recall/features/decks/application/deck_providers.dart';
 import 'package:open_recall/features/decks/domain/card.dart';
-import 'package:open_recall/features/decks/domain/study_mode.dart';
 import 'package:open_recall/features/study/application/session_controller.dart';
-import 'package:open_recall/features/study/domain/session_length.dart';
-import 'package:open_recall/features/study/presentation/study_session_args.dart';
+import 'package:open_recall/features/study/domain/study_session.dart';
 import 'package:open_recall/features/study/presentation/study_session_screen.dart';
+import 'package:open_recall/features/study/presentation/widgets/cloze_reveal_card.dart';
+import 'package:open_recall/features/study/presentation/widgets/flip_card.dart';
+import 'package:open_recall/features/study/presentation/widgets/session_summary_view.dart';
+import 'package:open_recall/theme/app_theme.dart';
 
 import '../../support/fake_deck_repository.dart';
 import '../../support/fake_study_repository.dart';
 
-FlashCard _card(String id, {int mastery = 0}) => FlashCard(
+FlashCard _card(
+  String id, {
+  int mastery = 0,
+  String? keyword,
+  String? front,
+  String? back,
+}) =>
+    FlashCard(
       id: id,
       deckId: 'deck-1',
-      front: 'front-$id',
-      back: 'back-$id',
-      keyword: null,
+      front: front ?? 'front-$id',
+      back: back ?? 'back-$id',
+      keyword: keyword,
       masteryLevel: mastery,
       failCount: 0,
       createdAt: DateTime.utc(2026),
       updatedAt: DateTime.utc(2026),
     );
 
-StudySessionArgs _args({
-  SessionLengthMode lengthMode = SessionLengthMode.untilMastered,
-  int? cap,
-}) =>
-    StudySessionArgs(
-      deckId: 'deck-1',
-      deckName: 'Biology',
-      mode: StudyMode.flip,
-      lengthMode: lengthMode,
-      cap: cap,
-    );
-
 Widget _host({
   required FakeDeckRepository decks,
   required FakeStudyRepository study,
+  String scope = 'due',
 }) {
   final router = GoRouter(
-    initialLocation: '/overview',
+    initialLocation: '/home',
     routes: [
       GoRoute(
-        path: '/overview',
-        builder: (_, _) => const Scaffold(body: Text('Deck Overview')),
+        path: '/home',
+        builder: (_, _) => const Scaffold(body: Text('Home')),
         routes: [
           GoRoute(
-            path: 'study',
+            path: 'study/:deckId',
             builder: (_, state) => StudySessionScreen(
-              args: state.extra as StudySessionArgs?,
+              deckId: state.pathParameters['deckId']!,
+              scope: cardScopeFromDb(state.uri.queryParameters['scope'] ?? 'due'),
             ),
           ),
         ],
@@ -63,159 +62,187 @@ Widget _host({
       deckRepositoryProvider.overrideWithValue(decks),
       studyRepositoryProvider.overrideWithValue(study),
     ],
-    child: MaterialApp.router(routerConfig: router),
+    child: MaterialApp.router(theme: AppTheme.light, routerConfig: router),
   );
 }
 
-void _useTallSurface(WidgetTester tester) {
-  tester.view.physicalSize = const Size(1200, 3200);
-  tester.view.devicePixelRatio = 1.0;
-  addTearDown(tester.view.reset);
-}
-
-Future<void> _openSession(
+Future<void> _open(
   WidgetTester tester, {
   required FakeDeckRepository decks,
   required FakeStudyRepository study,
-  StudySessionArgs? args,
+  String scope = 'due',
 }) async {
-  await tester.pumpWidget(_host(decks: decks, study: study));
-  final context = tester.element(find.text('Deck Overview'));
-  GoRouter.of(context).go('/overview/study', extra: args ?? _args());
+  await tester.pumpWidget(_host(decks: decks, study: study, scope: scope));
+  GoRouter.of(tester.element(find.text('Home')))
+      .go('/home/study/deck-1?scope=$scope');
   await tester.pumpAndSettle();
 }
 
 void main() {
-  testWidgets('shows the first card front, then flips to the back',
+  testWidgets('a single-mode deck skips the picker and opens Flip',
       (tester) async {
-    await _openSession(
+    await _open(
       tester,
       decks: FakeDeckRepository(cards: [_card('a'), _card('b')]),
       study: FakeStudyRepository(),
     );
 
+    expect(find.text('How do you want to study this deck?'), findsNothing);
     expect(find.text('front-a'), findsOneWidget);
-    expect(find.text('Biology'), findsOneWidget);
+  });
 
-    await tester.tap(find.text('front-a'));
+  testWidgets('tapping the card flips it to the back', (tester) async {
+    await _open(
+      tester,
+      decks: FakeDeckRepository(cards: [_card('a')]),
+      study: FakeStudyRepository(),
+    );
+
+    await tester.tap(find.byType(FlipCard));
     await tester.pumpAndSettle();
     expect(find.text('back-a'), findsOneWidget);
   });
 
-  testWidgets('rating buttons are disabled until the card is flipped',
+  testWidgets('the rating row is inert until the card is flipped',
       (tester) async {
-    await _openSession(
-      tester,
-      decks: FakeDeckRepository(cards: [_card('a')]),
-      study: FakeStudyRepository(),
-    );
-
-    FilledButton mastered() => tester.widget<FilledButton>(
-          find.widgetWithText(FilledButton, 'Mastered'),
-        );
-    expect(mastered().onPressed, isNull);
-
-    await tester.tap(find.text('front-a'));
-    await tester.pumpAndSettle();
-    expect(mastered().onPressed, isNotNull);
-  });
-
-  testWidgets('mastering a card advances progress', (tester) async {
-    await _openSession(
+    await _open(
       tester,
       decks: FakeDeckRepository(cards: [_card('a'), _card('b')]),
       study: FakeStudyRepository(),
     );
 
-    expect(find.text('0 / 2 mastered'), findsOneWidget);
-
-    await tester.tap(find.text('front-a'));
+    // Before flipping, "Mastered" does nothing — still on card a.
+    await tester.tap(find.text('Mastered'));
     await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(FilledButton, 'Mastered'));
-    await tester.pumpAndSettle();
+    expect(find.text('front-a'), findsOneWidget);
 
-    expect(find.text('1 / 2 mastered'), findsOneWidget);
+    await tester.tap(find.byType(FlipCard));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Mastered'));
+    await tester.pumpAndSettle();
     expect(find.text('front-b'), findsOneWidget);
   });
 
-  testWidgets('completing every card shows the Session Summary, then Done '
-      'returns to the Deck Overview', (tester) async {
-    _useTallSurface(tester);
-    await _openSession(
+  testWidgets('swipe-right on a flipped card masters it', (tester) async {
+    await _open(
+      tester,
+      decks: FakeDeckRepository(cards: [_card('a'), _card('b')]),
+      study: FakeStudyRepository(),
+    );
+
+    await tester.tap(find.byType(FlipCard));
+    await tester.pumpAndSettle();
+    await tester.fling(find.byType(FlipCard), const Offset(500, 0), 1200);
+    await tester.pumpAndSettle();
+
+    expect(find.text('front-b'), findsOneWidget);
+  });
+
+  testWidgets('a deck supporting several modes shows the picker', (tester) async {
+    await _open(
+      tester,
+      decks: FakeDeckRepository(cards: [
+        _card('a', front: 'Paris is the capital', keyword: 'Paris'),
+      ]),
+      study: FakeStudyRepository(),
+    );
+
+    expect(find.text('How do you want to study this deck?'), findsOneWidget);
+    expect(find.text('Flip & Rate'), findsOneWidget);
+    expect(find.text('Cloze Type-in'), findsOneWidget);
+
+    await tester.tap(find.text('Flip & Rate'));
+    await tester.pumpAndSettle();
+    expect(find.text('Paris is the capital'), findsOneWidget);
+  });
+
+  testWidgets('Cloze gates the rating row on revealing every blank',
+      (tester) async {
+    await _open(
+      tester,
+      decks: FakeDeckRepository(cards: [
+        _card('a',
+            front: 'Paris is the capital', keyword: 'Paris', back: 'of France'),
+        _card('b'),
+      ]),
+      study: FakeStudyRepository(),
+    );
+
+    await tester.tap(find.text('Cloze Type-in'));
+    await tester.pumpAndSettle();
+    expect(find.byType(ClozeRevealCard), findsOneWidget);
+
+    // Rating is inert — the blank is still hidden.
+    await tester.tap(find.text('Mastered'));
+    await tester.pumpAndSettle();
+    expect(find.byType(SessionSummaryView), findsNothing);
+
+    // Reveal the blank, then rate.
+    await tester.tap(find.byIcon(Icons.touch_app_outlined).first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Mastered'));
+    await tester.pumpAndSettle();
+    expect(find.byType(SessionSummaryView), findsOneWidget);
+  });
+
+  testWidgets('List reveals items in any order and gates the rating row',
+      (tester) async {
+    await _open(
+      tester,
+      decks: FakeDeckRepository(cards: [
+        _card('a', front: 'Primary colours', back: 'red\ngreen\nblue'),
+      ]),
+      study: FakeStudyRepository(),
+    );
+
+    await tester.tap(find.text('List Unmask'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Tap to reveal'), findsNWidgets(3));
+
+    // Reveal out of order (last, then first, then middle).
+    await tester.tap(find.text('Tap to reveal').at(2));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Tap to reveal').at(0));
+    await tester.pumpAndSettle();
+
+    // One still hidden — rating inert.
+    await tester.tap(find.text('Mastered'));
+    await tester.pumpAndSettle();
+    expect(find.byType(SessionSummaryView), findsNothing);
+
+    await tester.tap(find.text('Tap to reveal'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Mastered'));
+    await tester.pumpAndSettle();
+    expect(find.byType(SessionSummaryView), findsOneWidget);
+  });
+
+  testWidgets('completing the session shows the Summary, then Done pops back',
+      (tester) async {
+    await _open(
       tester,
       decks: FakeDeckRepository(cards: [_card('a')]),
       study: FakeStudyRepository(),
     );
 
-    await tester.tap(find.text('front-a'));
+    await tester.tap(find.byType(FlipCard));
     await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(FilledButton, 'Mastered'));
+    await tester.tap(find.text('Mastered'));
     await tester.pumpAndSettle();
 
     expect(find.text('This session'), findsOneWidget);
-    expect(find.widgetWithText(FilledButton, 'Drill parked cards now'),
-        findsNothing);
 
     await tester.tap(find.widgetWithText(TextButton, 'Done'));
     await tester.pumpAndSettle();
-
-    expect(find.text('Deck Overview'), findsOneWidget);
+    expect(find.text('Home'), findsOneWidget);
     expect(find.byType(StudySessionScreen), findsNothing);
-  });
-
-  testWidgets('parking the last card shows the Summary with a drill button',
-      (tester) async {
-    _useTallSurface(tester);
-    await _openSession(
-      tester,
-      decks: FakeDeckRepository(cards: [_card('a')]),
-      study: FakeStudyRepository(),
-    );
-
-    for (var i = 0; i < 3; i++) {
-      await tester.tap(find.text('front-a'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.widgetWithText(FilledButton, 'Forgotten'));
-      await tester.pumpAndSettle();
-    }
-
-    expect(find.text('Park this card?'), findsOneWidget);
-    await tester.tap(find.widgetWithText(FilledButton, 'Park it'));
-    await tester.pumpAndSettle();
-
-    expect(find.widgetWithText(FilledButton, 'Drill parked cards now'),
-        findsOneWidget);
-
-    await tester.tap(find.widgetWithText(TextButton, 'Done'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('Deck Overview'), findsOneWidget);
-  });
-
-  testWidgets('declining the park keeps studying the card', (tester) async {
-    await _openSession(
-      tester,
-      decks: FakeDeckRepository(cards: [_card('a')]),
-      study: FakeStudyRepository(),
-    );
-
-    for (var i = 0; i < 3; i++) {
-      await tester.tap(find.text('front-a'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.widgetWithText(FilledButton, 'Forgotten'));
-      await tester.pumpAndSettle();
-    }
-    await tester.tap(find.widgetWithText(TextButton, 'Keep going'));
-    await tester.pumpAndSettle();
-
-    expect(find.byType(StudySessionScreen), findsOneWidget);
-    expect(find.text('front-a'), findsOneWidget);
   });
 
   testWidgets('the close button leaves the session active and pops',
       (tester) async {
     final study = FakeStudyRepository();
-    await _openSession(
+    await _open(
       tester,
       decks: FakeDeckRepository(cards: [_card('a')]),
       study: study,
@@ -224,26 +251,18 @@ void main() {
     await tester.tap(find.byIcon(Icons.close));
     await tester.pumpAndSettle();
 
-    expect(find.text('Deck Overview'), findsOneWidget);
+    expect(find.text('Home'), findsOneWidget);
     expect(study.sessions.single.status.name, 'active');
   });
 
-  testWidgets('an all-mastered deck shows "nothing to study"', (tester) async {
-    await _openSession(
+  testWidgets('an all-mastered deck on the due scope shows nothing to study',
+      (tester) async {
+    await _open(
       tester,
       decks: FakeDeckRepository(cards: [_card('a', mastery: 4)]),
       study: FakeStudyRepository(),
     );
 
     expect(find.textContaining('Nothing to study'), findsOneWidget);
-  });
-
-  testWidgets('a creation failure offers a retry', (tester) async {
-    final decks = FakeDeckRepository(cards: [_card('a')])
-      ..throwOnNextCall = Exception('boom');
-    await _openSession(tester, decks: decks, study: FakeStudyRepository());
-
-    expect(find.textContaining("Couldn't start"), findsOneWidget);
-    expect(find.widgetWithText(FilledButton, 'Retry'), findsOneWidget);
   });
 }

@@ -13,7 +13,6 @@ import '../../notifications/application/notification_providers.dart';
 import '../../notifications/data/notification_service.dart';
 import '../data/cache_first_study_repository.dart';
 import '../data/supabase_study_repository.dart';
-import '../domain/cloze_outcome.dart';
 import '../domain/flip_rating.dart';
 import '../domain/session_length.dart';
 import '../domain/session_outcome.dart';
@@ -279,18 +278,12 @@ class SessionController extends Notifier<AsyncValue<StudySessionState?>> {
     );
   }
 
-  /// Applies a Flip rating to the current card — synchronous and optimistic.
+  /// Applies a rating to the current card — synchronous and optimistic.
+  ///
+  /// Every mode routes through here: Flip picks the rating directly, and since
+  /// the UI revamp (ui-spec-v1 §6.2) Cloze and List reveal their content and
+  /// then use the same 0–4 rating row rather than an auto-derived outcome.
   void rate(FlipRating rating) => _applyResult(rating.level);
-
-  /// Applies a Cloze attempt outcome to the current card (spec §5B/§6) —
-  /// synchronous and optimistic, exactly like [rate]. The outcome has already
-  /// been mapped to a `mastery_level`.
-  void submitCloze(ClozeOutcome outcome) => _applyResult(outcome.masteryLevel);
-
-  /// Applies a List card result to the current card (spec §5C/§6) — synchronous
-  /// and optimistic, exactly like [rate]. The reveal ratio has already been
-  /// mapped to a `mastery_level` by the List widget.
-  void submitList(int masteryLevel) => _applyResult(masteryLevel);
 
   /// Applies a Feynman card result to the current card (spec §5D/§6) —
   /// synchronous and optimistic, exactly like [rate]. The self-checkoff ratio

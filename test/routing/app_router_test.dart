@@ -5,14 +5,31 @@ import 'package:go_router/go_router.dart';
 import 'package:open_recall/app.dart';
 import 'package:open_recall/features/auth/application/auth_providers.dart';
 import 'package:open_recall/features/auth/presentation/login_screen.dart';
+import 'package:open_recall/features/decks/application/deck_providers.dart';
+import 'package:open_recall/features/decks/domain/card.dart';
 import 'package:open_recall/features/decks/presentation/decks_tab_screen.dart';
+import 'package:open_recall/features/study/application/session_controller.dart';
+import 'package:open_recall/features/study/presentation/study_session_screen.dart';
 import 'package:open_recall/routing/glass_bottom_nav_bar.dart';
 import 'package:open_recall/routing/placeholders/deck_creator_screen.dart';
 import 'package:open_recall/routing/placeholders/mastery_tab_screen.dart';
 import 'package:open_recall/routing/placeholders/settings_tab_screen.dart';
-import 'package:open_recall/routing/placeholders/study_session_screen.dart';
 
 import '../support/fake_auth_repository.dart';
+import '../support/fake_deck_repository.dart';
+import '../support/fake_study_repository.dart';
+
+FlashCard _masteredCard(String id) => FlashCard(
+      id: id,
+      deckId: 'deck-1',
+      front: 'front-$id',
+      back: 'back-$id',
+      keyword: null,
+      masteryLevel: 4,
+      failCount: 0,
+      createdAt: DateTime.utc(2026),
+      updatedAt: DateTime.utc(2026),
+    );
 
 Future<void> _pump(WidgetTester tester, {required bool signedIn}) async {
   final fake = FakeAuthRepository(signedIn: signedIn);
@@ -20,7 +37,12 @@ Future<void> _pump(WidgetTester tester, {required bool signedIn}) async {
 
   await tester.pumpWidget(
     ProviderScope(
-      overrides: [authRepositoryProvider.overrideWithValue(fake)],
+      overrides: [
+        authRepositoryProvider.overrideWithValue(fake),
+        deckRepositoryProvider
+            .overrideWithValue(FakeDeckRepository(cards: [_masteredCard('a')])),
+        studyRepositoryProvider.overrideWithValue(FakeStudyRepository()),
+      ],
       child: const OpenRecallApp(),
     ),
   );
@@ -77,16 +99,19 @@ void main() {
 
     expect(find.byType(StudySessionScreen), findsOneWidget);
     expect(find.byType(GlassBottomNavBar), findsNothing);
-    expect(find.text('Study deck-1 · due'), findsOneWidget);
   });
 
-  testWidgets('the scope query parameter maps to CardScope', (tester) async {
+  testWidgets('the scope query parameter reaches the session', (tester) async {
     await _pump(tester, signedIn: true);
 
+    // The stub deck's only card is already mastered: a `due` session finds
+    // nothing to study, so seeing a card proves `scope=all` threaded through.
     _router(tester).go('/study/deck-1?scope=all');
     await tester.pumpAndSettle();
 
-    expect(find.text('Study deck-1 · all'), findsOneWidget);
+    expect(find.byType(StudySessionScreen), findsOneWidget);
+    expect(find.byType(GlassBottomNavBar), findsNothing);
+    expect(find.text('front-a'), findsOneWidget);
   });
 
   testWidgets('pushing /deck-creator leaves the shell and pops back to its tab',
