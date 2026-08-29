@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'app.dart';
 import 'features/notifications/application/notification_providers.dart';
 import 'features/notifications/data/notification_service.dart';
+import 'features/settings/data/notification_preferences.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -20,6 +21,8 @@ Future<void> main() async {
 
   final notifications = NotificationService();
   await notifications.init();
+  // Honor the user's saved reminders on/off choice (spec §9) from cold start.
+  await notifications.setEnabled(await NotificationPreferences().isEnabled());
 
   runApp(ProviderScope(
     overrides: [notificationServiceProvider.overrideWithValue(notifications)],

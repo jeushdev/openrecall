@@ -20,6 +20,11 @@ abstract final class AppRoutes {
   static const String deckLibraryPath = '/decks';
   static const String deckLibraryName = 'decks';
 
+  /// Settings & account management (spec §9). Top-level, signed-in only —
+  /// [authRedirect] already permits any unlisted path for a signed-in user.
+  static const String settingsPath = '/settings';
+  static const String settingsName = 'settings';
+
   /// Deck Overview (spec §4). Nested under [deckLibraryPath] as `/decks/:deckId`
   /// so the back button returns to the library. Takes a `deckId` path parameter
   /// and, optionally, the deck name as `extra` for the app-bar title.

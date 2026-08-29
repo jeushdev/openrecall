@@ -8,6 +8,7 @@ import '../features/auth/presentation/signup_screen.dart';
 import '../features/decks/presentation/deck_creator_screen.dart';
 import '../features/decks/presentation/deck_library_screen.dart';
 import '../features/decks/presentation/deck_overview_screen.dart';
+import '../features/settings/presentation/settings_screen.dart';
 import '../features/splash/presentation/splash_screen.dart';
 import '../features/study/presentation/study_session_args.dart';
 import '../features/study/presentation/study_session_screen.dart';
@@ -52,6 +53,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: AppRoutes.forgotPasswordPath,
         name: AppRoutes.forgotPasswordName,
         builder: (context, state) => const ForgotPasswordScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.settingsPath,
+        name: AppRoutes.settingsName,
+        builder: (context, state) => const SettingsScreen(),
       ),
       GoRoute(
         path: AppRoutes.deckLibraryPath,

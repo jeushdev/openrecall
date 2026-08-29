@@ -29,6 +29,19 @@ class NotificationService {
 
   bool _initialized = false;
 
+  /// Whether the user has study reminders switched on (spec §9). Defaults to
+  /// `true`; `main()` seeds it from the persisted preference on startup and the
+  /// Settings toggle updates it via [setEnabled]. This is the single gate — both
+  /// [scheduleReturnReminder] call sites in the session controller stay dumb.
+  bool enabled = true;
+
+  /// Applies the Settings toggle. Turning reminders off also drops any pending
+  /// one so a stale reminder can't fire after the user opted out.
+  Future<void> setEnabled(bool value) async {
+    enabled = value;
+    if (!value) await cancelReturnReminder();
+  }
+
   /// One-time setup: timezone database (needed by [tz.TZDateTime]), the plugin,
   /// and the Android channel. Safe to call more than once.
   Future<void> init() async {
@@ -60,6 +73,7 @@ class NotificationService {
     required String? deckName,
     required int unfinishedCount,
   }) async {
+    if (!enabled) return;
     if (unfinishedCount <= 0) return;
     if (!await _ensurePermission()) return;
 

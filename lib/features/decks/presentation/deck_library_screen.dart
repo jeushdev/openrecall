@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../routing/app_routes.dart';
-import '../../auth/application/auth_providers.dart';
 import '../application/deck_providers.dart';
 import 'widgets/create_deck_dialog.dart';
 import 'widgets/deck_tile.dart';
@@ -29,17 +28,10 @@ class DeckLibraryScreen extends ConsumerWidget {
       appBar: AppBar(
         title: const Text('Decks'),
         actions: [
-          PopupMenuButton<String>(
+          IconButton(
             icon: const Icon(Icons.settings_outlined),
-            // TODO(milestone 12): replace with a real Settings screen.
-            onSelected: (value) {
-              if (value == 'logout') {
-                ref.read(authControllerProvider.notifier).signOut();
-              }
-            },
-            itemBuilder: (context) => const [
-              PopupMenuItem(value: 'logout', child: Text('Log out')),
-            ],
+            tooltip: 'Settings',
+            onPressed: () => context.pushNamed(AppRoutes.settingsName),
           ),
         ],
       ),
