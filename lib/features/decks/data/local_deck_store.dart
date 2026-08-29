@@ -187,6 +187,7 @@ class LocalDeckStore {
         totalCards: levels.length,
         dueCards: levels.where((l) => l < masteredLevel).length,
         masteryPercent: masteryPercentFromLevels(levels),
+        masteryLevelSum: levels.fold(0, (a, b) => a + b),
       ));
     }
     return result;

@@ -9,10 +9,23 @@ const int masteredLevel = 4;
 /// across [levels], scaled from the 0–[masteredLevel] range to 0–100 and
 /// rounded. An empty deck is 0%. Shared by the Deck Library and Deck Overview.
 int masteryPercentFromLevels(Iterable<int> levels) {
-  final list = levels.toList();
-  if (list.isEmpty) return 0;
-  final sum = list.reduce((a, b) => a + b);
-  return (sum / (list.length * masteredLevel) * 100).round();
+  var sum = 0;
+  var count = 0;
+  for (final level in levels) {
+    sum += level;
+    count++;
+  }
+  return masteryPercentFromLevelSum(sum, count);
+}
+
+/// The same 0–100 mastery figure as [masteryPercentFromLevels], but from a
+/// pre-computed level [sum] over [count] cards. Lets the aggregation layer
+/// (engine-v2-spec §6) roll a card-weighted overall/per-course % up from the
+/// `masteryLevelSum` each `DeckSummary` already carries, without re-flattening
+/// every card. [count] of 0 is 0%.
+int masteryPercentFromLevelSum(int sum, int count) {
+  if (count == 0) return 0;
+  return (sum / (count * masteredLevel) * 100).round();
 }
 
 /// The unified card model (spec §3): every card is `front` + `back` +

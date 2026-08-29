@@ -51,6 +51,7 @@ class DeckSummary {
     required this.dueCards,
     required this.masteryPercent,
     this.courseId,
+    this.masteryLevelSum = 0,
   });
 
   /// Builds from a `decks` row with an embedded `cards(mastery_level)` list,
@@ -68,6 +69,7 @@ class DeckSummary {
       totalCards: levels.length,
       dueCards: levels.where((l) => l < masteredLevel).length,
       masteryPercent: masteryPercentFromLevels(levels),
+      masteryLevelSum: levels.fold(0, (a, b) => a + b),
     );
   }
 
@@ -80,6 +82,12 @@ class DeckSummary {
   final int totalCards;
   final int dueCards;
   final int masteryPercent;
+
+  /// The sum of every card's `mastery_level` in this deck. Kept alongside
+  /// [totalCards] so the aggregation layer (engine-v2-spec §6) can compute a
+  /// card-weighted overall / per-course mastery % without re-fetching cards —
+  /// `masteryPercent` alone is lossy (already rounded and deck-averaged).
+  final int masteryLevelSum;
 }
 
 DateTime? _parseNullableDate(Object? value) =>

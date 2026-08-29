@@ -313,6 +313,9 @@ create unique index courses_one_default_per_user
 create index on decks (user_id);
 create index on decks (course_id);
 create index on cards (deck_id);
+-- Headroom for the app-wide Troublemakers query (engine-v2-spec §6):
+-- `order by fail_count desc limit N` across every card the user owns.
+create index on cards (fail_count desc);
 create index on study_sessions (user_id);
 create index on study_sessions (deck_id);
 create index on session_cards (session_id);

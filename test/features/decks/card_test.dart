@@ -48,6 +48,32 @@ void main() {
     expect(masteredLevel, 4);
   });
 
+  group('masteryPercentFromLevelSum', () {
+    test('0 cards is 0%', () {
+      expect(masteryPercentFromLevelSum(0, 0), 0);
+    });
+
+    test('matches masteryPercentFromLevels for the same cards', () {
+      expect(masteryPercentFromLevelSum(5, 2), masteryPercentFromLevels([1, 4]));
+      expect(masteryPercentFromLevelSum(5, 2), 63);
+    });
+
+    test('all mastered is 100%', () {
+      expect(masteryPercentFromLevelSum(16, 4), 100);
+    });
+  });
+
+  group('masteryPercentFromLevels is unchanged', () {
+    test('empty is 0%', () {
+      expect(masteryPercentFromLevels(const []), 0);
+    });
+
+    test('rounds the scaled average', () {
+      expect(masteryPercentFromLevels([1, 4]), 63);
+      expect(masteryPercentFromLevels([0, 0, 4]), 33);
+    });
+  });
+
   group('CardMasteryState.fromJson', () {
     test('maps the three columns the session engine guards on', () {
       final state = CardMasteryState.fromJson({

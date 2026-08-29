@@ -49,6 +49,12 @@ void main() {
       expect(summary.dueCards, 1);
     });
 
+    test('masteryLevelSum keeps the raw level total for the aggregation layer',
+        () {
+      expect(DeckSummary.fromJson(row(masteryLevels: [1, 4])).masteryLevelSum, 5);
+      expect(DeckSummary.fromJson(row()).masteryLevelSum, 0);
+    });
+
     test('carries the deck identity fields through', () {
       final summary = DeckSummary.fromJson(
         row(masteryLevels: [2], lastStudiedAt: '2026-08-20T12:00:00Z'),

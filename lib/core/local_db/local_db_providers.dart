@@ -3,6 +3,7 @@ import 'package:sqflite/sqflite.dart';
 
 import '../../features/courses/data/local_course_store.dart';
 import '../../features/decks/data/local_deck_store.dart';
+import '../../features/stats/data/local_stats_store.dart';
 import '../../features/study/data/local_study_store.dart';
 import 'app_database.dart';
 
@@ -26,3 +27,7 @@ final localStudyStoreProvider =
 /// The DAO for `offline_courses`.
 final localCourseStoreProvider =
     Provider<LocalCourseStore>((ref) => LocalCourseStore(_db(ref)));
+
+/// The read-only DAO for the cross-deck stat aggregations (engine-v2-spec §6).
+final localStatsStoreProvider =
+    Provider<LocalStatsStore>((ref) => LocalStatsStore(_db(ref)));
