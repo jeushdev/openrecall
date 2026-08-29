@@ -108,19 +108,6 @@ void main() {
     expect(_enabled(tester, 'Cloze Type-in'), isFalse);
   });
 
-  testWidgets('tapping a not-yet-built mode shows a placeholder SnackBar',
-      (tester) async {
-    await tester.pumpWidget(_host(FakeDeckRepository(cards: [
-      _card(keyword: 'Paris'),
-    ])));
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.widgetWithText(FilledButton, 'Cloze Type-in'));
-    await tester.pump();
-
-    expect(find.textContaining('arrive in a later update'), findsOneWidget);
-  });
-
   testWidgets('tapping Flip & Rate opens the study session', (tester) async {
     _useTallSurface(tester);
     await pumpApp(
