@@ -116,9 +116,55 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Uncategorized'), findsOneWidget);
-    expect(find.text('1 decks'), findsOneWidget);
+    expect(find.text('1 deck'), findsOneWidget);
     expect(find.text('Biology'), findsOneWidget);
     expect(find.text('2 decks'), findsOneWidget);
+  });
+
+  testWidgets('the chevron lines up whether or not the header carries a ⋮ menu '
+      '(milestone R2)', (tester) async {
+    // A course with a menu (real) and one without (the synthetic fallback shown
+    // while courses load) must place the expand chevron at the same offset from
+    // the right edge — the header reserves a fixed-width trailing menu slot.
+    await tester.pumpWidget(_host(
+      _Recorder(),
+      decks: FakeDeckRepository(decks: [_deck('d1', courseId: 'c-bio')]),
+    ));
+    await tester.pumpAndSettle();
+    final withMenu = tester.getRect(find.byIcon(Icons.expand_more).first).right;
+
+    await tester.pumpWidget(_host(
+      _Recorder(),
+      decks: FakeDeckRepository(decks: [_deck('d1')]),
+      courses: FakeCourseRepository()..throwOnNextCall = StateError('offline'),
+    ));
+    await tester.pumpAndSettle();
+    expect(find.byIcon(Icons.more_vert), findsNothing);
+    final withoutMenu =
+        tester.getRect(find.byIcon(Icons.expand_more).first).right;
+
+    expect(withoutMenu, withMenu);
+  });
+
+  testWidgets('a long course name wraps to two lines with a tooltip '
+      '(milestone R2)', (tester) async {
+    const longName = 'Organic Chemistry and Biochemistry Fundamentals II';
+    await tester.pumpWidget(_host(
+      _Recorder(),
+      decks: FakeDeckRepository(decks: [_deck('d1', courseId: 'c-long')]),
+      courses: FakeCourseRepository(courses: [
+        _course('c-long', name: longName, isDefault: true),
+      ]),
+    ));
+    await tester.pumpAndSettle();
+
+    final text = tester.widget<Text>(find.text(longName));
+    expect(text.maxLines, 2);
+    expect(text.overflow, TextOverflow.ellipsis);
+    expect(
+      find.ancestor(of: find.text(longName), matching: find.byType(Tooltip)),
+      findsOneWidget,
+    );
   });
 
   testWidgets('only the default course starts expanded', (tester) async {

@@ -227,6 +227,13 @@ class _CourseSection extends StatelessWidget {
 
 enum _CourseAction { edit, delete }
 
+/// Width reserved for the trailing `⋮` menu on every course header, present or
+/// not, so the chevron sits at the same offset from the right edge on every row
+/// (including the synthetic loading-state course, which carries no menu).
+const double _kCourseHeaderMenuSlot = 32;
+
+String _deckCountLabel(int count) => count == 1 ? '1 deck' : '$count decks';
+
 class _CourseHeader extends StatelessWidget {
   const _CourseHeader({
     required this.name,
@@ -267,53 +274,68 @@ class _CourseHeader extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 12),
-              Flexible(
-                child: Text(
-                  name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: tokens.textPrimary,
-                  ),
+              Expanded(
+                child: Row(
+                  children: [
+                    Flexible(
+                      child: Tooltip(
+                        message: name,
+                        child: Text(
+                          name,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: tokens.textPrimary,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      _deckCountLabel(deckCount),
+                      style:
+                          TextStyle(fontSize: 13, color: tokens.textSecondary),
+                    ),
+                  ],
                 ),
               ),
               const SizedBox(width: 8),
-              Text(
-                '$deckCount decks',
-                style: TextStyle(fontSize: 13, color: tokens.textSecondary),
-              ),
-              const Spacer(),
               AnimatedRotation(
                 turns: expanded ? 0.5 : 0,
                 duration: const Duration(milliseconds: 150),
                 child: Icon(Icons.expand_more, color: tokens.textSecondary),
               ),
-              if (onEditCourse != null)
-                PopupMenuButton<_CourseAction>(
-                  padding: EdgeInsets.zero,
-                  tooltip: 'Course options',
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
-                    child: Icon(Icons.more_vert, color: tokens.textSecondary),
-                  ),
-                  onSelected: (action) => switch (action) {
-                    _CourseAction.edit => onEditCourse!(),
-                    _CourseAction.delete => onDeleteCourse!(),
-                  },
-                  itemBuilder: (_) => [
-                    const PopupMenuItem(
-                      value: _CourseAction.edit,
-                      child: Text('Edit course'),
-                    ),
-                    if (onDeleteCourse != null)
-                      const PopupMenuItem(
-                        value: _CourseAction.delete,
-                        child: Text('Delete course'),
-                      ),
-                  ],
-                ),
+              SizedBox(
+                width: _kCourseHeaderMenuSlot,
+                child: onEditCourse != null
+                    ? PopupMenuButton<_CourseAction>(
+                        padding: EdgeInsets.zero,
+                        tooltip: 'Course options',
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          child: Icon(Icons.more_vert,
+                              color: tokens.textSecondary),
+                        ),
+                        onSelected: (action) => switch (action) {
+                          _CourseAction.edit => onEditCourse!(),
+                          _CourseAction.delete => onDeleteCourse!(),
+                        },
+                        itemBuilder: (_) => [
+                          const PopupMenuItem(
+                            value: _CourseAction.edit,
+                            child: Text('Edit course'),
+                          ),
+                          if (onDeleteCourse != null)
+                            const PopupMenuItem(
+                              value: _CourseAction.delete,
+                              child: Text('Delete course'),
+                            ),
+                        ],
+                      )
+                    : null,
+              ),
             ],
           ),
         ),
