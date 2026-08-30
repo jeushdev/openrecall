@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart' show ThemeMode;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -10,6 +11,7 @@ import '../../notifications/application/notification_providers.dart';
 import '../data/notification_preferences.dart';
 import '../data/study_appearance_preferences.dart';
 import '../data/supabase_account_repository.dart';
+import '../data/theme_mode_preference.dart';
 import '../domain/account_repository.dart';
 
 /// The live repository is backed by the initialized Supabase singleton. Tests
@@ -28,6 +30,56 @@ final studyAppearancePreferencesProvider =
     Provider<StudyAppearancePreferences>((ref) {
   return StudyAppearancePreferences();
 });
+
+/// Device-local store for the theme override (`docs/spec-v5-dark-mode.md` §4).
+final themeModePreferenceProvider = Provider<ThemeModePreference>((ref) {
+  return ThemeModePreference();
+});
+
+/// Cold-start seed for [themeModeProvider]. `main()` eagerly reads `theme_mode`
+/// from `SharedPreferences` before `runApp` and overrides this with the saved
+/// value, so [ThemeModeController.build] can return synchronously and the very
+/// first frame paints in the right theme (§4.1). Left `null` in tests and any
+/// entrypoint that skips the eager read — the controller then reads the
+/// preference asynchronously instead.
+final initialThemeModeProvider = Provider<ThemeMode?>((ref) => null);
+
+/// The active theme override — System (default), Light or Dark. `build()`
+/// returns the [initialThemeModeProvider] seed synchronously when present,
+/// otherwise reads the persisted value and degrades to [ThemeMode.system] on a
+/// storage error (mirrors how [StudyAppearanceController] degrades). Writes are
+/// optimistic with rollback.
+final themeModeProvider =
+    AsyncNotifierProvider<ThemeModeController, ThemeMode>(ThemeModeController.new);
+
+class ThemeModeController extends AsyncNotifier<ThemeMode> {
+  ThemeModePreference get _prefs => ref.read(themeModePreferenceProvider);
+
+  @override
+  FutureOr<ThemeMode> build() {
+    final seed = ref.read(initialThemeModeProvider);
+    if (seed != null) return seed;
+    return _load();
+  }
+
+  Future<ThemeMode> _load() async {
+    try {
+      return await _prefs.themeMode();
+    } catch (_) {
+      return ThemeMode.system;
+    }
+  }
+
+  Future<void> setThemeMode(ThemeMode value) async {
+    final rollback = state;
+    state = AsyncData(value); // Optimistic — the pill follows the tap.
+    final result = await AsyncValue.guard(() async {
+      await _prefs.setThemeMode(value);
+      return value;
+    });
+    state = result.hasError ? rollback : result;
+  }
+}
 
 /// App name + version string for the About section, e.g. `1.0.0+3`.
 final appVersionProvider = FutureProvider<String>((ref) async {

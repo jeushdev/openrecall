@@ -34,6 +34,12 @@ class GlassBottomNavBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final tokens = Theme.of(context).extension<AppTokens>()!;
     final bottomInset = MediaQuery.of(context).viewPadding.bottom;
+    // A 55% veil of white reads as a floating pill over light content; a 55%
+    // veil of `#1E1E1E` over already-dark content does not, so the dark theme
+    // leans on a heavier fill to keep the same separation
+    // (`docs/spec-v5-dark-mode.md` §6).
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final glassAlpha = isDark ? 0.72 : 0.55;
 
     return Padding(
       padding: EdgeInsets.only(left: 16, right: 16, bottom: 18 + bottomInset),
@@ -45,8 +51,8 @@ class GlassBottomNavBar extends StatelessWidget {
             filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
             child: DecoratedBox(
               decoration: BoxDecoration(
-                // rgba(255,255,255,0.55) — the white here is `cardFill`.
-                color: tokens.cardFill.withValues(alpha: 0.55),
+                // rgba(<cardFill>, 0.55) light / 0.72 dark — see `glassAlpha`.
+                color: tokens.cardFill.withValues(alpha: glassAlpha),
                 borderRadius: BorderRadius.circular(28),
                 border: Border.all(
                   // rgba(26,26,26,0.1): a darker-tinted, low-opacity border so

@@ -20,6 +20,9 @@ class SettingsTabScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final tokens = Theme.of(context).extension<AppTokens>()!;
+    final themeMode =
+        ref.watch(themeModeProvider).asData?.value ?? ThemeMode.system;
+    final themeController = ref.read(themeModeProvider.notifier);
     final appearance =
         ref.watch(studyAppearanceProvider).asData?.value ??
             StudyAppearance.defaults;
@@ -43,6 +46,26 @@ class SettingsTabScreen extends ConsumerWidget {
               ),
             ),
             const SizedBox(height: 24),
+
+            SettingsSection(
+              title: 'Appearance',
+              children: [
+                _AppearanceRow(
+                  label: 'Theme',
+                  caption: 'Follow the system setting, or force light or dark.',
+                  child: SettingsSegmentedControl<ThemeMode>(
+                    value: themeMode,
+                    onChanged: themeController.setThemeMode,
+                    options: const [
+                      (value: ThemeMode.system, label: 'System'),
+                      (value: ThemeMode.light, label: 'Light'),
+                      (value: ThemeMode.dark, label: 'Dark'),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 28),
 
             SettingsSection(
               title: 'Study appearance',

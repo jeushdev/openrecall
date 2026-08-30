@@ -56,8 +56,11 @@ assumptions if it sees them in chat history or old notes.
 
 ### 3.1 Palette
 
-Light theme, single palette for now — dark mode is **deferred**, not designed;
-do not invent dark values, flag as a follow-up spec.
+> **Superseded (milestone UX6):** dark mode is now designed.
+> `docs/spec-v5-dark-mode.md` is the source of truth for the dark palette, the
+> System/Light/Dark selector, and the status-bar / nav-bar treatment. The table
+> below is still the authoritative **light** palette; the dark counterparts live
+> in that spec and in `AppTokens.dark`.
 
 | Token | Hex | Usage |
 |---|---|---|

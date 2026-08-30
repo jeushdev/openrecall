@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:open_recall/features/settings/application/settings_providers.dart';
 import 'package:open_recall/features/settings/data/study_appearance_preferences.dart';
+import 'package:open_recall/features/settings/data/theme_mode_preference.dart';
 import 'package:open_recall/features/study/application/feynman_timer_providers.dart';
 import 'package:open_recall/features/study/data/feynman_timer_preference.dart';
 import 'package:open_recall/theme/app_theme.dart';
@@ -17,10 +18,19 @@ Future<StudyAppearancePreferences> _pump(
   final sp = await SharedPreferences.getInstance();
   final appearance = StudyAppearancePreferences(sp);
 
+  // The Settings list grew past the 800×600 default viewport once the
+  // "Appearance" section landed; give it room so the lower rows (Feynman,
+  // About) build without every test needing to scroll.
+  tester.view.physicalSize = const Size(1000, 2200);
+  tester.view.devicePixelRatio = 1.0;
+  addTearDown(tester.view.resetPhysicalSize);
+  addTearDown(tester.view.resetDevicePixelRatio);
+
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
         studyAppearancePreferencesProvider.overrideWithValue(appearance),
+        themeModePreferenceProvider.overrideWithValue(ThemeModePreference(sp)),
         feynmanTimerPreferenceProvider
             .overrideWithValue(FeynmanTimerPreference(sp)),
         appVersionProvider.overrideWith((ref) async => '1.2.3+4'),
@@ -103,5 +113,35 @@ void main() {
   testWidgets('About shows the app version', (tester) async {
     await _pump(tester);
     expect(find.text('1.2.3+4'), findsOneWidget);
+  });
+
+  testWidgets('renders the Appearance section with the theme selector',
+      (tester) async {
+    await _pump(tester);
+
+    expect(find.text('Appearance'), findsOneWidget);
+    expect(find.text('Theme'), findsOneWidget);
+    expect(find.text('System'), findsOneWidget);
+    expect(find.text('Light'), findsOneWidget);
+    expect(find.text('Dark'), findsOneWidget);
+  });
+
+  testWidgets('picking a theme persists it as ThemeMode.name', (tester) async {
+    await _pump(tester);
+    final sp = await SharedPreferences.getInstance();
+    expect(sp.getString('theme_mode'), isNull);
+
+    await tester.tap(find.text('Dark'));
+    await tester.pumpAndSettle();
+
+    expect(sp.getString('theme_mode'), 'dark');
+  });
+
+  testWidgets('the theme selector reflects a stored override', (tester) async {
+    await _pump(tester, initialPrefs: {'theme_mode': 'light'});
+
+    final selected = tester.widget<Text>(find.text('Light'));
+    final other = tester.widget<Text>(find.text('Dark'));
+    expect(selected.style?.color, isNot(other.style?.color));
   });
 }

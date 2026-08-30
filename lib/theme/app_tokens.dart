@@ -28,13 +28,15 @@ class AccentPair {
 /// The app's strict visual identity, delivered as a [ThemeExtension] on the
 /// single light [ThemeData] (UI spec v1 §3).
 ///
-/// This class's [light] constant is the **only** place raw color literals are
-/// allowed to appear anywhere in the app. Every screen resolves colors via
-/// `Theme.of(context).extension<AppTokens>()!` and a course's accent via
-/// [accent] — never a hardcoded hex.
+/// This class's [light] and [dark] constants are the **only** place raw color
+/// literals are allowed to appear anywhere in the app. Every screen resolves
+/// colors via `Theme.of(context).extension<AppTokens>()!` and a course's accent
+/// via [accent] — never a hardcoded hex.
 ///
-/// Dark mode is deliberately not modelled here: it is deferred and undesigned
-/// (UI spec v1 §3.1).
+/// [dark] is the dark-mode counterpart, derived from [light] by inversion and
+/// documented decision-by-decision (with the WCAG AA contrast math) in
+/// `docs/spec-v5-dark-mode.md`. That spec supersedes the earlier
+/// "dark mode deferred" note in UI spec v1 §3.1.
 @immutable
 class AppTokens extends ThemeExtension<AppTokens> {
   const AppTokens({
@@ -78,7 +80,7 @@ class AppTokens extends ThemeExtension<AppTokens> {
   /// throwing.
   AccentPair accent(String key) => accents[key] ?? accents['slate']!;
 
-  /// The one and only palette (§3.1, §3.2). Light theme; no dark counterpart.
+  /// The light palette (v1 §3.1, §3.2).
   static const AppTokens light = AppTokens(
     background: Color(0xFFFFFFFF),
     cardFill: Color(0xFFFFFFFF),
@@ -96,6 +98,34 @@ class AppTokens extends ThemeExtension<AppTokens> {
       'blue': AccentPair(Color(0xFF9DBDD2), Color(0xFF4E7B95)),
       'violet': AccentPair(Color(0xFFB8AED9), Color(0xFF6D5FA8)),
       'pink': AccentPair(Color(0xFFE3AEBE), Color(0xFFB15C74)),
+    },
+  );
+
+  /// The dark palette (`docs/spec-v5-dark-mode.md` §2, §3). Surface tokens are
+  /// the light ramp inverted — near-black grounds with two discernible
+  /// elevation steps and no shadow. Accent `fill`s are pushed slightly more
+  /// chromatic so a 40%-opacity tint still reads as a hue over `#1E1E1E`, and
+  /// accent `text`s are lightened from the light values to clear WCAG AA on the
+  /// dark `mutedFill` badge ground (contrast table in the spec). `red` is nudged
+  /// `#D06C60` → `#DA7C6F` so the fixed "Mastered" button's dark label stays
+  /// ≥ AA while remaining the same recognisable red.
+  static const AppTokens dark = AppTokens(
+    background: Color(0xFF121212),
+    cardFill: Color(0xFF1E1E1E),
+    mutedFill: Color(0xFF262624),
+    borderHairline: Color(0xFF333333),
+    textPrimary: Color(0xFFECECEC),
+    textSecondary: Color(0xFF9A9A9A),
+    textTertiary: Color(0xFF6E6E6E),
+    accents: <String, AccentPair>{
+      'slate': AccentPair(Color(0xFF7C8CA3), Color(0xFFAEBBCC)),
+      'red': AccentPair(Color(0xFFDA7C6F), Color(0xFFE88C80)),
+      'amber': AccentPair(Color(0xFFC9A961), Color(0xFFDCC078)),
+      'green': AccentPair(Color(0xFF8FB183), Color(0xFFA9C79E)),
+      'teal': AccentPair(Color(0xFF5FA69D), Color(0xFF82C6BD)),
+      'blue': AccentPair(Color(0xFF7FA8C4), Color(0xFFA0C6DE)),
+      'violet': AccentPair(Color(0xFF9C8FD1), Color(0xFFC0B4E8)),
+      'pink': AccentPair(Color(0xFFCE8098), Color(0xFFE3A7BC)),
     },
   );
 

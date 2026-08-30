@@ -5,7 +5,7 @@ import '../../../../theme/app_tokens.dart';
 
 /// The "stacked-deck" study surface (ui-spec-v1 §6.2).
 ///
-/// Two solid offset layers behind a white foreground card give the card a sense
+/// Two solid offset layers behind the foreground card give it a sense
 /// of depth without a [BoxShadow] — blur on the frequently-rebuilt study card is
 /// banned app-wide (§3.3) because it risks frame drops on mid-range Android,
 /// which would undercut the zero-network / optimistic-UI responsiveness
@@ -18,11 +18,6 @@ import '../../../../theme/app_tokens.dart';
 class StackedDeck extends StatelessWidget {
   const StackedDeck({super.key, required this.child});
 
-  /// The two backing-layer greys (§6.2). Local to the study surface — like the
-  /// deck-tile greys in §6.1, these are not part of [AppTokens].
-  static const Color _layer1 = Color(0xFFEEF1F5);
-  static const Color _layer2 = Color(0xFFF5F7FA);
-
   /// How far the deepest backing layer sits below the foreground card.
   static const double _depth = 14;
 
@@ -34,28 +29,32 @@ class StackedDeck extends StatelessWidget {
 
     return Stack(
       children: [
-        // Layer 1 — furthest back, narrowest, peeks lowest.
-        const Positioned(
+        // Layer 1 — furthest back, narrowest, peeks lowest. The darker of the
+        // two backing greys; routed through `borderHairline` so it inverts with
+        // the theme (`docs/spec-v5-dark-mode.md` §6) instead of the old
+        // hardcoded `#EEF1F5`.
+        Positioned(
           top: _depth,
           left: 10,
           right: 10,
           bottom: 0,
           child: DecoratedBox(
             decoration: BoxDecoration(
-              color: _layer1,
+              color: tokens.borderHairline,
               borderRadius: AppRadii.cardRadius,
             ),
           ),
         ),
-        // Layer 2 — between the foreground and layer 1.
-        const Positioned(
+        // Layer 2 — between the foreground and layer 1; the lighter backing
+        // grey, `mutedFill` (was `#F5F7FA`).
+        Positioned(
           top: 7,
           left: 5,
           right: 5,
           bottom: 7,
           child: DecoratedBox(
             decoration: BoxDecoration(
-              color: _layer2,
+              color: tokens.mutedFill,
               borderRadius: AppRadii.cardRadius,
             ),
           ),
