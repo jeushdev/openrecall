@@ -26,8 +26,9 @@ import 'scaffold_with_nav_bar.dart';
 
 /// The app's [GoRouter] instance (ui-spec-v1 §4).
 ///
-/// A [StatefulShellRoute.indexedStack] preserves each tab branch's state across
-/// switches; [ScaffoldWithNavBar] supplies the shell chrome. Everything else —
+/// A [StatefulShellRoute] preserves each tab branch's state across switches;
+/// [ScaffoldWithNavBar] supplies the shell chrome and the horizontal slide
+/// transition between branches (milestone UX4). Everything else —
 /// the study session and the deck creator — is a top-level route outside the
 /// shell, so the bottom nav bar is naturally absent there.
 ///
@@ -69,9 +70,17 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         name: AppRoutes.forgotPasswordName,
         builder: (context, state) => const ForgotPasswordScreen(),
       ),
-      StatefulShellRoute.indexedStack(
-        builder: (context, state, navigationShell) =>
-            ScaffoldWithNavBar(navigationShell: navigationShell),
+      StatefulShellRoute(
+        builder: (context, state, navigationShell) => navigationShell,
+        // The branch navigators (`children`) are handed to [ScaffoldWithNavBar]
+        // so it can keep all four mounted in a Stack and slide the active one
+        // in horizontally. The default `indexedStack` container is replaced for
+        // exactly this reason.
+        navigatorContainerBuilder: (context, navigationShell, children) =>
+            ScaffoldWithNavBar(
+              navigationShell: navigationShell,
+              children: children,
+            ),
         branches: [
           StatefulShellBranch(
             routes: [

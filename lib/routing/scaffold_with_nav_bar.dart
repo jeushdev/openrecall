@@ -14,26 +14,133 @@ import 'glass_bottom_nav_bar.dart';
 /// The bar itself is [GlassBottomNavBar] (§5.1). The scaffold runs
 /// `extendBody: true` so each branch renders full-height behind the floating
 /// pill and its [BackdropFilter] has live content to blur.
-class ScaffoldWithNavBar extends StatelessWidget {
-  const ScaffoldWithNavBar({super.key, required this.navigationShell});
+///
+/// ## Branch transition (milestone UX4)
+///
+/// All four branch navigators (supplied by the router's
+/// `navigatorContainerBuilder` as [children]) stay mounted in a [Stack] of
+/// [Offstage] widgets so every tab keeps its state. When
+/// [StatefulNavigationShell.currentIndex] changes, the incoming branch slides
+/// in and the outgoing branch slides out along the x-axis: moving to a
+/// higher-index tab slides the view left, a lower-index tab slides it right.
+///
+/// The active branch is **not** wrapped in an [AnimatedSwitcher]: the branch
+/// navigators carry internal [GlobalKey]s, and an `AnimatedSwitcher` keeps the
+/// outgoing and incoming subtrees mounted under *different* slots at once,
+/// which throws duplicate-`GlobalKey` errors. The [Stack] here keeps each
+/// branch in a single stable slot for its whole lifetime.
+class ScaffoldWithNavBar extends StatefulWidget {
+  const ScaffoldWithNavBar({
+    super.key,
+    required this.navigationShell,
+    required this.children,
+  });
 
   final StatefulNavigationShell navigationShell;
 
+  /// The persistent branch [Navigator]s, one per tab, in branch order. Passed
+  /// straight through from the router's `navigatorContainerBuilder`.
+  final List<Widget> children;
+
+  @override
+  State<ScaffoldWithNavBar> createState() => _ScaffoldWithNavBarState();
+}
+
+class _ScaffoldWithNavBarState extends State<ScaffoldWithNavBar>
+    with SingleTickerProviderStateMixin {
+  static const _still = AlwaysStoppedAnimation(Offset.zero);
+  static const _duration = Duration(milliseconds: 240);
+
+  late final AnimationController _controller;
+
+  /// The branch currently settling into place.
+  late int _currentIndex;
+
+  /// The branch sliding out, kept on-stage until the slide finishes; `null`
+  /// when nothing is transitioning.
+  int? _outgoingIndex;
+
+  Animation<Offset> _incomingSlide = _still;
+  Animation<Offset> _outgoingSlide = _still;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentIndex = widget.navigationShell.currentIndex;
+    _controller = AnimationController(vsync: this, duration: _duration)
+      ..addStatusListener((status) {
+        if (status == AnimationStatus.completed && _outgoingIndex != null) {
+          setState(() => _outgoingIndex = null);
+        }
+      });
+  }
+
+  @override
+  void didUpdateWidget(covariant ScaffoldWithNavBar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final next = widget.navigationShell.currentIndex;
+    if (next == _currentIndex) return;
+
+    // Higher index → the view travels left: the incoming branch enters from the
+    // right (+x → 0) while the outgoing branch exits to the left (0 → -x). A
+    // lower index mirrors both directions.
+    final goingLeft = next > _currentIndex;
+    _incomingSlide = _controller.drive(
+      Tween<Offset>(
+        begin: Offset(goingLeft ? 1 : -1, 0),
+        end: Offset.zero,
+      ).chain(CurveTween(curve: Curves.easeOutCubic)),
+    );
+    _outgoingSlide = _controller.drive(
+      Tween<Offset>(
+        begin: Offset.zero,
+        end: Offset(goingLeft ? -1 : 1, 0),
+      ).chain(CurveTween(curve: Curves.easeInCubic)),
+    );
+
+    _outgoingIndex = _currentIndex;
+    _currentIndex = next;
+    _controller.forward(from: 0);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
   void _goBranch(int index) {
-    navigationShell.goBranch(
+    widget.navigationShell.goBranch(
       index,
       // Tapping the active tab again returns it to its initial location.
-      initialLocation: index == navigationShell.currentIndex,
+      initialLocation: index == widget.navigationShell.currentIndex,
     );
+  }
+
+  Animation<Offset> _slideFor(int i) {
+    if (i == _currentIndex) return _incomingSlide;
+    if (i == _outgoingIndex) return _outgoingSlide;
+    return _still;
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       extendBody: true,
-      body: navigationShell,
+      body: Stack(
+        children: [
+          for (var i = 0; i < widget.children.length; i++)
+            Offstage(
+              offstage: i != _currentIndex && i != _outgoingIndex,
+              child: SlideTransition(
+                position: _slideFor(i),
+                child: widget.children[i],
+              ),
+            ),
+        ],
+      ),
       bottomNavigationBar: GlassBottomNavBar(
-        currentIndex: navigationShell.currentIndex,
+        currentIndex: widget.navigationShell.currentIndex,
         onSelectTab: _goBranch,
       ),
     );
