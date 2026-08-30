@@ -503,10 +503,22 @@ class _ActiveBodyState extends State<_ActiveBody> {
                   ),
                 ],
               ),
+              // Center the card in whatever height is left between the header
+              // and the rating row, but let it scroll if it can't fit (UX2).
               Expanded(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
-                  child: cardArea,
+                child: LayoutBuilder(
+                  builder: (context, viewportConstraints) =>
+                      SingleChildScrollView(
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        minHeight: viewportConstraints.maxHeight,
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        child: Center(child: cardArea),
+                      ),
+                    ),
+                  ),
                 ),
               ),
               // Cloze auto-derives its result per card and has no rating row
@@ -514,7 +526,7 @@ class _ActiveBodyState extends State<_ActiveBody> {
               // Flip shows it greyed until the card is flipped.
               if (!_isCloze && (!_isFeynman || _revealed))
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                  padding: const EdgeInsets.fromLTRB(16, 14, 16, 20),
                   child: RatingRow(
                     enabled: _ratingEnabled,
                     onRate: widget.onRate,

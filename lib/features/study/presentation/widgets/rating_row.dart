@@ -4,13 +4,13 @@ import '../../../../theme/app_geometry.dart';
 import '../../../../theme/app_tokens.dart';
 import '../../domain/flip_rating.dart';
 
-/// The 0–4 rating row shared by every study mode (ui-spec-v1 §6.2).
+/// The rating row shared by every study mode (ui-spec-v1 §6.2).
 ///
-/// Five equal-flex buttons, Unfamiliar → Mastered. Buttons 0–3 are white with a
-/// hairline border; **button 4 ("Mastered") is always filled with the fixed
-/// `red` accent (`#D06C60`)** regardless of the deck's own accent, so the
-/// "Mastered" action stays one instantly-recognisable signal across every deck
-/// (§6.2, resolved).
+/// Four equal-flex buttons, Unfamiliar → Mastered. The first three are white
+/// with a hairline border; **"Mastered" is always filled with the fixed `red`
+/// accent (`#D06C60`)** regardless of the deck's own accent, so the "Mastered"
+/// action stays one instantly-recognisable signal across every deck (§6.2,
+/// resolved).
 ///
 /// [enabled] gates the whole row — Flip mode enables it once the card is
 /// flipped; Cloze and List enable it once every blank / item is revealed.
@@ -32,7 +32,7 @@ class RatingRow extends StatelessWidget {
     return Row(
       children: [
         for (final rating in FlipRating.values) ...[
-          if (rating.index != 0) const SizedBox(width: 8),
+          if (rating.index != 0) const SizedBox(width: 10),
           Expanded(
             child: _RatingButton(
               label: rating.label,
@@ -75,15 +75,15 @@ class _RatingButton extends StatelessWidget {
       opacity: disabled ? 0.4 : 1,
       child: Material(
         color: fill,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(16),
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(16),
           child: Container(
-            height: 40,
+            height: 60,
             alignment: Alignment.center,
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: BorderRadius.circular(16),
               border: Border.all(
                 color: borderColor,
                 width: AppBorders.hairline,
@@ -96,7 +96,7 @@ class _RatingButton extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               textAlign: TextAlign.center,
               style: TextStyle(
-                fontSize: 11,
+                fontSize: 15,
                 fontWeight: FontWeight.w600,
                 color: labelColor,
               ),

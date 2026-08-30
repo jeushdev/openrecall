@@ -4,19 +4,27 @@ import 'package:open_recall/features/study/domain/flip_rating.dart';
 
 void main() {
   group('FlipRating', () {
-    test('there are five ratings, 0..4', () {
-      expect(FlipRating.values.map((r) => r.level), [0, 1, 2, 3, 4]);
+    test('there are four ratings', () {
+      expect(FlipRating.values, hasLength(4));
+      expect(FlipRating.values, [
+        FlipRating.unfamiliar,
+        FlipRating.forgotten,
+        FlipRating.familiar,
+        FlipRating.mastered,
+      ]);
     });
 
-    test('the level is the enum index (Flip translation is the identity)', () {
+    test('each rating maps to its explicit mastery level (0, 1, 3, 4)', () {
       expect(FlipRating.unfamiliar.level, 0);
+      expect(FlipRating.forgotten.level, 1);
+      expect(FlipRating.familiar.level, 3);
       expect(FlipRating.mastered.level, 4);
+      expect(FlipRating.values.map((r) => r.level), [0, 1, 3, 4]);
     });
 
     test('only Mastered counts as mastered; everything below is a fail', () {
       expect(FlipRating.unfamiliar.isFail, isTrue);
       expect(FlipRating.forgotten.isFail, isTrue);
-      expect(FlipRating.okay.isFail, isTrue);
       expect(FlipRating.familiar.isFail, isTrue);
       expect(FlipRating.mastered.isFail, isFalse);
     });
