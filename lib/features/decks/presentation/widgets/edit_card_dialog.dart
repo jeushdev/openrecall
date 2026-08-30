@@ -69,13 +69,14 @@ class _EditCardDialogState extends ConsumerState<EditCardDialog> {
     );
     if (confirmed != true || !mounted) return;
 
-    await ref.read(decksControllerProvider.notifier).deleteCard(
+    // Optimistic (milestone R1): the row drops from the card list at once and
+    // the dialog closes now; the repo write runs in the background and rolls
+    // back with a snackbar on failure.
+    ref.read(decksControllerProvider.notifier).deleteCard(
           deckId: widget.deckId,
           id: widget.card.id,
         );
-    if (!ref.read(decksControllerProvider).hasError && mounted) {
-      Navigator.of(context).pop();
-    }
+    Navigator.of(context).pop();
   }
 
   @override

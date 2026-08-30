@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/local_db/local_db_providers.dart';
+import '../../../core/ui/app_messenger.dart';
 import '../data/cache_first_deck_repository.dart';
 import '../data/supabase_deck_repository.dart';
 import '../domain/bulk_paste_parser.dart';
@@ -12,6 +13,7 @@ import '../domain/deck.dart';
 import '../domain/deck_repository.dart';
 import '../domain/sample_deck.dart';
 import 'decks_tab_view.dart';
+import 'pending_deletions.dart';
 
 /// The live repository is the Supabase-backed one wrapped in the cache-first
 /// layer (spec §10): reads fall back to the local SQLite mirror for downloaded
@@ -113,10 +115,36 @@ class DecksController extends AsyncNotifier<void> {
   }
 
   /// Deletes a deck and, by cascade, its cards (ui-spec-v2 §3.3).
+  ///
+  /// Optimistic (milestone R1): the id lands in [pendingDeletionsProvider] at
+  /// once so the Decks-tab grid drops the tile and `DeckDetailScreen` can pop
+  /// immediately, without awaiting. On failure the id is cleared (tile returns)
+  /// and a snackbar is shown through the app messenger, since the originating
+  /// screen is already gone.
   Future<void> deleteDeck(String id) async {
-    await _run(() => _repo.deleteDeck(id));
-    // deleteDeck returns void, so success is "no error was recorded".
-    if (!state.hasError) _refreshDeck(id);
+    final pending = ref.read(pendingDeletionsProvider.notifier);
+    pending.addDeck(id);
+
+    final result = await AsyncValue.guard(() => _repo.deleteDeck(id));
+    if (result case AsyncError(:final error)) {
+      pending.removeDeck(id);
+      showAppSnackBar('Something went wrong: $error');
+      return;
+    }
+
+    _refreshDeck(id);
+    ref.invalidate(tabDecksProvider);
+    await _settleDecks();
+    pending.removeDeck(id);
+  }
+
+  Future<void> _settleDecks() async {
+    try {
+      await ref.read(decksProvider.future);
+      await ref.read(tabDecksProvider.future);
+    } catch (_) {
+      // A refetch failure doesn't strand the delete — it already succeeded.
+    }
   }
 
   Future<FlashCard?> addCard({
@@ -158,16 +186,30 @@ class DecksController extends AsyncNotifier<void> {
     return card;
   }
 
+  /// Optimistic (milestone R1): the card id lands in [pendingDeletionsProvider]
+  /// at once so the card list drops the row and the edit dialog can pop without
+  /// awaiting. On failure the id is cleared (row returns) and a snackbar shown.
   Future<void> deleteCard({
     required String deckId,
     required String id,
   }) async {
-    final done = await _run(() => _repo.deleteCard(id));
-    // deleteCard returns void, so success is "no error was recorded".
-    if (!state.hasError) {
-      _refresh(deckId);
+    final pending = ref.read(pendingDeletionsProvider.notifier);
+    pending.addCard(id);
+
+    final result = await AsyncValue.guard(() => _repo.deleteCard(id));
+    if (result case AsyncError(:final error)) {
+      pending.removeCard(id);
+      showAppSnackBar('Something went wrong: $error');
+      return;
     }
-    return done;
+
+    _refresh(deckId);
+    try {
+      await ref.read(deckCardsProvider(deckId).future);
+    } catch (_) {
+      // A refetch failure doesn't strand the delete — it already succeeded.
+    }
+    pending.removeCard(id);
   }
 
   Future<void> resetDeckMastery(String deckId) async {

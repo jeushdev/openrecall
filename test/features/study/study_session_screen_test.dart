@@ -4,8 +4,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:open_recall/features/decks/application/deck_providers.dart';
 import 'package:open_recall/features/decks/domain/card.dart';
+import 'package:open_recall/features/decks/domain/study_mode.dart';
 import 'package:open_recall/features/study/application/session_controller.dart';
 import 'package:open_recall/features/study/domain/study_session.dart';
+import 'package:open_recall/features/study/presentation/study_session_args.dart';
 import 'package:open_recall/features/study/presentation/study_session_screen.dart';
 import 'package:open_recall/features/study/presentation/widgets/cloze_reveal_card.dart';
 import 'package:open_recall/features/study/presentation/widgets/flip_card.dart';
@@ -49,10 +51,15 @@ Widget _host({
         routes: [
           GoRoute(
             path: 'study/:deckId',
-            builder: (_, state) => StudySessionScreen(
-              deckId: state.pathParameters['deckId']!,
-              scope: cardScopeFromDb(state.uri.queryParameters['scope'] ?? 'due'),
-            ),
+            builder: (_, state) {
+              final args = state.extra as StudySessionArgs?;
+              return StudySessionScreen(
+                deckId: state.pathParameters['deckId']!,
+                scope: cardScopeFromDb(
+                    state.uri.queryParameters['scope'] ?? 'due'),
+                requestedMode: args?.mode,
+              );
+            },
           ),
         ],
       ),
@@ -83,6 +90,30 @@ Future<void> _open(
   await tester.pumpWidget(_host(decks: decks, study: study, scope: scope));
   GoRouter.of(tester.element(find.text('Home')))
       .go('/home/study/deck-1?scope=$scope');
+  await tester.pumpAndSettle();
+}
+
+/// Navigates to the study route the way the deck-detail picker does — with a
+/// [StudySessionArgs] `extra` carrying the chosen [mode].
+void _goWithMode(WidgetTester tester, StudyMode mode) {
+  GoRouter.of(tester.element(find.text('Home'))).go(
+    '/home/study/deck-1',
+    extra: StudySessionArgs(
+      deckId: 'deck-1',
+      mode: mode,
+      cardScope: CardScope.all,
+    ),
+  );
+}
+
+Future<void> _openWithMode(
+  WidgetTester tester,
+  StudyMode mode, {
+  required FakeDeckRepository decks,
+  required FakeStudyRepository study,
+}) async {
+  await tester.pumpWidget(_host(decks: decks, study: study));
+  _goWithMode(tester, mode);
   await tester.pumpAndSettle();
 }
 
@@ -311,5 +342,96 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('import deck-1'), findsOneWidget);
+  });
+
+  testWidgets('the active session shows a "resolved / total" counter',
+      (tester) async {
+    await _open(
+      tester,
+      decks: FakeDeckRepository(cards: [_card('a'), _card('b'), _card('c')]),
+      study: FakeStudyRepository(),
+    );
+
+    expect(find.text('0 / 3'), findsOneWidget);
+
+    await tester.tap(find.byType(FlipCard));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Mastered'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('1 / 3'), findsOneWidget);
+  });
+
+  group('mode routing (milestone R1)', () {
+    FakeDeckRepository twoModeDeck() => FakeDeckRepository(cards: [
+          _card('a',
+              front: 'Paris is the capital', keyword: 'Paris', back: 'of France'),
+          _card('b', front: 'Rome', keyword: 'Rome', back: 'is in Italy'),
+        ]);
+
+    testWidgets('a forwarded mode starts it, skipping the in-screen picker',
+        (tester) async {
+      await _openWithMode(
+        tester,
+        StudyMode.cloze,
+        decks: twoModeDeck(),
+        study: FakeStudyRepository(),
+      );
+
+      expect(find.text('How do you want to study this deck?'), findsNothing);
+      expect(find.byType(ClozeRevealCard), findsOneWidget);
+    });
+
+    testWidgets('re-entering with a different mode starts fresh, not the '
+        'stale session', (tester) async {
+      final decks = twoModeDeck();
+      await _openWithMode(
+        tester,
+        StudyMode.flip,
+        decks: decks,
+        study: FakeStudyRepository(),
+      );
+      expect(find.byType(FlipCard), findsOneWidget);
+
+      // Close (keeps the session alive) → back Home.
+      await tester.tap(find.byIcon(Icons.close));
+      await tester.pumpAndSettle();
+      expect(find.text('Home'), findsOneWidget);
+
+      // Re-open the same deck asking for Cloze.
+      _goWithMode(tester, StudyMode.cloze);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(FlipCard), findsNothing);
+      expect(find.byType(ClozeRevealCard), findsOneWidget);
+    });
+
+    testWidgets('re-entering with the same mode resumes the live session',
+        (tester) async {
+      final decks = twoModeDeck();
+      await _openWithMode(
+        tester,
+        StudyMode.flip,
+        decks: decks,
+        study: FakeStudyRepository(),
+      );
+
+      // Master card a → advance to card b.
+      await tester.tap(find.byType(FlipCard));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Mastered'));
+      await tester.pumpAndSettle();
+      expect(find.text('Rome'), findsOneWidget);
+
+      await tester.tap(find.byIcon(Icons.close));
+      await tester.pumpAndSettle();
+
+      _goWithMode(tester, StudyMode.flip);
+      await tester.pumpAndSettle();
+
+      // Resumed mid-session on card b — not restarted at card a.
+      expect(find.text('Rome'), findsOneWidget);
+      expect(find.text('Paris is the capital'), findsNothing);
+    });
   });
 }

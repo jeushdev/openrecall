@@ -284,6 +284,58 @@ void main() {
       expect(courses.calls, contains('deleteCourse(c-bio)'));
     });
 
+    testWidgets(
+        'deleting a course keeps the Decks tab mounted and removes the row '
+        '(regression: the dialog must pop its own navigator, not the shell '
+        'branch)', (tester) async {
+      final courses = FakeCourseRepository(courses: _courses());
+      final router = GoRouter(
+        initialLocation: '/decks',
+        routes: [
+          StatefulShellRoute.indexedStack(
+            builder: (_, _, shell) => shell,
+            branches: [
+              StatefulShellBranch(routes: [
+                GoRoute(
+                  path: '/decks',
+                  builder: (_, _) => const DecksTabScreen(),
+                ),
+              ]),
+              StatefulShellBranch(routes: [
+                GoRoute(
+                  path: '/other',
+                  builder: (_, _) => const Scaffold(body: Text('other')),
+                ),
+              ]),
+            ],
+          ),
+        ],
+      );
+      await tester.pumpWidget(ProviderScope(
+        overrides: [
+          deckRepositoryProvider.overrideWithValue(FakeDeckRepository(decks: [
+            _deck('d1', name: 'Cell structure', courseId: 'c-bio'),
+            _deck('d2', name: 'Shopping list', courseId: 'c-default'),
+          ])),
+          courseRepositoryProvider.overrideWithValue(courses),
+        ],
+        child: MaterialApp.router(theme: AppTheme.light, routerConfig: router),
+      ));
+      await tester.pumpAndSettle();
+
+      await tester.tap(bioMenu());
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Delete course'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, 'Delete'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(DecksTabScreen), findsOneWidget);
+      expect(find.text('Decks'), findsOneWidget);
+      expect(find.text('Biology'), findsNothing);
+      expect(courses.calls, contains('deleteCourse(c-bio)'));
+    });
+
     testWidgets('Delete course can be cancelled', (tester) async {
       final courses = FakeCourseRepository(courses: _courses());
       await pumpTab(tester, courses);

@@ -110,23 +110,29 @@ class _Accordion extends ConsumerWidget {
   ) async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (_) => AlertDialog(
+      // Pop with the dialog's own context, not the accordion's. `_Accordion`
+      // sits inside the Decks shell branch, whose only route is this tab —
+      // `Navigator.of(context).pop()` from here would pop the tab itself and
+      // blank the IndexedStack (milestone R1).
+      builder: (dialogContext) => AlertDialog(
         title: const Text('Delete course?'),
         content: const Text('Its decks move to Uncategorized.'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
+            onPressed: () => Navigator.of(dialogContext).pop(false),
             child: const Text('Cancel'),
           ),
           FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
+            onPressed: () => Navigator.of(dialogContext).pop(true),
             child: const Text('Delete'),
           ),
         ],
       ),
     );
     if (confirmed != true || !context.mounted) return;
-    await ref.read(courseControllerProvider.notifier).delete(course.id);
+    // Optimistic (milestone R1): fire-and-forget — the row vanishes at once via
+    // `pendingDeletionsProvider`; `CourseController` rolls back on failure.
+    ref.read(courseControllerProvider.notifier).delete(course.id);
   }
 
   @override

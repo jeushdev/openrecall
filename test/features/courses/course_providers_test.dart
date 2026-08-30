@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:open_recall/features/courses/application/course_providers.dart';
 import 'package:open_recall/features/decks/application/deck_providers.dart';
 import 'package:open_recall/features/decks/application/decks_tab_view.dart';
+import 'package:open_recall/features/decks/application/pending_deletions.dart';
 
 import '../../support/fake_course_repository.dart';
 import '../../support/fake_deck_repository.dart';
@@ -95,6 +96,56 @@ void main() {
     expect(courses.deckCourseIds['deck-2'], 'default');
     final after = await container.read(coursesProvider.future);
     expect(after.map((c) => c.id), isNot(contains('bio')));
+  });
+
+  test('delete is optimistic — the id enters pendingDeletions immediately, '
+      'then clears once the write lands', () async {
+    await container.read(coursesProvider.future);
+
+    final future = controller().delete('bio');
+    // Synchronously after the (already-cached) course read, the row is hidden.
+    expect(
+      container.read(pendingDeletionsProvider).courseIds,
+      contains('bio'),
+    );
+
+    await future;
+    expect(
+      container.read(pendingDeletionsProvider).courseIds,
+      isNot(contains('bio')),
+    );
+    expect(courses.calls, contains('deleteCourse(bio)'));
+  });
+
+  test('delete calls the repository once, passing the default course id',
+      () async {
+    courses.deckCourseIds['deck-1'] = 'bio';
+    await container.read(coursesProvider.future);
+    courses.calls.clear();
+
+    await controller().delete('bio');
+
+    // A single deleteCourse (the real repo turns this into decks.update +
+    // courses.delete, with no self-lookup — the id is passed in).
+    expect(
+      courses.calls.where((c) => c.startsWith('deleteCourse')),
+      hasLength(1),
+    );
+    expect(courses.deckCourseIds['deck-1'], 'default');
+  });
+
+  test('a failed delete clears the pending id so the row returns', () async {
+    await container.read(coursesProvider.future);
+    courses.throwOnNextCall = Exception('offline');
+
+    await controller().delete('bio');
+
+    expect(
+      container.read(pendingDeletionsProvider).courseIds,
+      isNot(contains('bio')),
+    );
+    final after = await container.read(coursesProvider.future);
+    expect(after.map((c) => c.id), contains('bio'));
   });
 
   test('delete refuses the default course and never calls the repository',

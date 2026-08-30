@@ -6,6 +6,7 @@ import '../../courses/application/course_providers.dart';
 import '../../courses/domain/course.dart';
 import '../domain/deck.dart';
 import 'deck_providers.dart';
+import 'pending_deletions.dart';
 
 /// One deck as the Decks-tab accordion needs it (ui-spec-v2 §5): the deck's
 /// name, its card count for the tile badge, and the parent course's accent
@@ -71,7 +72,21 @@ final decksTabViewProvider =
   final courses =
       ref.watch(coursesProvider).asData?.value ?? const <Course>[];
 
-  return decksAsync.whenData((decks) => _group(decks, courses));
+  // Optimistically-deleted courses / decks (milestone R1) are subtracted before
+  // grouping. Dropping a pending course from the list is enough to re-home its
+  // decks: `_group` routes any deck whose course id it doesn't recognise to the
+  // default course.
+  final pending = ref.watch(pendingDeletionsProvider);
+
+  return decksAsync.whenData((decks) {
+    final visibleDecks = pending.deckIds.isEmpty
+        ? decks
+        : decks.where((d) => !pending.deckIds.contains(d.id)).toList();
+    final visibleCourses = pending.courseIds.isEmpty
+        ? courses
+        : courses.where((c) => !pending.courseIds.contains(c.id)).toList();
+    return _group(visibleDecks, visibleCourses);
+  });
 });
 
 /// The group used when the course list hasn't loaded (or is empty): one bucket

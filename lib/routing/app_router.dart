@@ -14,6 +14,7 @@ import '../features/decks/presentation/import_cards_screen.dart';
 import '../features/splash/presentation/splash_screen.dart';
 import '../features/stats/presentation/mastery_tab_screen.dart';
 import '../features/study/domain/study_session.dart';
+import '../features/study/presentation/study_session_args.dart';
 import '../features/study/presentation/study_session_screen.dart';
 import '../ui/profile/profile_tab_screen.dart';
 import '../ui/settings/settings_tab_screen.dart';
@@ -114,13 +115,20 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: AppRoutes.studySessionPath,
         name: AppRoutes.studySessionName,
         parentNavigatorKey: rootNavigatorKey,
-        builder: (context, state) => StudySessionScreen(
-          deckId: state.pathParameters['deckId']!,
-          // The Due view is retired (ui-spec-v2 §1): every session runs the
-          // whole deck. `CardScope` / `card_scope` stay as plumbing; the UI
-          // never chooses `due` anymore, so the route takes no `scope` param.
-          scope: CardScope.all,
-        ),
+        builder: (context, state) {
+          // The deck-detail mode picker passes its choice as `extra`; a direct
+          // navigation with no `extra` leaves `requestedMode` null and the
+          // screen falls back to its own in-screen picker.
+          final args = state.extra as StudySessionArgs?;
+          return StudySessionScreen(
+            deckId: state.pathParameters['deckId']!,
+            // The Due view is retired (ui-spec-v2 §1): every session runs the
+            // whole deck. `CardScope` / `card_scope` stay as plumbing; the UI
+            // never chooses `due` anymore, so the route takes no `scope` param.
+            scope: CardScope.all,
+            requestedMode: args?.mode,
+          );
+        },
       ),
       GoRoute(
         path: AppRoutes.deckCreatorPath,

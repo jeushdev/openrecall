@@ -10,10 +10,10 @@ import '../domain/study_session.dart';
 class StudySessionArgs {
   const StudySessionArgs({
     required this.deckId,
-    required this.deckName,
     required this.mode,
-    required this.lengthMode,
-    required this.cap,
+    this.deckName,
+    this.lengthMode = SessionLengthMode.untilMastered,
+    this.cap,
     this.cardScope = CardScope.due,
   });
 

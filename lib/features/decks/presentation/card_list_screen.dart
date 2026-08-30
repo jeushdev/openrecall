@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../routing/app_routes.dart';
 import '../../../theme/app_tokens.dart';
 import '../application/deck_providers.dart';
+import '../application/pending_deletions.dart';
 import '../domain/deck.dart';
 import 'widgets/card_list_item.dart';
 import 'widgets/edit_card_dialog.dart';
@@ -46,7 +47,14 @@ class CardListScreen extends ConsumerWidget {
         error: (_, _) => _CardsError(
           onRetry: () => ref.invalidate(deckCardsProvider(deckId)),
         ),
-        data: (list) {
+        data: (all) {
+          // Subtract cards whose deletion is still in flight (milestone R1).
+          final pendingCards = ref.watch(
+            pendingDeletionsProvider.select((p) => p.cardIds),
+          );
+          final list = pendingCards.isEmpty
+              ? all
+              : all.where((c) => !pendingCards.contains(c.id)).toList();
           if (list.isEmpty) return _EmptyCards(deckId: deckId);
           return ListView.separated(
             padding: const EdgeInsets.symmetric(vertical: 8),

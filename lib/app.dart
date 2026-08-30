@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/sync/sync_providers.dart';
+import 'core/ui/app_messenger.dart';
 import 'routing/app_router.dart';
 import 'theme/app_theme.dart';
 
@@ -19,6 +20,7 @@ class OpenRecallApp extends ConsumerWidget {
     return MaterialApp.router(
       title: 'OpenRecall',
       debugShowCheckedModeBanner: false,
+      scaffoldMessengerKey: scaffoldMessengerKey,
       theme: AppTheme.light,
       themeMode: ThemeMode.light,
       routerConfig: router,

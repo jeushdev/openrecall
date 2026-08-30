@@ -4,8 +4,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/local_db/local_db_providers.dart';
+import '../../../core/ui/app_messenger.dart';
 import '../../decks/application/deck_providers.dart';
 import '../../decks/application/decks_tab_view.dart';
+import '../../decks/application/pending_deletions.dart';
 import '../data/cache_first_course_repository.dart';
 import '../data/supabase_course_repository.dart';
 import '../domain/course.dart';
@@ -86,16 +88,55 @@ class CourseController extends AsyncNotifier<void> {
   /// Deletes course [id] — its decks move to the default course first
   /// (repository contract). The default course is never deletable
   /// (ui-spec-v2 §3.1); handed its id, this records an error and no-ops.
+  ///
+  /// Optimistic (milestone R1): the id lands in [pendingDeletionsProvider]
+  /// straight away so the Decks-tab row disappears (and its decks re-home under
+  /// the default course) before the two Supabase statements run. The caller
+  /// does not await this; on success the real providers are invalidated and the
+  /// pending id cleared once they've refetched, on failure the id is cleared
+  /// (row returns) and a snackbar is shown.
   Future<void> delete(String id) async {
-    await _run(() async {
-      final courses = await ref.read(coursesProvider.future);
-      if (courses.where((c) => c.id == id).any((c) => c.isDefault)) {
-        throw StateError('The default course cannot be deleted.');
-      }
-      await _repo.deleteCourse(id);
-    });
-    // deleteCourse returns void, so success is "no error was recorded".
-    if (!state.hasError) _refresh();
+    // Read synchronously when the list is already loaded (the Decks tab is
+    // showing it) so the optimistic `addCourse` below lands in the same tick as
+    // the tap — no frame where the row is still there.
+    final cached = ref.read(coursesProvider).asData?.value;
+    final List<Course> courses =
+        cached ?? await ref.read(coursesProvider.future);
+    if (courses.where((c) => c.id == id).any((c) => c.isDefault)) {
+      state = AsyncError<void>(
+        StateError('The default course cannot be deleted.'),
+        StackTrace.current,
+      );
+      return;
+    }
+    final defaultCourseId = courses.firstWhere((c) => c.isDefault).id;
+    final pending = ref.read(pendingDeletionsProvider.notifier);
+    pending.addCourse(id);
+
+    final result = await AsyncValue.guard(
+      () => _repo.deleteCourse(id, defaultCourseId: defaultCourseId),
+    );
+    if (result case AsyncError(:final error)) {
+      pending.removeCourse(id);
+      showAppSnackBar('Something went wrong: $error');
+      return;
+    }
+
+    _refresh();
+    ref.invalidate(tabDecksProvider);
+    // Let the invalidated fetches land before releasing the pending id, so the
+    // row doesn't flash back between the two.
+    await _settle();
+    pending.removeCourse(id);
+  }
+
+  Future<void> _settle() async {
+    try {
+      await ref.read(coursesProvider.future);
+      await ref.read(tabDecksProvider.future);
+    } catch (_) {
+      // A refetch failure doesn't strand the delete — it already succeeded.
+    }
   }
 
   /// A course write moves the course list, the deck list (accents / grouping),

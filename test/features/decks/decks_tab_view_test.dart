@@ -4,6 +4,7 @@ import 'package:open_recall/features/courses/application/course_providers.dart';
 import 'package:open_recall/features/courses/domain/course.dart';
 import 'package:open_recall/features/decks/application/deck_providers.dart';
 import 'package:open_recall/features/decks/application/decks_tab_view.dart';
+import 'package:open_recall/features/decks/application/pending_deletions.dart';
 import 'package:open_recall/features/decks/domain/deck.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -121,6 +122,75 @@ void main() {
 
       expect(groups, hasLength(1));
       expect(groups.single.decks.map((d) => d.id), ['d1', 'd2']);
+    });
+  });
+
+  group('decksTabViewProvider — optimistic deletions (milestone R1)', () {
+    late ProviderContainer container;
+
+    setUp(() async {
+      container = ProviderContainer(overrides: [
+        deckRepositoryProvider.overrideWithValue(FakeDeckRepository(decks: [
+          _deck('d-bio', courseId: 'c-bio'),
+          _deck('d-chem', courseId: 'c-chem'),
+          _deck('d-home', courseId: 'c-default'),
+        ])),
+        courseRepositoryProvider
+            .overrideWithValue(FakeCourseRepository(courses: [
+          _course('c-default',
+              name: 'Uncategorized',
+              isDefault: true,
+              createdAt: DateTime.utc(2026, 1)),
+          _course('c-bio', name: 'Biology', createdAt: DateTime.utc(2026, 2)),
+          _course('c-chem', name: 'Chemistry', createdAt: DateTime.utc(2026, 3)),
+        ])),
+      ]);
+      addTearDown(container.dispose);
+      await container.read(tabDecksProvider.future);
+      await container.read(coursesProvider.future);
+    });
+
+    List<CourseDeckGroup> currentGroups() =>
+        container.read(decksTabViewProvider).requireValue;
+
+    test('a pending-deleted course drops out and its decks re-home under the '
+        'default course', () {
+      container.read(pendingDeletionsProvider.notifier).addCourse('c-bio');
+
+      final groups = currentGroups();
+      expect(groups.map((g) => g.course.name), ['Uncategorized', 'Chemistry']);
+      expect(
+        groups.firstWhere((g) => g.course.isDefault).decks.map((d) => d.id),
+        containsAll(['d-home', 'd-bio']),
+      );
+    });
+
+    test('a pending-deleted deck drops out of its group', () {
+      container.read(pendingDeletionsProvider.notifier).addDeck('d-chem');
+
+      final chem =
+          currentGroups().firstWhere((g) => g.course.name == 'Chemistry');
+      expect(chem.decks, isEmpty);
+    });
+
+    test('clearing the pending id brings the row back', () {
+      final pending = container.read(pendingDeletionsProvider.notifier);
+      pending.addDeck('d-chem');
+      expect(
+        currentGroups()
+            .firstWhere((g) => g.course.name == 'Chemistry')
+            .decks,
+        isEmpty,
+      );
+
+      pending.removeDeck('d-chem');
+      expect(
+        currentGroups()
+            .firstWhere((g) => g.course.name == 'Chemistry')
+            .decks
+            .map((d) => d.id),
+        ['d-chem'],
+      );
     });
   });
 

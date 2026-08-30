@@ -6,6 +6,8 @@ import '../../../routing/app_routes.dart';
 import '../../../theme/app_geometry.dart';
 import '../../../theme/app_tokens.dart';
 import '../../courses/application/course_providers.dart';
+import '../../study/domain/study_session.dart';
+import '../../study/presentation/study_session_args.dart';
 import '../../study/presentation/widgets/mode_picker.dart';
 import '../application/deck_providers.dart';
 import '../domain/deck.dart';
@@ -95,9 +97,15 @@ class DeckDetailScreen extends ConsumerWidget {
               Expanded(
                 child: ModePicker(
                   modes: modes,
-                  onSelected: (_) => context.pushNamed(
+                  onSelected: (mode) => context.pushNamed(
                     AppRoutes.studySessionName,
                     pathParameters: {'deckId': deckId},
+                    extra: StudySessionArgs(
+                      deckId: deckId,
+                      deckName: deckName,
+                      mode: mode,
+                      cardScope: CardScope.all,
+                    ),
                   ),
                 ),
               ),
@@ -148,13 +156,12 @@ class DeckDetailScreen extends ConsumerWidget {
     );
     if (confirmed != true || !context.mounted) return;
 
-    await ref.read(decksControllerProvider.notifier).deleteDeck(deckId);
-    if (!context.mounted) return;
-    // `deleteDeck` records nothing on success; a failure sits in the controller
-    // state and the screen's listener has already surfaced it.
-    if (!ref.read(decksControllerProvider).hasError && context.canPop()) {
-      context.pop();
-    }
+    // Optimistic (milestone R1): the deck drops out of the Decks-tab grid
+    // immediately and we pop back now. The repo write runs in the background;
+    // on failure `DecksController` restores the row and shows a snackbar
+    // through the app-wide messenger, since this screen is already gone.
+    ref.read(decksControllerProvider.notifier).deleteDeck(deckId);
+    if (context.canPop()) context.pop();
   }
 }
 

@@ -27,9 +27,11 @@ abstract interface class CourseRepository {
     String? accentColor,
   });
 
-  /// Permanently deletes course [id], first reassigning its decks to the user's
-  /// default course (the FK is `NO ACTION`, so the reassignment must land
-  /// first). The default course itself is never passed here — the controller
-  /// guards against it.
-  Future<void> deleteCourse(String id);
+  /// Permanently deletes course [id], first reassigning its decks to
+  /// [defaultCourseId] (the FK is `NO ACTION`, so the reassignment must land
+  /// first). The caller passes the default course's id — [CourseController]
+  /// already has the course list in hand — so this is two round-trips, not a
+  /// self-lookup plus two. The default course itself is never passed as [id];
+  /// the controller guards against it.
+  Future<void> deleteCourse(String id, {required String defaultCourseId});
 }

@@ -78,12 +78,11 @@ class FakeCourseRepository implements CourseRepository {
   }
 
   @override
-  Future<void> deleteCourse(String id) async {
+  Future<void> deleteCourse(String id, {required String defaultCourseId}) async {
     calls.add('deleteCourse($id)');
     _maybeThrow();
     // Mirror the real two-step contract: reassign this course's decks to the
-    // user's default course first, then drop the course row.
-    final defaultCourseId = _courses.firstWhere((c) => c.isDefault).id;
+    // caller-supplied default course first, then drop the course row.
     deckCourseIds.updateAll(
       (deckId, courseId) => courseId == id ? defaultCourseId : courseId,
     );

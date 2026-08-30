@@ -62,12 +62,11 @@ class SupabaseCourseRepository implements CourseRepository {
   }
 
   @override
-  Future<void> deleteCourse(String id) async {
+  Future<void> deleteCourse(String id, {required String defaultCourseId}) async {
     // Two RLS-scoped statements, in order (ui-spec-v2 §3.1). The decks FK is
     // NO ACTION, so this course's decks must move to the default course before
-    // the course row can be deleted.
-    final defaultCourseId =
-        (await fetchCourses()).firstWhere((c) => c.isDefault).id;
+    // the course row can be deleted. The default course id comes from the
+    // caller (milestone R1) — no self-lookup here.
     await _client
         .from('decks')
         .update({'course_id': defaultCourseId}).eq('course_id', id);

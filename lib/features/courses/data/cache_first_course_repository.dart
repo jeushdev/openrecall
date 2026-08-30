@@ -50,5 +50,6 @@ class CacheFirstCourseRepository implements CourseRepository {
       _remote.updateCourse(id: id, name: name, accentColor: accentColor);
 
   @override
-  Future<void> deleteCourse(String id) => _remote.deleteCourse(id);
+  Future<void> deleteCourse(String id, {required String defaultCourseId}) =>
+      _remote.deleteCourse(id, defaultCourseId: defaultCourseId);
 }

@@ -40,10 +40,18 @@ class StudySessionScreen extends ConsumerStatefulWidget {
     super.key,
     required this.deckId,
     required this.scope,
+    this.requestedMode,
   });
 
   final String deckId;
   final CardScope scope;
+
+  /// The mode the deck-detail picker chose, forwarded as go_router `extra`
+  /// ([StudySessionArgs.mode]). When set, the screen starts (or resumes) that
+  /// mode directly instead of showing its own in-screen [ModePicker]. Null for
+  /// a direct `/study/:deckId` navigation with no `extra` — that path keeps the
+  /// in-screen picker as its fallback.
+  final StudyMode? requestedMode;
 
   @override
   ConsumerState<StudySessionScreen> createState() => _StudySessionScreenState();
@@ -61,6 +69,21 @@ class _StudySessionScreenState extends ConsumerState<StudySessionScreen> {
 
   bool _isOurSession(StudySessionState? state) =>
       state != null && state.deckId == widget.deckId;
+
+  /// Whether [build] should hand the screen over to a leftover
+  /// [sessionControllerProvider] session rather than start a new one.
+  ///
+  /// With no [StudySessionScreen.requestedMode] (direct entry) any session for
+  /// this deck is "ours" — the historical behaviour. With a requested mode
+  /// (deck-detail picker) we only re-attach to a *live* session already in that
+  /// mode; a leftover session in a different mode, or a finished one, means the
+  /// user asked for something new and we start fresh.
+  bool _shouldReattach(StudySessionState? state) {
+    if (!_isOurSession(state)) return false;
+    final requested = widget.requestedMode;
+    if (requested == null) return true;
+    return state!.session.studyMode == requested && !state.isComplete;
+  }
 
   void _leave() {
     if (_leaving) return;
@@ -162,8 +185,23 @@ class _StudySessionScreenState extends ConsumerState<StudySessionScreen> {
 
     final session = ref.watch(sessionControllerProvider);
 
+    // Deck-detail picker forwarded a mode: start it (or, if a live session in
+    // that same mode is still around, fall through and resume it below).
+    if (widget.requestedMode != null &&
+        !_startRequested &&
+        !_awaitingFeynmanDuration &&
+        !_shouldReattach(session.value)) {
+      final mode = widget.requestedMode!;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && !_startRequested && !_awaitingFeynmanDuration) {
+          _onModeSelected(mode);
+        }
+      });
+      return const _Shell(child: _Spinner());
+    }
+
     // A live or finished session for this deck takes over the screen.
-    if (_isOurSession(session.value)) {
+    if (_shouldReattach(session.value)) {
       final state = session.value!;
       if (state.isComplete && state.outcome != null) {
         return SessionSummaryView(
@@ -211,6 +249,11 @@ class _StudySessionScreenState extends ConsumerState<StudySessionScreen> {
         );
       }
     }
+
+    // start() has been asked for, but its state transition hasn't landed yet
+    // (e.g. flushing pending writes before switching a live session's mode).
+    // Hold on a spinner rather than briefly flashing the in-screen picker.
+    if (_startRequested) return const _Shell(child: _Spinner());
 
     // Feynman: pick the per-card timer preset before the session starts.
     if (_awaitingFeynmanDuration && !_startRequested) {
@@ -434,13 +477,23 @@ class _ActiveBodyState extends State<_ActiveBody> {
                 completedCount: state.resolvedCount,
                 totalCount: state.totalCards,
               ),
-              Align(
-                alignment: Alignment.centerLeft,
-                child: IconButton(
-                  icon: const Icon(Icons.close),
-                  color: tokens.textSecondary,
-                  onPressed: widget.onExit,
-                ),
+              Row(
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    color: tokens.textSecondary,
+                    onPressed: widget.onExit,
+                  ),
+                  const Spacer(),
+                  Padding(
+                    padding: const EdgeInsets.only(right: 16),
+                    child: Text(
+                      '${state.resolvedCount} / ${state.totalCards}',
+                      style:
+                          TextStyle(fontSize: 12, color: tokens.textSecondary),
+                    ),
+                  ),
+                ],
               ),
               Expanded(
                 child: SingleChildScrollView(
