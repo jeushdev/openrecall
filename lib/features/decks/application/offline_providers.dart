@@ -14,6 +14,14 @@ final offlineDeckIdsProvider = FutureProvider<Set<String>>((ref) {
   return ref.watch(localDeckStoreProvider).downloadedDeckIds();
 });
 
+/// Whether deck [deckId] holds local work not yet synced to Supabase. The
+/// "Keep available offline" toggle reads this to decide whether unpinning needs
+/// a data-loss warning (spec-v4 §O4).
+final deckHasUnsyncedWorkProvider =
+    FutureProvider.family<bool, String>((ref, deckId) {
+  return ref.watch(localDeckStoreProvider).deckHasUnsyncedWork(deckId);
+});
+
 /// Drives the "Available offline" switch on the Deck Overview: `isLoading`
 /// disables it while a download/removal is in flight, `AsyncError` feeds a
 /// SnackBar. Holds no value of its own.

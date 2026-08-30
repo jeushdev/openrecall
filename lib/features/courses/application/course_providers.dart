@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/local_db/local_db_providers.dart';
+import '../../../core/sync/sync_providers.dart';
 import '../../../core/ui/app_messenger.dart';
 import '../../decks/application/deck_providers.dart';
 import '../../decks/application/decks_tab_view.dart';
@@ -142,10 +143,13 @@ class CourseController extends AsyncNotifier<void> {
   }
 
   /// A course write moves the course list, the deck list (accents / grouping),
-  /// and the Decks-tab view that joins the two.
+  /// and the Decks-tab view that joins the two. Offline, it also queues a row
+  /// for sync — nudge the O4 chip.
   void _refresh() {
     ref.invalidate(coursesProvider);
     ref.invalidate(decksProvider);
     ref.invalidate(decksTabViewProvider);
+    ref.invalidate(pendingSyncProvider);
+    ref.invalidate(pendingSyncCountProvider);
   }
 }

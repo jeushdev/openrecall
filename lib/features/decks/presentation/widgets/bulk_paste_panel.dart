@@ -69,7 +69,17 @@ class _BulkPastePanelState extends ConsumerState<BulkPastePanel> {
     final added = await ref
         .read(decksControllerProvider.notifier)
         .addCards(widget.deckId, cards);
-    if (added == null || !mounted) return;
+    if (!mounted) return;
+    if (added == null) {
+      // Offline authoring falls back to the local queue, so a null result means
+      // the local write itself failed — leave the paste box untouched for retry.
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(const SnackBar(
+          content: Text("Couldn't add the cards, try again."),
+        ));
+      return;
+    }
 
     // Keep only the blocks that still need fixing — nothing is dropped
     // silently. Re-join with a blank line so they re-parse as blocks.

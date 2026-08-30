@@ -9,6 +9,7 @@ import '../../courses/application/course_providers.dart';
 import '../../courses/domain/course.dart';
 import '../application/decks_tab_view.dart';
 import 'widgets/deck_grid.dart';
+import 'widgets/sync_status_chip.dart';
 
 /// The Decks tab (`/decks`, ui-spec-v2 §5) — the app's home screen.
 ///
@@ -49,13 +50,19 @@ class DecksTabScreen extends ConsumerWidget {
           children: [
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-              child: Text(
-                'Decks',
-                style: TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.w700,
-                  color: tokens.textPrimary,
-                ),
+              child: Row(
+                children: [
+                  Text(
+                    'Decks',
+                    style: TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.w700,
+                      color: tokens.textPrimary,
+                    ),
+                  ),
+                  const Spacer(),
+                  const SyncStatusChip(),
+                ],
               ),
             ),
             const SizedBox(height: 16),

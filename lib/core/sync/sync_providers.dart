@@ -31,7 +31,13 @@ final syncServiceProvider = Provider<SyncService?>((ref) {
 final syncCoordinatorProvider = Provider<void>((ref) {
   ref.listen<AsyncValue<bool>>(onlineStatusProvider, (previous, next) {
     if (next.asData?.value == true) {
-      ref.read(syncServiceProvider)?.syncPending();
+      // The connectivity flip alone recomputes the pending providers before the
+      // push has drained the queue, so refresh them again once it finishes to
+      // clear the O4 chip.
+      ref.read(syncServiceProvider)?.syncPending().then((_) {
+        ref.invalidate(pendingSyncProvider);
+        ref.invalidate(pendingSyncCountProvider);
+      });
     }
   }, fireImmediately: true);
 });
@@ -44,13 +50,50 @@ final syncCoordinatorProvider = Provider<void>((ref) {
 ///
 /// `false` when there is no local database at all (online-only install —
 /// nothing is ever queued locally).
+///
+/// Since spec-v4 (offline-first authoring) this also covers queued content:
+/// offline-created / renamed courses and decks, offline-authored or -edited
+/// cards, and course / deck / card tombstones.
 final pendingSyncProvider = FutureProvider<bool>((ref) async {
+  // Recompute when connectivity flips — that's when the queue drains.
+  ref.watch(onlineStatusProvider);
   final deckLocal = ref.watch(localDeckStoreProvider);
   final studyLocal = ref.watch(localStudyStoreProvider);
-  if (deckLocal.isNoop && studyLocal.isNoop) return false;
+  final courseLocal = ref.watch(localCourseStoreProvider);
+  if (deckLocal.isNoop && studyLocal.isNoop && courseLocal.isNoop) return false;
 
+  if ((await courseLocal.unsyncedCourses()).isNotEmpty) return true;
+  if ((await deckLocal.unsyncedDecks()).isNotEmpty) return true;
+  if ((await deckLocal.contentDirtyCards()).isNotEmpty) return true;
   if ((await deckLocal.unsyncedCards()).isNotEmpty) return true;
   if ((await studyLocal.unsyncedSessions()).isNotEmpty) return true;
   if ((await studyLocal.unsyncedSessionCards()).isNotEmpty) return true;
+  if ((await courseLocal.courseDeletions()).isNotEmpty) return true;
+  if ((await deckLocal.deckDeletions()).isNotEmpty) return true;
+  if ((await deckLocal.cardDeletions()).isNotEmpty) return true;
   return false;
+});
+
+/// The total number of local rows still waiting to reach Supabase — the count
+/// shown on the O4 `☁ offline · N` chip. Sums every queue [pendingSyncProvider]
+/// consults. `0` when there is no local database.
+final pendingSyncCountProvider = FutureProvider<int>((ref) async {
+  ref.watch(onlineStatusProvider);
+  final deckLocal = ref.watch(localDeckStoreProvider);
+  final studyLocal = ref.watch(localStudyStoreProvider);
+  final courseLocal = ref.watch(localCourseStoreProvider);
+  if (deckLocal.isNoop && studyLocal.isNoop && courseLocal.isNoop) return 0;
+
+  final counts = await Future.wait<int>([
+    courseLocal.unsyncedCourses().then((r) => r.length),
+    deckLocal.unsyncedDecks().then((r) => r.length),
+    deckLocal.contentDirtyCards().then((r) => r.length),
+    deckLocal.unsyncedCards().then((r) => r.length),
+    studyLocal.unsyncedSessions().then((r) => r.length),
+    studyLocal.unsyncedSessionCards().then((r) => r.length),
+    courseLocal.courseDeletions().then((r) => r.length),
+    deckLocal.deckDeletions().then((r) => r.length),
+    deckLocal.cardDeletions().then((r) => r.length),
+  ]);
+  return counts.fold<int>(0, (sum, n) => sum + n);
 });

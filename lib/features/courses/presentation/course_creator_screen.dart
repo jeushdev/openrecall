@@ -56,14 +56,12 @@ class _CourseCreatorScreenState extends ConsumerState<CourseCreatorScreen> {
     if (!mounted) return;
 
     if (course == null) {
-      // The write failed (course authoring is online-only). Keep the form so
-      // nothing is lost on retry — mirrors `AddCardScreen._save`.
+      // Offline authoring falls back to the local queue, so a null result means
+      // the local write itself failed. Keep the form so nothing is lost on retry.
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
         ..showSnackBar(const SnackBar(
-          content: Text(
-            "Couldn't create the course. Check your connection and try again.",
-          ),
+          content: Text("Couldn't create the course, try again."),
         ));
       return;
     }

@@ -4,9 +4,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/connectivity/connectivity_service.dart';
 import '../../application/offline_providers.dart';
 
-/// The "Available offline" switch on the Deck Overview (spec §10). Turning it on
-/// downloads the deck's cards into local SQLite; turning it off drops the local
-/// copy after a confirm, since any not-yet-synced study results go with it.
+/// The "Keep available offline" switch on the Deck Overview (spec-v4 §O4).
+///
+/// Since spec-v4 any deck opened online is auto-cached, so this toggle is a
+/// *pin* (`offline_decks.is_pinned`): on, it fetches the deck without opening it
+/// and never auto-evicts it; off, it drops the local copy after a confirm. The
+/// confirm only warns about data loss when the deck actually holds unsynced
+/// local work.
 class OfflineToggle extends ConsumerWidget {
   const OfflineToggle({super.key, required this.deckId, required this.deckName});
 
@@ -39,7 +43,7 @@ class OfflineToggle extends ConsumerWidget {
         secondary: Icon(
           downloaded ? Icons.download_done : Icons.download_outlined,
         ),
-        title: const Text('Available offline'),
+        title: const Text('Keep available offline'),
         subtitle: Text(_subtitle(downloaded: downloaded, online: online)),
         value: downloaded,
         onChanged: canToggle
@@ -56,9 +60,11 @@ class OfflineToggle extends ConsumerWidget {
   }
 
   String _subtitle({required bool downloaded, required bool online}) {
-    if (downloaded) return "Cards are saved on this device for offline study.";
-    if (!online) return 'Connect to the internet to download this deck.';
-    return "Save this deck's cards to study it without a connection.";
+    if (downloaded) {
+      return 'Pinned — kept on this device and never removed automatically.';
+    }
+    if (!online) return 'Connect to the internet to pin this deck.';
+    return "Pin this deck to keep its cards on this device.";
   }
 
   Future<void> _download(BuildContext context, WidgetRef ref) {
@@ -68,13 +74,19 @@ class OfflineToggle extends ConsumerWidget {
   }
 
   Future<void> _confirmRemove(BuildContext context, WidgetRef ref) async {
+    final unsynced =
+        await ref.read(deckHasUnsyncedWorkProvider(deckId).future);
+    if (!context.mounted) return;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
         title: const Text('Remove offline copy?'),
-        content: const Text(
-          "This deck's cards will no longer be available without a connection. "
-          'Any study results not yet synced will be lost.',
+        content: Text(
+          unsynced
+              ? "This deck won't be kept on this device, and unsynced changes "
+                  'to it will be lost.'
+              : "This deck's cards will no longer be kept on this device for "
+                  'offline study.',
         ),
         actions: [
           TextButton(

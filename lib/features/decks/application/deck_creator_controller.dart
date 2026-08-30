@@ -82,8 +82,7 @@ class DeckCreatorController extends Notifier<DeckCreatorState> {
 
     state = state.copyWith(
       isSubmitting: false,
-      error: () =>
-          "Couldn't create the deck. Check your connection and try again.",
+      error: () => "Couldn't create the deck, try again.",
     );
     return null;
   }

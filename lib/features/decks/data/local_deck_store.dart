@@ -155,6 +155,16 @@ class LocalDeckStore {
     });
   }
 
+  /// Whether this deck still holds local work that hasn't reached Supabase — an
+  /// offline rename / re-course, an offline-authored or -edited card, or an
+  /// offline session. Used by the "Keep available offline" toggle to decide
+  /// whether unpinning would lose anything (spec-v4 §O4).
+  Future<bool> deckHasUnsyncedWork(String deckId) async {
+    final db = _db;
+    if (db == null) return false;
+    return _deckHasUnsyncedWork(db, deckId);
+  }
+
   Future<bool> _deckHasUnsyncedWork(
       DatabaseExecutor txn, String deckId) async {
     final deck = await txn.query('offline_decks',

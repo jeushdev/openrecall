@@ -75,14 +75,12 @@ class _ImportCardsScreenState extends ConsumerState<ImportCardsScreen> {
     if (!mounted) return;
 
     if (card == null) {
-      // The write failed (card authoring is online-only by the repository's
-      // design). Keep the fields as they are so nothing is lost on retry.
+      // Offline authoring falls back to the local queue, so a null result means
+      // the local write itself failed. Keep the fields as they are for retry.
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
         ..showSnackBar(const SnackBar(
-          content: Text(
-            "Couldn't save the card. Check your connection and try again.",
-          ),
+          content: Text("Couldn't save the card, try again."),
         ));
       return;
     }

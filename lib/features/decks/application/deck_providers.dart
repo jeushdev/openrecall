@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/local_db/local_db_providers.dart';
+import '../../../core/sync/sync_providers.dart';
 import '../../../core/ui/app_messenger.dart';
 import '../data/cache_first_deck_repository.dart';
 import '../data/supabase_deck_repository.dart';
@@ -229,9 +230,12 @@ class DecksController extends AsyncNotifier<void> {
   }
 
   /// A card change moves both the deck's card list and the Library's counts.
+  /// Offline, it also queues a row for sync — nudge the O4 chip.
   void _refresh(String deckId) {
     ref.invalidate(deckCardsProvider(deckId));
     ref.invalidate(decksProvider);
+    ref.invalidate(pendingSyncProvider);
+    ref.invalidate(pendingSyncCountProvider);
   }
 
   /// A deck rename / re-course / delete moves the card list, the Library
