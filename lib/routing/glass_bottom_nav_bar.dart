@@ -1,10 +1,9 @@
 import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 
+import '../features/decks/presentation/widgets/create_menu_sheet.dart';
 import '../theme/app_tokens.dart';
-import 'app_routes.dart';
 
 /// The floating glassmorphic bottom navigation pill (ui-spec-v1 §5.1).
 ///
@@ -147,8 +146,9 @@ class _NavItem extends StatelessWidget {
 }
 
 /// The inline 48×48 circular Create action, sitting at the same height as the
-/// tab icons (not elevated — §5.1). Pushes `/deck-creator` so back-navigation
-/// returns to whichever tab launched it.
+/// tab icons (not elevated — §5.1). Opens the Create menu bottom sheet
+/// ([CreateMenuSheet], ui-spec-v2 §6.1); whichever route it launches is a
+/// top-level one, so back-navigation returns to the launching tab.
 class _CreateButton extends StatelessWidget {
   const _CreateButton({required this.tokens});
 
@@ -165,7 +165,7 @@ class _CreateButton extends StatelessWidget {
         clipBehavior: Clip.antiAlias,
         child: InkWell(
           key: const ValueKey('nav-create'),
-          onTap: () => context.push(AppRoutes.deckCreatorPath),
+          onTap: () => CreateMenuSheet.show(context),
           child: Center(
             child: Icon(
               Icons.add,

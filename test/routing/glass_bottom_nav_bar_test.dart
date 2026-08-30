@@ -3,12 +3,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:open_recall/app.dart';
 import 'package:open_recall/features/auth/application/auth_providers.dart';
+import 'package:open_recall/features/decks/application/deck_providers.dart';
 import 'package:open_recall/features/stats/presentation/mastery_tab_screen.dart';
 import 'package:open_recall/routing/glass_bottom_nav_bar.dart';
 import 'package:open_recall/routing/placeholders/deck_creator_screen.dart';
 import 'package:open_recall/theme/app_tokens.dart';
 
 import '../support/fake_auth_repository.dart';
+import '../support/fake_deck_repository.dart';
 
 Future<void> _pumpSignedIn(WidgetTester tester) async {
   final fake = FakeAuthRepository(signedIn: true);
@@ -16,7 +18,10 @@ Future<void> _pumpSignedIn(WidgetTester tester) async {
 
   await tester.pumpWidget(
     ProviderScope(
-      overrides: [authRepositoryProvider.overrideWithValue(fake)],
+      overrides: [
+        authRepositoryProvider.overrideWithValue(fake),
+        deckRepositoryProvider.overrideWithValue(FakeDeckRepository()),
+      ],
       child: const OpenRecallApp(),
     ),
   );
@@ -72,11 +77,21 @@ void main() {
     expect(_iconColor(tester, 'nav-decks'), AppTokens.light.textTertiary);
   });
 
-  testWidgets('tapping Create pushes /deck-creator and leaves the shell',
+  testWidgets(
+      'tapping Create opens the Create menu; Create deck leaves the shell',
       (tester) async {
     await _pumpSignedIn(tester);
 
     await tester.tap(find.byKey(const ValueKey('nav-create')));
+    await tester.pumpAndSettle();
+
+    // The sheet is up, the shell still mounted underneath it.
+    expect(find.text('Create course'), findsOneWidget);
+    expect(find.text('Create deck'), findsOneWidget);
+    expect(find.text('Import card'), findsOneWidget);
+    expect(find.byType(GlassBottomNavBar), findsOneWidget);
+
+    await tester.tap(find.text('Create deck'));
     await tester.pumpAndSettle();
 
     expect(find.byType(DeckCreatorScreen), findsOneWidget);

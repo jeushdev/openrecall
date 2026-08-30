@@ -46,6 +46,11 @@ abstract final class AppRoutes {
   static const String deckCreatorPath = '/deck-creator';
   static const String deckCreatorName = 'deck-creator';
 
+  /// Course Creator (ui-spec-v2 §6.2), at `/course-creator`. Name + accent
+  /// picker; a top-level route so the bottom bar is absent while creating it.
+  static const String courseCreatorPath = '/course-creator';
+  static const String courseCreatorName = 'course-creator';
+
   /// Add Card — a rapid single-card entry screen for one deck, at
   /// `/deck/:deckId/add-card` (optional `name` query parameter for the title).
   /// Reached straight after creating a deck and from the study-session
