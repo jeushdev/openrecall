@@ -18,6 +18,7 @@ final syncServiceProvider = Provider<SyncService?>((ref) {
   return SyncService(
     client,
     ref.watch(localDeckStoreProvider),
+    ref.watch(localCourseStoreProvider),
     ref.watch(localStudyStoreProvider),
     ref.watch(connectivityServiceProvider),
   );
