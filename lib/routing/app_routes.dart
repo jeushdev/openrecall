@@ -59,6 +59,22 @@ abstract final class AppRoutes {
   static const String addCardPath = '/deck/:deckId/add-card';
   static const String addCardName = 'add-card';
 
+  /// Deck detail (ui-spec-v2 §6.3), at `/deck/:deckId`. The mode picker + Import
+  /// + View cards + edit/delete deck screen a deck tile now opens instead of
+  /// going straight to a study session. Top-level, so the bottom bar is absent.
+  static const String deckDetailPath = '/deck/:deckId';
+  static const String deckDetailName = 'deck-detail';
+
+  /// Import cards (ui-spec-v2 §6.4), at `/deck/:deckId/import`. Lands in U14 —
+  /// U13 registers a placeholder so the deck-detail push resolves.
+  static const String importCardsPath = '/deck/:deckId/import';
+  static const String importCardsName = 'import-cards';
+
+  /// Card list (ui-spec-v2 §6.5), at `/deck/:deckId/cards`. Lands in U15 — U13
+  /// registers a placeholder so the deck-detail push resolves.
+  static const String cardListPath = '/deck/:deckId/cards';
+  static const String cardListName = 'card-list';
+
   // --- Legacy — screens not yet rewired into the revamp shell (U4/U5). The
   //     `DeckLibraryScreen` / `DeckOverviewScreen` widgets still reference
   //     `deckOverviewName` and compile, but no route is registered for it, so

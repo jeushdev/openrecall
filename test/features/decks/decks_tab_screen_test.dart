@@ -72,11 +72,11 @@ Widget _host(
         builder: (context, state) => const DecksTabScreen(),
       ),
       GoRoute(
-        path: '/study/:deckId',
-        name: 'study-session',
+        path: '/deck/:deckId',
+        name: 'deck-detail',
         builder: (context, state) {
           recorder.location = state.uri.toString();
-          return const Scaffold(body: Text('study stub'));
+          return const Scaffold(body: Text('deck-detail stub'));
         },
       ),
       GoRoute(
@@ -167,7 +167,7 @@ void main() {
     expect(find.text('no cards yet'), findsOneWidget);
   });
 
-  testWidgets('tapping a deck routes to /study/:deckId with no scope',
+  testWidgets('tapping a deck routes to /deck/:deckId (deck detail)',
       (tester) async {
     final recorder = _Recorder();
     await tester.pumpWidget(_host(
@@ -181,7 +181,7 @@ void main() {
     await tester.tap(find.text('Cell structure'));
     await tester.pumpAndSettle();
 
-    expect(recorder.location, '/study/deck-1');
+    expect(recorder.location, '/deck/deck-1');
   });
 
   testWidgets('the Create tile routes to /deck-creator', (tester) async {

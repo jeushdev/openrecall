@@ -7,6 +7,7 @@ import 'package:open_recall/features/auth/application/auth_providers.dart';
 import 'package:open_recall/features/auth/presentation/login_screen.dart';
 import 'package:open_recall/features/decks/application/deck_providers.dart';
 import 'package:open_recall/features/decks/domain/card.dart';
+import 'package:open_recall/features/decks/presentation/deck_detail_screen.dart';
 import 'package:open_recall/features/decks/presentation/decks_tab_screen.dart';
 import 'package:open_recall/features/stats/presentation/mastery_tab_screen.dart';
 import 'package:open_recall/features/study/application/session_controller.dart';
@@ -117,6 +118,17 @@ void main() {
     expect(find.byType(StudySessionScreen), findsOneWidget);
     expect(find.byType(GlassBottomNavBar), findsNothing);
     expect(find.text('front-a'), findsOneWidget);
+  });
+
+  testWidgets('pushing /deck/:deckId opens deck detail outside the shell',
+      (tester) async {
+    await _pump(tester, signedIn: true);
+
+    _router(tester).go('/deck/deck-1');
+    await tester.pumpAndSettle();
+
+    expect(find.byType(DeckDetailScreen), findsOneWidget);
+    expect(find.byType(GlassBottomNavBar), findsNothing);
   });
 
   testWidgets('pushing /deck-creator leaves the shell and pops back to its tab',

@@ -48,12 +48,12 @@ class _DeckCreatorScreenState extends ConsumerState<DeckCreatorScreen> {
     // shell stays mounted underneath this route — refresh it so the new deck is
     // there when we come back.
     refreshDecksTab(ref);
-    // Straight into Add Card for the brand-new deck. `pushReplacement` so Back
-    // from there returns to the Decks tab, not this now-stale form.
+    // Into the new deck's detail screen (ui-spec-v2 §6.3), where the user can
+    // import cards or start a session. `pushReplacement` so Back from there
+    // returns to the Decks tab, not this now-stale form.
     context.pushReplacementNamed(
-      AppRoutes.addCardName,
+      AppRoutes.deckDetailName,
       pathParameters: {'deckId': deckId},
-      queryParameters: {'name': _nameController.text.trim()},
     );
   }
 

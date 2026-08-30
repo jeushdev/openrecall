@@ -31,10 +31,10 @@ Future<void> _pump(
         builder: (_, _) => const DeckCreatorScreen(),
       ),
       GoRoute(
-        path: AppRoutes.addCardPath,
-        name: AppRoutes.addCardName,
+        path: AppRoutes.deckDetailPath,
+        name: AppRoutes.deckDetailName,
         builder: (_, state) => Scaffold(
-          body: Text('add-card ${state.pathParameters['deckId']}'),
+          body: Text('deck-detail ${state.pathParameters['deckId']}'),
         ),
       ),
     ],
@@ -88,7 +88,7 @@ void main() {
   });
 
   testWidgets(
-      'Create calls createDeck with the name and course id, then opens Add Card',
+      'Create calls createDeck with the name and course id, then opens deck detail',
       (tester) async {
     final decks = FakeDeckRepository();
     await _pump(tester, decks: decks);
@@ -101,7 +101,7 @@ void main() {
 
     expect(decks.calls, contains('createDeck(Cells, course=course-2)'));
     // The freshly-created deck's id (FakeDeckRepository mints 'deck-1').
-    expect(find.text('add-card deck-1'), findsOneWidget);
+    expect(find.text('deck-detail deck-1'), findsOneWidget);
     expect(find.byType(DeckCreatorScreen), findsNothing);
   });
 

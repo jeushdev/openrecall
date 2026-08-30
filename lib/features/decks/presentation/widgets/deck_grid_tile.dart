@@ -14,10 +14,10 @@ import 'deck_badge.dart';
 /// The accent sliver peeks ~8px past the **left** edge only; this direction is
 /// locked (§6.1).
 ///
-/// Tapping the foreground card pushes `/study/:deckId` (§4). The Due view is
-/// retired (ui-spec-v2 §1), so no `scope` is passed — the session always runs
-/// `CardScope.all`. The push (not a `go`) keeps the Decks tab underneath so
-/// back-navigation returns to it.
+/// Tapping the foreground card pushes `/deck/:deckId` — the deck detail screen
+/// (ui-spec-v2 §6.3), which hosts the mode picker that starts a session. The
+/// push (not a `go`) keeps the Decks tab underneath so back-navigation returns
+/// to it.
 class DeckGridTile extends StatelessWidget {
   const DeckGridTile({
     super.key,
@@ -66,7 +66,7 @@ class DeckGridTile extends StatelessWidget {
               type: MaterialType.transparency,
               child: InkWell(
                 onTap: () => context.pushNamed(
-                  AppRoutes.studySessionName,
+                  AppRoutes.deckDetailName,
                   pathParameters: {'deckId': deck.id},
                 ),
                 child: Padding(
