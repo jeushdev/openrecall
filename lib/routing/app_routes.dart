@@ -36,8 +36,9 @@ abstract final class AppRoutes {
 
   // --- Top-level routes, outside the shell (ui-spec-v1 §4). No bottom bar.
 
-  /// Study session (ui-spec-v1 §6.2), at `/study/:deckId`. Accepts an optional
-  /// `scope=due|all` query parameter mapping to `CardScope`; defaults to `due`.
+  /// Study session (ui-spec-v1 §6.2), at `/study/:deckId`. Takes no query
+  /// parameters — the Due view is retired (ui-spec-v2 §1), so the session
+  /// always runs `CardScope.all`.
   static const String studySessionPath = '/study/:deckId';
   static const String studySessionName = 'study-session';
 

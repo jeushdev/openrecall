@@ -104,12 +104,14 @@ void main() {
     expect(find.byType(GlassBottomNavBar), findsNothing);
   });
 
-  testWidgets('the scope query parameter reaches the session', (tester) async {
+  testWidgets('a session always runs the whole deck — no scope param needed',
+      (tester) async {
     await _pump(tester, signedIn: true);
 
-    // The stub deck's only card is already mastered: a `due` session finds
-    // nothing to study, so seeing a card proves `scope=all` threaded through.
-    _router(tester).go('/study/deck-1?scope=all');
+    // The stub deck's only card is already mastered. The Due view is retired
+    // (ui-spec-v2 §1): the router forces CardScope.all, so the card still
+    // appears even though the route carries no `scope` query.
+    _router(tester).go('/study/deck-1');
     await tester.pumpAndSettle();
 
     expect(find.byType(StudySessionScreen), findsOneWidget);

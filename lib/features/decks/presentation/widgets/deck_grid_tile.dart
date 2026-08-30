@@ -5,28 +5,26 @@ import '../../../../routing/app_routes.dart';
 import '../../../../theme/app_geometry.dart';
 import '../../../../theme/app_tokens.dart';
 import '../../application/decks_tab_view.dart';
-import '../deck_segment.dart';
 import 'deck_badge.dart';
 
-/// One square tile in the Decks-tab grid (ui-spec-v1 §6.1).
+/// One square tile in a course section's deck grid (ui-spec-v2 §5).
 ///
 /// The "stacked deck" depth is a single solid offset [Container] behind the
 /// foreground card — **never** a [BoxShadow] (§3.3, a hard perf constraint).
 /// The accent sliver peeks ~8px past the **left** edge only; this direction is
 /// locked (§6.1).
 ///
-/// Tapping the foreground card pushes `/study/:deckId?scope=due|all` (§4), the
-/// `scope` taken from the currently active [segment]. The push (not a `go`)
-/// keeps the Decks tab underneath so back-navigation returns to it.
+/// Tapping the foreground card pushes `/study/:deckId` (§4). The Due view is
+/// retired (ui-spec-v2 §1), so no `scope` is passed — the session always runs
+/// `CardScope.all`. The push (not a `go`) keeps the Decks tab underneath so
+/// back-navigation returns to it.
 class DeckGridTile extends StatelessWidget {
   const DeckGridTile({
     super.key,
     required this.deck,
-    required this.segment,
   });
 
   final DeckTileView deck;
-  final DeckSegment segment;
 
   @override
   Widget build(BuildContext context) {
@@ -70,7 +68,6 @@ class DeckGridTile extends StatelessWidget {
                 onTap: () => context.pushNamed(
                   AppRoutes.studySessionName,
                   pathParameters: {'deckId': deck.id},
-                  queryParameters: {'scope': segment.scopeQueryValue},
                 ),
                 child: Padding(
                   padding: const EdgeInsets.all(12),
@@ -89,7 +86,7 @@ class DeckGridTile extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: 8),
-                      DeckBadge(deck: deck, segment: segment, accent: accent),
+                      DeckBadge(deck: deck, accent: accent),
                     ],
                   ),
                 ),

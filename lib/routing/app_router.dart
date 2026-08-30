@@ -114,9 +114,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         parentNavigatorKey: rootNavigatorKey,
         builder: (context, state) => StudySessionScreen(
           deckId: state.pathParameters['deckId']!,
-          // `scope` maps directly to CardScope; anything but `all` (including
-          // absent or malformed) resolves to `due` per §4.
-          scope: cardScopeFromDb(state.uri.queryParameters['scope'] ?? 'due'),
+          // The Due view is retired (ui-spec-v2 §1): every session runs the
+          // whole deck. `CardScope` / `card_scope` stay as plumbing; the UI
+          // never chooses `due` anymore, so the route takes no `scope` param.
+          scope: CardScope.all,
         ),
       ),
       GoRoute(

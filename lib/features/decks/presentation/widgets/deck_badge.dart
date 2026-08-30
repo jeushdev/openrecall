@@ -2,45 +2,31 @@ import 'package:flutter/material.dart';
 
 import '../../../../theme/app_tokens.dart';
 import '../../application/decks_tab_view.dart';
-import '../deck_segment.dart';
 
-/// The single badge under a deck tile's name (ui-spec-v1 §6.1).
+/// The single badge under a deck tile's name (ui-spec-v2 §5): the deck's card
+/// count.
 ///
-/// Its content depends on the active segment:
-/// - **Due**: `"{n} due"` in the deck's accent text colour on a 12%-tinted
-///   background of the same accent, or a neutral `"up to date"` when nothing is
-///   due.
-/// - **All**: `"×{n} cleared"` (same accent-tinted pill), or a neutral
-///   `"not attempted"` when the deck has never been run through — deliberately
-///   not `"×0"`, to avoid a discouraging zero.
+/// - Non-empty: `"{n} cards"` in the deck's accent text colour on a 12%-tinted
+///   background of the same accent.
+/// - Empty: a neutral `"no cards yet"` — deliberately not `"0 cards"`, to avoid
+///   a discouraging zero.
 class DeckBadge extends StatelessWidget {
   const DeckBadge({
     super.key,
     required this.deck,
-    required this.segment,
     required this.accent,
   });
 
   final DeckTileView deck;
-  final DeckSegment segment;
   final AccentPair accent;
 
   @override
   Widget build(BuildContext context) {
     final tokens = Theme.of(context).extension<AppTokens>()!;
 
-    final (String label, bool tinted) = switch (segment) {
-      DeckSegment.due => deck.dueCount > 0
-          ? ('${deck.dueCount} due', true)
-          : ('up to date', false),
-      DeckSegment.all => deck.clearedCount > 0
-          ? ('×${deck.clearedCount} cleared', true)
-          : ('not attempted', false),
-    };
-
-    if (!tinted) {
+    if (deck.cardCount == 0) {
       return Text(
-        label,
+        'no cards yet',
         style: TextStyle(
           fontSize: 12,
           fontWeight: FontWeight.w500,
@@ -56,7 +42,7 @@ class DeckBadge extends StatelessWidget {
         borderRadius: BorderRadius.circular(8),
       ),
       child: Text(
-        label,
+        '${deck.cardCount} cards',
         style: TextStyle(
           fontSize: 12,
           fontWeight: FontWeight.w600,
