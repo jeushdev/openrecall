@@ -20,11 +20,12 @@ class DeckCreatorState {
   /// Set when the create call failed; shown inline, cleared on the next edit.
   final String? error;
 
-  /// "Create" is enabled only with a non-blank name, an explicitly chosen
-  /// course, and no write in flight. The DB default-course trigger is a safety
-  /// net, not the UX — the user picks a course deliberately.
-  bool get canSubmit =>
-      name.trim().isNotEmpty && selectedCourseId != null && !isSubmitting;
+  /// "Create" is enabled with a non-blank name and no write in flight. A course
+  /// is optional: when the list is available the user picks one, but offline —
+  /// where the course mirror may be empty and no picker renders — the deck is
+  /// created with no course and both [CacheFirstDeckRepository.createDeck] and
+  /// the `decks_fill_default_course` trigger route it to the default course.
+  bool get canSubmit => name.trim().isNotEmpty && !isSubmitting;
 
   DeckCreatorState copyWith({
     String? name,

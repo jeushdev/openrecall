@@ -10,15 +10,17 @@ import '../../theme/app_geometry.dart';
 import '../../theme/app_tokens.dart';
 import '../app_routes.dart';
 
-/// The Deck Creator (`/deck-creator`, ui-spec-v1 §4) — name a deck, pick the
-/// course it belongs to, create it.
+/// The Deck Creator (`/deck-creator`, ui-spec-v1 §4) — name a deck, optionally
+/// pick the course it belongs to, create it.
 ///
 /// A top-level route outside the shell (`app_router.dart`), so the bottom nav
 /// bar is naturally absent while creating a deck. Course selection is read-only
 /// here: it lists the existing courses from [coursesProvider] and sets the new
 /// deck's `course_id` — creating or editing a course is out of scope (blocked,
 /// ui-spec-v1 §7). Accent colour lives on the course, never on the deck, so
-/// there is no colour picker on this screen.
+/// there is no colour picker on this screen. Picking a course is optional: when
+/// the list is unavailable (offline, empty mirror) the deck is created with no
+/// course and lands in the user's default course.
 ///
 /// (This file keeps the `placeholders/` path and `DeckCreatorScreen` name the
 /// router and its tests already use; it shares the name with the unrelated,
@@ -125,14 +127,16 @@ class _DeckCreatorScreenState extends ConsumerState<DeckCreatorScreen> {
                       height: 56,
                       child: Center(child: CircularProgressIndicator()),
                     ),
-                    error: (_, _) => _CoursesError(
+                    error: (_, _) => _CoursesUnavailable(
                       onRetry: () => ref.invalidate(coursesProvider),
                     ),
-                    data: (list) => CourseSelector(
-                      courses: list,
-                      selectedId: form.selectedCourseId,
-                      onSelected: controller.courseSelected,
-                    ),
+                    data: (list) => list.isEmpty
+                        ? const _CoursesUnavailable()
+                        : CourseSelector(
+                            courses: list,
+                            selectedId: form.selectedCourseId,
+                            onSelected: controller.courseSelected,
+                          ),
                   ),
                   if (form.error != null) ...[
                     const SizedBox(height: 16),
@@ -207,10 +211,13 @@ class _Header extends StatelessWidget {
   }
 }
 
-class _CoursesError extends StatelessWidget {
-  const _CoursesError({required this.onRetry});
+/// Shown when the course list can't be loaded (offline with an empty mirror) or
+/// is genuinely empty. Creating the deck is still allowed — it lands in the
+/// default course — so this is an informational note, not a blocking error.
+class _CoursesUnavailable extends StatelessWidget {
+  const _CoursesUnavailable({this.onRetry});
 
-  final VoidCallback onRetry;
+  final VoidCallback? onRetry;
 
   @override
   Widget build(BuildContext context) {
@@ -219,11 +226,17 @@ class _CoursesError extends StatelessWidget {
       children: [
         Expanded(
           child: Text(
-            "Couldn't load your courses.",
-            style: TextStyle(fontSize: 13, color: tokens.textSecondary),
+            'Courses are unavailable right now — this deck goes to your '
+            'default course. You can move it later.',
+            style: TextStyle(
+              fontSize: 13,
+              height: 1.4,
+              color: tokens.textSecondary,
+            ),
           ),
         ),
-        TextButton(onPressed: onRetry, child: const Text('Retry')),
+        if (onRetry != null)
+          TextButton(onPressed: onRetry, child: const Text('Retry')),
       ],
     );
   }

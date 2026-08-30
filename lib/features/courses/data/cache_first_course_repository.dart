@@ -2,12 +2,14 @@ import '../../../core/ids.dart';
 import '../domain/course.dart';
 import '../domain/course_repository.dart';
 import 'local_course_store.dart';
-import 'supabase_course_repository.dart';
 
-/// Wraps [SupabaseCourseRepository] with the local SQLite mirror (engine-v2-spec
-/// §5, spec-v4 §4). Reads are read-through: hit Supabase, refresh the
+/// Wraps the Supabase-backed course repository with the local SQLite mirror
+/// (engine-v2-spec §5, spec-v4 §4). Reads are read-through: hit Supabase, refresh
+/// the
 /// `offline_courses` mirror, return the remote data; if the Supabase call
-/// throws, fall back to the mirror and otherwise rethrow.
+/// throws, fall back to the mirror — including an empty one, since "no courses
+/// cached yet" is a valid offline state, not an error (every consumer of
+/// `coursesProvider` already degrades on an empty list).
 ///
 /// Course create / update / delete are cache-first with a local-queue fallback:
 /// they try [_remote] first and, when that throws (typically: offline), write
@@ -18,7 +20,9 @@ import 'supabase_course_repository.dart';
 class CacheFirstCourseRepository implements CourseRepository {
   CacheFirstCourseRepository(this._remote, this._local, this._currentUserId);
 
-  final SupabaseCourseRepository _remote;
+  /// The Supabase-backed repository in production; a fake in tests. Typed as the
+  /// interface so the cache-first logic can be unit-tested without a client.
+  final CourseRepository _remote;
   final LocalCourseStore _local;
   final String? Function() _currentUserId;
 
@@ -29,9 +33,10 @@ class CacheFirstCourseRepository implements CourseRepository {
       await _local.refreshCourses(remote);
       return remote;
     } catch (_) {
-      final cached = await _local.cachedCourses();
-      if (cached.isEmpty) rethrow;
-      return cached;
+      // With no local mirror there is nothing to fall back to — behave like the
+      // plain Supabase repo and surface the error.
+      if (_local.isNoop) rethrow;
+      return _local.cachedCourses();
     }
   }
 

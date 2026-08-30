@@ -5,7 +5,6 @@ import '../domain/card.dart';
 import '../domain/deck.dart';
 import '../domain/deck_repository.dart';
 import 'local_deck_store.dart';
-import 'supabase_deck_repository.dart';
 
 /// Thrown by [CacheFirstDeckRepository.fetchCards] when a deck is neither
 /// reachable online nor downloaded — "a deck that isn't downloaded and has no
@@ -17,8 +16,8 @@ class DeckUnavailableOfflineException implements Exception {
   String toString() => 'DeckUnavailableOfflineException($deckId)';
 }
 
-/// Wraps [SupabaseDeckRepository] with the local SQLite mirror (spec §10,
-/// spec-v4 §4).
+/// Wraps the Supabase-backed deck repository with the local SQLite mirror
+/// (spec §10, spec-v4 §4).
 ///
 /// Reads are read-through: hit Supabase, refresh the mirror, return the remote
 /// data; if the Supabase call throws, fall back to the mirror (for downloaded
@@ -37,7 +36,9 @@ class DeckUnavailableOfflineException implements Exception {
 class CacheFirstDeckRepository implements DeckRepository {
   CacheFirstDeckRepository(this._remote, this._local, this._courseLocal);
 
-  final SupabaseDeckRepository _remote;
+  /// The Supabase-backed repository in production; a fake in tests. Typed as the
+  /// interface so the cache-first logic can be unit-tested without a client.
+  final DeckRepository _remote;
   final LocalDeckStore _local;
   final LocalCourseStore _courseLocal;
 

@@ -66,17 +66,17 @@ void main() {
     expect(_createEnabled(tester), isFalse);
   });
 
-  testWidgets('Create is disabled with a name typed but no course selected',
+  testWidgets('Create is enabled with a name and no course (course is optional)',
       (tester) async {
     await _pump(tester, decks: FakeDeckRepository());
 
     await tester.enterText(find.byType(TextField), 'Cells');
     await tester.pumpAndSettle();
 
-    expect(_createEnabled(tester), isFalse);
+    expect(_createEnabled(tester), isTrue);
   });
 
-  testWidgets('Create enables once both a name and a course are set',
+  testWidgets('Create enables once a name is set, with or without a course',
       (tester) async {
     await _pump(tester, decks: FakeDeckRepository());
 
@@ -85,6 +85,26 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(_createEnabled(tester), isTrue);
+  });
+
+  testWidgets(
+      'offline (course list unavailable): shows a note, Create still works with '
+      'no course id', (tester) async {
+    final decks = FakeDeckRepository();
+    final courses = _courses()..throwOnNextCall = StateError('offline');
+    await _pump(tester, decks: decks, courses: courses);
+
+    expect(find.textContaining('goes to your default course'), findsOneWidget);
+
+    await tester.enterText(find.byType(TextField), 'Cells');
+    await tester.pumpAndSettle();
+    expect(_createEnabled(tester), isTrue);
+
+    await tester.tap(find.widgetWithText(TextButton, 'Create'));
+    await tester.pumpAndSettle();
+
+    expect(decks.calls, contains('createDeck(Cells)'));
+    expect(find.text('deck-detail deck-1'), findsOneWidget);
   });
 
   testWidgets(
