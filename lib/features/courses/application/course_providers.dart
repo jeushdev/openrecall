@@ -14,12 +14,14 @@ import '../domain/course.dart';
 import '../domain/course_repository.dart';
 
 /// The live repository is the Supabase-backed one wrapped in the cache-first
-/// layer (engine-v2-spec §5): reads fall back to the local `offline_courses`
-/// mirror. Tests override this with a fake.
+/// layer (engine-v2-spec §5, spec-v4 §4): reads fall back to the local
+/// `offline_courses` mirror, and create / update / delete fall back to the local
+/// queue when offline. Tests override this with a fake.
 final courseRepositoryProvider = Provider<CourseRepository>((ref) {
   return CacheFirstCourseRepository(
     SupabaseCourseRepository(Supabase.instance.client),
     ref.watch(localCourseStoreProvider),
+    () => Supabase.instance.client.auth.currentUser?.id,
   );
 });
 

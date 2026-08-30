@@ -16,14 +16,17 @@ import 'decks_tab_view.dart';
 import 'pending_deletions.dart';
 
 /// The live repository is the Supabase-backed one wrapped in the cache-first
-/// layer (spec §10): reads fall back to the local SQLite mirror for downloaded
-/// decks, and offline study-loop writes are queued locally for sync-on-reconnect.
-/// Tests override this with a fake, so nothing else in the decks feature imports
+/// layer (spec §10, spec-v4 §4): reads fall back to the local SQLite mirror, and
+/// offline study-loop writes *and* deck/card authoring are queued locally for
+/// sync-on-reconnect. The [LocalCourseStore] is injected so an offline
+/// `createDeck` with no course can resolve the mirrored default course. Tests
+/// override this with a fake, so nothing else in the decks feature imports
 /// `Supabase` or the local store.
 final deckRepositoryProvider = Provider<DeckRepository>((ref) {
   return CacheFirstDeckRepository(
     SupabaseDeckRepository(Supabase.instance.client),
     ref.watch(localDeckStoreProvider),
+    ref.watch(localCourseStoreProvider),
   );
 });
 
