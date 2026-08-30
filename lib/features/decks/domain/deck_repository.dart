@@ -23,6 +23,16 @@ abstract interface class DeckRepository {
   /// the user's default course.
   Future<Deck> createDeck(String name, {String? courseId});
 
+  /// Updates only the non-null fields of deck [id] and returns the new row.
+  /// Passing [courseId] re-assigns the deck to another of the user's courses
+  /// (the `decks` RLS `with check` verifies that course's ownership).
+  /// `updated_at` is left to the database trigger. Online-only (ui-spec-v2 §2).
+  Future<Deck> updateDeck({required String id, String? name, String? courseId});
+
+  /// Permanently deletes deck [id]. Its cards cascade
+  /// (`cards.deck_id … on delete cascade`). Online-only (ui-spec-v2 §2).
+  Future<void> deleteDeck(String id);
+
   /// Every card in [deckId], in creation order.
   Future<List<FlashCard>> fetchCards(String deckId);
 

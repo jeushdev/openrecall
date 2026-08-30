@@ -137,6 +137,17 @@ class CacheFirstDeckRepository implements DeckRepository {
       _remote.addCards(deckId, cards);
 
   @override
+  Future<Deck> updateDeck({
+    required String id,
+    String? name,
+    String? courseId,
+  }) =>
+      _remote.updateDeck(id: id, name: name, courseId: courseId);
+
+  @override
+  Future<void> deleteDeck(String id) => _remote.deleteDeck(id);
+
+  @override
   Future<FlashCard> updateCard({
     required String id,
     required String front,

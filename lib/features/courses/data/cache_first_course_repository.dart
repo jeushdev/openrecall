@@ -8,8 +8,11 @@ import 'supabase_course_repository.dart';
 /// mirror, return the remote data; if the Supabase call throws, fall back to
 /// the mirror and otherwise rethrow.
 ///
-/// There are no writes — course create / update / delete are not part of
-/// Engine V2.
+/// Course create / update / delete are online-only (ui-spec-v2 §2): they pass
+/// straight to [_remote] and simply fail when offline, exactly like
+/// `CacheFirstDeckRepository`'s authoring methods. `offline_courses` carries no
+/// `is_synced` column, so nothing here is ever pushed — the next read-through
+/// [fetchCourses] re-pulls the mirror.
 class CacheFirstCourseRepository implements CourseRepository {
   CacheFirstCourseRepository(this._remote, this._local);
 
@@ -28,4 +31,24 @@ class CacheFirstCourseRepository implements CourseRepository {
       return cached;
     }
   }
+
+  // ---- online-only pass-throughs (ui-spec-v2 §2: authoring needs a connection) --
+
+  @override
+  Future<Course> createCourse({
+    required String name,
+    required String accentColor,
+  }) =>
+      _remote.createCourse(name: name, accentColor: accentColor);
+
+  @override
+  Future<Course> updateCourse({
+    required String id,
+    String? name,
+    String? accentColor,
+  }) =>
+      _remote.updateCourse(id: id, name: name, accentColor: accentColor);
+
+  @override
+  Future<void> deleteCourse(String id) => _remote.deleteCourse(id);
 }

@@ -11,6 +11,7 @@ import '../domain/card.dart';
 import '../domain/deck.dart';
 import '../domain/deck_repository.dart';
 import '../domain/sample_deck.dart';
+import 'decks_tab_view.dart';
 
 /// The live repository is the Supabase-backed one wrapped in the cache-first
 /// layer (spec §10): reads fall back to the local SQLite mirror for downloaded
@@ -97,6 +98,27 @@ class DecksController extends AsyncNotifier<void> {
     return deck;
   }
 
+  /// Renames a deck or moves it to another course (ui-spec-v2 §3.3). Refreshes
+  /// the deck list, the Decks-tab view, and the deck's card list.
+  Future<Deck?> updateDeck({
+    required String id,
+    String? name,
+    String? courseId,
+  }) async {
+    final deck = await _run(
+      () => _repo.updateDeck(id: id, name: name, courseId: courseId),
+    );
+    if (deck != null) _refreshDeck(id);
+    return deck;
+  }
+
+  /// Deletes a deck and, by cascade, its cards (ui-spec-v2 §3.3).
+  Future<void> deleteDeck(String id) async {
+    await _run(() => _repo.deleteDeck(id));
+    // deleteDeck returns void, so success is "no error was recorded".
+    if (!state.hasError) _refreshDeck(id);
+  }
+
   Future<FlashCard?> addCard({
     required String deckId,
     required String front,
@@ -160,5 +182,12 @@ class DecksController extends AsyncNotifier<void> {
   void _refresh(String deckId) {
     ref.invalidate(deckCardsProvider(deckId));
     ref.invalidate(decksProvider);
+  }
+
+  /// A deck rename / re-course / delete moves the card list, the Library
+  /// counts, and the course-grouped Decks-tab view (ui-spec-v2 §3.3).
+  void _refreshDeck(String deckId) {
+    _refresh(deckId);
+    ref.invalidate(decksTabViewProvider);
   }
 }

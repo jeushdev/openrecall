@@ -115,6 +115,45 @@ class FakeDeckRepository implements DeckRepository {
   }
 
   @override
+  Future<Deck> updateDeck({
+    required String id,
+    String? name,
+    String? courseId,
+  }) async {
+    calls.add('updateDeck(id=$id, name=$name, course=$courseId)');
+    _maybeThrow();
+    final i = _decks.indexWhere((d) => d.id == id);
+    final existing = _decks[i];
+    final updated = DeckSummary(
+      id: existing.id,
+      name: name ?? existing.name,
+      courseId: courseId ?? existing.courseId,
+      lastStudiedAt: existing.lastStudiedAt,
+      totalCards: existing.totalCards,
+      dueCards: existing.dueCards,
+      masteryPercent: existing.masteryPercent,
+      masteryLevelSum: existing.masteryLevelSum,
+    );
+    _decks[i] = updated;
+    return Deck(
+      id: updated.id,
+      name: updated.name,
+      courseId: updated.courseId,
+      lastStudiedAt: updated.lastStudiedAt,
+      createdAt: _now,
+      updatedAt: _now,
+    );
+  }
+
+  @override
+  Future<void> deleteDeck(String id) async {
+    calls.add('deleteDeck($id)');
+    _maybeThrow();
+    _decks.removeWhere((d) => d.id == id);
+    _cards.removeWhere((c) => c.deckId == id);
+  }
+
+  @override
   Future<List<FlashCard>> fetchCards(String deckId) async {
     calls.add('fetchCards($deckId)');
     _maybeThrow();

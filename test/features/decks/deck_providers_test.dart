@@ -87,6 +87,40 @@ void main() {
     expect(cards, isEmpty);
   });
 
+  test('updateDeck forwards the non-null fields and refreshes that deck',
+      () async {
+    final deck =
+        await container.read(decksControllerProvider.notifier).createDeck('Bio');
+    await container.read(deckCardsProvider(deck!.id).future);
+
+    final updated =
+        await container.read(decksControllerProvider.notifier).updateDeck(
+              id: deck.id,
+              name: 'Bio 101',
+              courseId: 'course-9',
+            );
+
+    expect(updated?.name, 'Bio 101');
+    expect(
+      fake.calls,
+      contains('updateDeck(id=${deck.id}, name=Bio 101, course=course-9)'),
+    );
+  });
+
+  test('deleteDeck forwards the id and drops it from the list', () async {
+    final deck =
+        await container.read(decksControllerProvider.notifier).createDeck('Bio');
+    await container.read(decksProvider.future);
+
+    await container
+        .read(decksControllerProvider.notifier)
+        .deleteDeck(deck!.id);
+
+    expect(fake.calls, contains('deleteDeck(${deck.id})'));
+    final decks = await container.read(decksProvider.future);
+    expect(decks.map((d) => d.id), isNot(contains(deck.id)));
+  });
+
   test('a failed call lands as AsyncError, returns null, and clears loading',
       () async {
     fake.throwOnNextCall = Exception('boom');

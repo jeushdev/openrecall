@@ -43,6 +43,32 @@ class SupabaseDeckRepository implements DeckRepository {
   }
 
   @override
+  Future<Deck> updateDeck({
+    required String id,
+    String? name,
+    String? courseId,
+  }) async {
+    // updated_at is left to the database trigger (CLAUDE.md). RLS (decks_owner)
+    // validates a new course_id belongs to the signed-in user.
+    final row = await _client
+        .from('decks')
+        .update({
+          'name': ?name,
+          'course_id': ?courseId,
+        })
+        .eq('id', id)
+        .select()
+        .single();
+    return Deck.fromJson(row);
+  }
+
+  @override
+  Future<void> deleteDeck(String id) async {
+    // cards.deck_id is ON DELETE CASCADE, so the deck's cards go with it.
+    await _client.from('decks').delete().eq('id', id);
+  }
+
+  @override
   Future<List<FlashCard>> fetchCards(String deckId) async {
     final rows = await _client
         .from('cards')
