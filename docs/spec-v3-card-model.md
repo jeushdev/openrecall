@@ -12,7 +12,7 @@ Milestones:
 - **R3** — schema + domain foundation (this doc). Multi-keyword column,
   `is_concept` flag, List mode removed. **Complete.**
 - **R4** — Cloze type-to-answer (Levenshtein fuzzy match + "I was right"
-  override) restored and extended to multiple keywords.
+  override) restored and extended to multiple keywords. **Complete.**
 - **R5** — bulk import reworked to a multi-line block format that can produce
   concept cards and bulleted backs.
 
@@ -55,13 +55,29 @@ after the timer) is its `back`, split on newlines into bullets
 
 ## Cloze mode
 
-R3 keeps the interim tap-to-reveal card (`ClozeRevealCard`) — it blanks the
-first-matching occurrence of each keyword and gates the rating row on every
-blank being revealed. R4 replaces it with the type-to-answer card revived from
-commit `1528747`: Levenshtein length-tiered fuzzy match, letter-by-letter diff
-feedback, a per-blank "I was right" override, and auto-derived mastery
-(all blanks right first try → Mastered; any override → Familiar; any miss →
-Forgotten — `docs/spec.md` §6).
+As of R4 the study surface is `ClozeTypeCard` (the type-to-answer card revived
+from commit `1528747` and extended to the `keywords` list). Every keyword
+occurrence across `front` then `back` becomes a numbered blank
+(`cloze_blank.dart`'s `clozeSegments` / `clozeBlankAnswers`). The user fills the
+blanks in reading order, one active at a time:
+
+- A typed answer is fuzzy-matched on-device — `isClozeMatch` in
+  `levenshtein.dart`: an exact match (case- and edge-punctuation-insensitive)
+  always passes, otherwise the edit distance must be ≤ 1 for keywords of 6
+  characters or fewer, ≤ 2 for 7+.
+- A hit auto-advances to the next blank.
+- A miss freezes on that blank showing a letter-by-letter diff (`letter_diff.dart`),
+  the real keyword, and an **"I was right"** override.
+
+The card's `mastery_level` is auto-derived — there is **no rating row**
+(`docs/spec.md` §6): all blanks right on the first try → **Mastered**; any blank
+overridden → **Familiar**; any blank missed without an override → **Forgotten**
+(the worst blank wins). The derived `ClozeOutcome` is reported through
+`SessionController.submitCloze`, which shares the same optimistic requeue / park
+/ guarded-write path as Flip's `rate`.
+
+A Cloze-eligible card whose keywords never literally appear has no blanks and
+is treated as already correct.
 
 ## Storage
 

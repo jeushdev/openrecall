@@ -90,12 +90,24 @@ void main() {
       expect(card.back, 'a Paris b');
     });
 
-    test('more than one {{ }} marker on a line is a failure', () {
-      final failure =
-          parseBulkPaste('{{a}} vs {{b}} | different').lines.single
-              as ParseFailure;
+    test('collects multiple {{ }} markers on one side into keywords', () {
+      final card = parseBulkPaste('{{mitosis}} vs {{meiosis}} | different')
+          .lines
+          .single as ParsedCard;
 
-      expect(failure.reason, contains('{{'));
+      expect(card.front, 'mitosis vs meiosis');
+      expect(card.keywords, ['mitosis', 'meiosis']);
+    });
+
+    test('collects markers from both sides, front first then back', () {
+      final card =
+          parseBulkPaste('The {{powerhouse}} of the cell | makes {{ATP}}')
+              .lines
+              .single as ParsedCard;
+
+      expect(card.front, 'The powerhouse of the cell');
+      expect(card.back, 'makes ATP');
+      expect(card.keywords, ['powerhouse', 'ATP']);
     });
 
     test('counts ready and failed lines', () {

@@ -9,11 +9,12 @@ import '../../decks/domain/study_mode.dart';
 import '../application/feynman_timer_providers.dart';
 import '../application/pre_session_cards_provider.dart';
 import '../application/session_controller.dart';
+import '../domain/cloze_outcome.dart';
 import '../domain/flip_rating.dart';
 import '../domain/session_length.dart';
 import '../domain/study_session.dart';
 import '../domain/study_session_state.dart';
-import 'widgets/cloze_reveal_card.dart';
+import 'widgets/cloze_type_card.dart';
 import 'widgets/feynman_card_view.dart';
 import 'widgets/feynman_timer_picker.dart';
 import 'widgets/flip_card.dart';
@@ -226,6 +227,8 @@ class _StudySessionScreenState extends ConsumerState<StudySessionScreen> {
           onExit: _exitAndLeave,
           onRate: (rating) =>
               ref.read(sessionControllerProvider.notifier).rate(rating),
+          onCloze: (outcome) =>
+              ref.read(sessionControllerProvider.notifier).submitCloze(outcome),
         );
       }
       return const _Shell(child: _Spinner());
@@ -382,6 +385,7 @@ class _ActiveBody extends StatefulWidget {
     required this.feynmanSeconds,
     required this.onExit,
     required this.onRate,
+    required this.onCloze,
   });
 
   final StudySessionState state;
@@ -391,6 +395,10 @@ class _ActiveBody extends StatefulWidget {
   final int feynmanSeconds;
   final VoidCallback onExit;
   final ValueChanged<FlipRating> onRate;
+
+  /// Cloze auto-derives its result per card (§6) and reports it here instead of
+  /// going through the rating row.
+  final ValueChanged<ClozeOutcome> onCloze;
 
   @override
   State<_ActiveBody> createState() => _ActiveBodyState();
@@ -414,6 +422,8 @@ class _ActiveBodyState extends State<_ActiveBody> {
 
   bool get _isFlip => widget.state.session.studyMode == StudyMode.flip;
 
+  bool get _isCloze => widget.state.session.studyMode == StudyMode.cloze;
+
   bool get _isFeynman => widget.state.session.studyMode == StudyMode.feynman;
 
   bool get _ratingEnabled => _isFlip ? _flipped : _revealed;
@@ -436,10 +446,10 @@ class _ActiveBodyState extends State<_ActiveBody> {
     final key = ValueKey('${item.sessionCardId}:${item.position}');
 
     final Widget cardArea = switch (state.session.studyMode) {
-      StudyMode.cloze => ClozeRevealCard(
+      StudyMode.cloze => ClozeTypeCard(
           key: key,
           card: item.card,
-          onAllRevealed: () => setState(() => _revealed = true),
+          onOutcome: widget.onCloze,
         ),
       StudyMode.feynman => FeynmanCardView(
           key: key,
@@ -495,9 +505,10 @@ class _ActiveBodyState extends State<_ActiveBody> {
                   child: cardArea,
                 ),
               ),
-              // Feynman only reveals the rating row once the timer stops
-              // (§6.2); every other mode shows it greyed until its own gate.
-              if (!_isFeynman || _revealed)
+              // Cloze auto-derives its result per card and has no rating row
+              // (§6). Feynman only reveals the row once the timer stops (§6.2);
+              // Flip shows it greyed until the card is flipped.
+              if (!_isCloze && (!_isFeynman || _revealed))
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
                   child: RatingRow(

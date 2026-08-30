@@ -72,3 +72,24 @@ class ClozeSegment {
   }
   return (segments, index);
 }
+
+/// The expected answer for each blank on a card, in blank-index order — every
+/// keyword occurrence in [front] first, then [back] (mirrors how
+/// [clozeSegments] numbers blanks). Each entry is the exact text the card
+/// blanked out, which is what a typed Cloze answer is fuzzy-matched against.
+/// Empty when no keyword actually appears in the card.
+List<String> clozeBlankAnswers(
+  String front,
+  String back,
+  List<String> keywords,
+) {
+  final (frontSegments, next) = clozeSegments(front, keywords);
+  final (backSegments, _) =
+      clozeSegments(back, keywords, startIndex: next);
+  return [
+    for (final s in frontSegments)
+      if (s.isBlank) s.text,
+    for (final s in backSegments)
+      if (s.isBlank) s.text,
+  ];
+}

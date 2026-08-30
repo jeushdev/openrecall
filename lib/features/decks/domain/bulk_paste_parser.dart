@@ -1,12 +1,12 @@
 /// Pure parser for the Deck Creator's bulk-paste box (spec §3).
 ///
-/// Input is free text, one card per line, in `FRONT | BACK` form. A single
-/// optional keyword can be marked inline with `{{double braces}}` on either
-/// side; the parser lifts it into [ParsedCard.keywords] and strips the braces
-/// from the stored text, so however a card was entered, what ends up stored is
-/// identical — clean text plus a separate keyword value. (The single-line
-/// format still allows only one marker per card; R5 adds a multi-line block
-/// format with multiple keywords and a `[concept]` tag.)
+/// Input is free text, one card per line, in `FRONT | BACK` form. Any number of
+/// keywords can be marked inline with `{{double braces}}` on either side; the
+/// parser lifts each into [ParsedCard.keywords] (front markers first, then
+/// back, in reading order) and strips the braces from the stored text, so
+/// however a card was entered, what ends up stored is identical — clean text
+/// plus a separate list of keyword values. (R5 adds a multi-line block format
+/// with a `[concept]` tag.)
 ///
 /// Nothing here touches the network or the database — it only turns text into
 /// a [BulkParseResult] the UI can preview and the repository can insert.
@@ -39,8 +39,8 @@ class ParsedCard extends BulkParseLine {
   final String front;
   final String back;
 
-  /// The `{{ }}`-marked Cloze keywords. Currently 0 or 1 entry — the bulk
-  /// format still rejects multiple markers per card (R4 relaxes that).
+  /// The `{{ }}`-marked Cloze keywords, in reading order (front markers first,
+  /// then back). Zero or more per card.
   final List<String> keywords;
 
   /// Whether this card is a Feynman concept. Always `false` from the current
@@ -103,18 +103,10 @@ BulkParseResult parseBulkPaste(String raw) {
         .followedBy(_keywordPattern.allMatches(back))
         .toList();
 
-    if (markers.length > 1) {
-      lines.add(ParseFailure(
-        lineNumber: lineNumber,
-        raw: line,
-        reason: 'Only one {{ }} keyword marker is allowed per card.',
-      ));
-      continue;
-    }
-
-    final keywords = <String>[];
-    if (markers.length == 1) {
-      keywords.add(markers.single.group(1)!.trim());
+    final keywords = [
+      for (final m in markers) m.group(1)!.trim(),
+    ]..removeWhere((k) => k.isEmpty);
+    if (markers.isNotEmpty) {
       front = _stripBraces(front);
       back = _stripBraces(back);
     }

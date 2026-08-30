@@ -9,8 +9,9 @@ import 'package:open_recall/features/study/application/session_controller.dart';
 import 'package:open_recall/features/study/domain/study_session.dart';
 import 'package:open_recall/features/study/presentation/study_session_args.dart';
 import 'package:open_recall/features/study/presentation/study_session_screen.dart';
-import 'package:open_recall/features/study/presentation/widgets/cloze_reveal_card.dart';
+import 'package:open_recall/features/study/presentation/widgets/cloze_type_card.dart';
 import 'package:open_recall/features/study/presentation/widgets/flip_card.dart';
+import 'package:open_recall/features/study/presentation/widgets/rating_row.dart';
 import 'package:open_recall/features/study/presentation/widgets/session_summary_view.dart';
 import 'package:open_recall/routing/app_routes.dart';
 import 'package:open_recall/theme/app_theme.dart';
@@ -197,7 +198,7 @@ void main() {
     expect(find.text('Paris is the capital'), findsOneWidget);
   });
 
-  testWidgets('Cloze gates the rating row on revealing every blank',
+  testWidgets('Cloze has no rating row; answering the blank ends the session',
       (tester) async {
     await _open(
       tester,
@@ -206,25 +207,21 @@ void main() {
             front: 'Paris is the capital',
             keywords: ['Paris'],
             back: 'of France'),
-        _card('b'),
       ]),
       study: FakeStudyRepository(),
     );
 
     await tester.tap(find.text('Cloze Type-in'));
     await tester.pumpAndSettle();
-    expect(find.byType(ClozeRevealCard), findsOneWidget);
+    expect(find.byType(ClozeTypeCard), findsOneWidget);
+    expect(find.byType(RatingRow), findsNothing);
 
-    // Rating is inert — the blank is still hidden.
-    await tester.tap(find.text('Mastered'));
+    await tester.enterText(find.byType(TextField), 'Paris');
     await tester.pumpAndSettle();
-    expect(find.byType(SessionSummaryView), findsNothing);
+    await tester.tap(find.widgetWithText(FilledButton, 'Check'));
+    await tester.pumpAndSettle();
 
-    // Reveal the blank, then rate.
-    await tester.tap(find.byIcon(Icons.touch_app_outlined).first);
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Mastered'));
-    await tester.pumpAndSettle();
+    // A first-try hit → Mastered → the one-card queue drains → Summary.
     expect(find.byType(SessionSummaryView), findsOneWidget);
   });
 
@@ -352,7 +349,7 @@ void main() {
       );
 
       expect(find.text('How do you want to study this deck?'), findsNothing);
-      expect(find.byType(ClozeRevealCard), findsOneWidget);
+      expect(find.byType(ClozeTypeCard), findsOneWidget);
     });
 
     testWidgets('re-entering with a different mode starts fresh, not the '
@@ -376,7 +373,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byType(FlipCard), findsNothing);
-      expect(find.byType(ClozeRevealCard), findsOneWidget);
+      expect(find.byType(ClozeTypeCard), findsOneWidget);
     });
 
     testWidgets('re-entering with the same mode resumes the live session',

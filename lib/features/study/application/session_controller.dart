@@ -13,6 +13,7 @@ import '../../notifications/application/notification_providers.dart';
 import '../../notifications/data/notification_service.dart';
 import '../data/cache_first_study_repository.dart';
 import '../data/supabase_study_repository.dart';
+import '../domain/cloze_outcome.dart';
 import '../domain/flip_rating.dart';
 import '../domain/session_length.dart';
 import '../domain/session_outcome.dart';
@@ -288,6 +289,12 @@ class SessionController extends Notifier<AsyncValue<StudySessionState?>> {
   /// content (or run their timer) and then use the same 0–4 rating row rather
   /// than an auto-derived outcome.
   void rate(FlipRating rating) => _applyResult(rating.level);
+
+  /// Applies a Cloze card's auto-derived outcome to the current card
+  /// (`docs/spec.md` §6) — synchronous and optimistic, exactly like [rate].
+  /// The widget has already aggregated the per-blank results into a single
+  /// [ClozeOutcome]; the mode has no manual rating row.
+  void submitCloze(ClozeOutcome outcome) => _applyResult(outcome.masteryLevel);
 
   /// The shared optimistic-progression path for every mode: advance the
   /// in-memory queue now, then fire the guarded `cards` write and the
