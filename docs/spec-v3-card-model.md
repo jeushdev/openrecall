@@ -14,7 +14,7 @@ Milestones:
 - **R4** — Cloze type-to-answer (Levenshtein fuzzy match + "I was right"
   override) restored and extended to multiple keywords. **Complete.**
 - **R5** — bulk import reworked to a multi-line block format that can produce
-  concept cards and bulleted backs.
+  concept cards and bulleted backs. **Complete.**
 
 ## What changed from v1/v2
 
@@ -78,6 +78,31 @@ overridden → **Familiar**; any blank missed without an override → **Forgotte
 
 A Cloze-eligible card whose keywords never literally appear has no blanks and
 is treated as already correct.
+
+## Import (R5)
+
+The Deck Creator's bulk-paste box and its "Copy AI Prompt" text
+(`bulk_paste_parser.dart`, `ai_prompt.dart`) use a **block format**:
+
+- Card blocks are separated by **one or more blank lines**. Blank lines are the
+  *only* separator: a run of `FRONT | BACK` lines with no blank line between
+  them is parsed as a **single** multi-line card, not many. (Chosen for a
+  predictable rule; the copied AI prompt and the sample deck teach the shape.)
+- The **first line** of a block is the `front`. The **remaining lines** are the
+  `back`, joined with newlines. `- ` / `* ` bullet markers are kept verbatim in
+  storage — Flip renders the back as-is, and `contentLines()` strips one leading
+  marker so the Feynman reference (which adds its own `•`) does not double up.
+- A block that is a single `FRONT | BACK` line still works, for simple facts.
+- A line reading exactly `[concept]` (any case) anywhere in a block sets
+  `is_concept = true` and is removed from the text.
+- `{{double braces}}` anywhere in a block (any number, either side) are lifted
+  into `keywords` in reading order (front markers first, then back) and the
+  braces are stripped from the stored text.
+
+Bad blocks are never dropped silently (`docs/spec.md` §3, "Error states"): the
+live preview flags each with its first line, the block's starting line number,
+and a reason — empty front, no back / missing `|` on a one-line block, or a
+block that is only a `[concept]` tag.
 
 ## Storage
 

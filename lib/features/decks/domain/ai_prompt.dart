@@ -3,24 +3,40 @@
 /// This is a plain string copied to the clipboard for the user to paste into
 /// any free web LLM. There is no AI API call anywhere in the app — this is the
 /// only "AI" touchpoint, and it costs nothing.
+///
+/// The format it asks for is the block format the bulk parser reads
+/// (`bulk_paste_parser.dart`, `docs/spec-v3-card-model.md` "Import (R5)").
 library;
 
 const String aiIngestionPrompt = '''
 Turn the notes below into flashcards for a spaced-repetition study app.
 
 FORMAT
-Output one flashcard per line, exactly:
-FRONT | BACK
+Write each card as a block. Separate blocks with one blank line.
+- The FIRST line of a block is the front: the question, prompt, or cue.
+- The remaining lines are the back: the answer.
+- A simple one-fact card may instead be a single line: FRONT | BACK
 
 RULES
-- Separate the front from the back with a single pipe character ( | ).
-- FRONT is the question or cue. BACK is the answer. Keep each card to one line.
-- If a single word or short phrase is the thing worth testing, wrap that one
-  term in double braces on whichever side it appears, for example:
-  The powerhouse of the cell is the {{mitochondria}}.
-  Use at most one {{ }} marker per card.
-- Output only the card lines. No numbering, no bullet points, no headings,
-  no commentary.
+- For a list or multi-part answer, put one point per line on the back, each
+  starting with "- ".
+- To make a word or short phrase a fill-in-the-blank, wrap it in double braces
+  wherever it appears, on any line. Use as many as apply, for example:
+  The powerhouse of the cell is the {{mitochondria}}, which makes {{ATP}}.
+- If a card is a broad idea, mechanism, or process worth explaining in your own
+  words (not a bare fact or a vocabulary term), add a line reading exactly
+  [concept] to its block. Write that card's back as the reference explanation,
+  one point per line starting with "- ".
+- Output only the card blocks. No numbering, no headings, no commentary.
+
+EXAMPLE
+What is the capital of Australia? | Canberra
+
+Explain how a bill becomes law in the US.
+[concept]
+- A bill is introduced in the House or Senate and sent to committee.
+- Both chambers must pass the same text.
+- The {{president}} then signs it or vetoes it.
 
 NOTES
 <paste your notes here>

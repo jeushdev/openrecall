@@ -196,8 +196,8 @@ void main() {
     await _pump(tester, decks: FakeDeckRepository(decks: [_deck('deck-1')]));
 
     await tester.enterText(
-      find.widgetWithText(TextField, 'Paste FRONT | BACK lines here'),
-      'Q1 | A1\nbroken line',
+      find.widgetWithText(TextField, 'Paste your cards here'),
+      'Q1 | A1\n\nbroken line',
     );
     await tester.pump(const Duration(milliseconds: 400));
 
@@ -212,8 +212,8 @@ void main() {
     await _pump(tester, decks: decks);
 
     await tester.enterText(
-      find.widgetWithText(TextField, 'Paste FRONT | BACK lines here'),
-      'Q1 | A1\nbroken line\nQ2 | A2',
+      find.widgetWithText(TextField, 'Paste your cards here'),
+      'Q1 | A1\n\nbroken line\n\nQ2 | A2',
     );
     await tester.pump(const Duration(milliseconds: 400));
 

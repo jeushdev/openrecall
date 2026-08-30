@@ -71,8 +71,9 @@ class _BulkPastePanelState extends ConsumerState<BulkPastePanel> {
         .addCards(widget.deckId, cards);
     if (added == null || !mounted) return;
 
-    // Keep only the lines that still need fixing — nothing is dropped silently.
-    _controller.text = _result.failures.map((f) => f.raw).join('\n');
+    // Keep only the blocks that still need fixing — nothing is dropped
+    // silently. Re-join with a blank line so they re-parse as blocks.
+    _controller.text = _result.failures.map((f) => f.raw).join('\n\n');
     _reparse();
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
@@ -105,8 +106,11 @@ class _BulkPastePanelState extends ConsumerState<BulkPastePanel> {
           maxLines: 10,
           onChanged: _onChanged,
           decoration: const InputDecoration(
-            labelText: 'Paste FRONT | BACK lines here',
-            helperText: 'One card per line. Mark a keyword with {{double braces}}.',
+            labelText: 'Paste your cards here',
+            helperText: 'Separate cards with a blank line. First line is the '
+                'front, the rest is the back. Mark keywords with {{braces}}; '
+                'add a [concept] line for Feynman cards.',
+            helperMaxLines: 3,
             border: OutlineInputBorder(),
             alignLabelWithHint: true,
           ),
@@ -127,6 +131,14 @@ class _BulkPastePanelState extends ConsumerState<BulkPastePanel> {
 }
 
 String _addLabel(int n) => 'Add $n card${n == 1 ? '' : 's'}';
+
+/// The first non-empty line of a block, with a trailing ellipsis if there was
+/// more — keeps a failed multi-line block to one row in the preview.
+String _firstLine(String raw) {
+  final lines = raw.trim().split('\n');
+  final first = lines.first.trim();
+  return lines.length > 1 ? '$first …' : first;
+}
 
 class _Preview extends StatelessWidget {
   const _Preview({required this.result});
@@ -150,13 +162,20 @@ class _Preview extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 2),
             child: switch (line) {
-              ParsedCard(:final front, :final back, :final keywords) => Text(
-                  '✓  $front  —  $back'
-                  '${keywords.isEmpty ? '' : '   [keyword: ${keywords.join(', ')}]'}',
+              ParsedCard(
+                :final front,
+                :final back,
+                :final keywords,
+                :final isConcept,
+              ) =>
+                Text(
+                  '✓  $front  —  ${back.replaceAll('\n', ' / ')}'
+                  '${isConcept ? '   [concept]' : ''}'
+                  '${keywords.isEmpty ? '' : '   [keyword${keywords.length == 1 ? '' : 's'}: ${keywords.join(', ')}]'}',
                   style: theme.textTheme.bodySmall,
                 ),
               ParseFailure(:final lineNumber, :final raw, :final reason) => Text(
-                  '✗  Line $lineNumber: "${raw.trim()}" — $reason',
+                  '✗  Line $lineNumber: "${_firstLine(raw)}" — $reason',
                   style: theme.textTheme.bodySmall
                       ?.copyWith(color: theme.colorScheme.error),
                 ),

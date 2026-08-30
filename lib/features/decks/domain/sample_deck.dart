@@ -68,38 +68,38 @@ const List<SampleCard> sampleDeckCards = [
     keywords: ['Australia'],
     isConcept: false,
   ),
-  // Multi-line back — flip-and-rate recall lists, rendered as bullets.
+  // Multi-line back — flip-and-rate recall lists, written as "- " bullets.
   (
     front: 'Name the three branches of the U.S. federal government.',
-    back: 'Legislative\nExecutive\nJudicial',
+    back: '- Legislative\n- Executive\n- Judicial',
     keywords: [],
     isConcept: false,
   ),
   (
     front: 'What are the four classical states of matter?',
-    back: 'Solid\nLiquid\nGas\nPlasma',
+    back: '- Solid\n- Liquid\n- Gas\n- Plasma',
     keywords: [],
     isConcept: false,
   ),
   // Concept cards — these light up Feynman. The front is the prompt to explain
-  // in your own words; the multi-line back is the reference.
+  // in your own words; the bulleted back is the reference.
   (
     front: 'Explain supply and demand in your own words.',
-    back: 'As a good’s price rises, suppliers want to sell more but buyers '
+    back: '- As a good’s price rises, suppliers want to sell more but buyers '
         'want to buy less.\n'
-        'As the price falls, buyers want more but suppliers offer less.\n'
-        'The market price settles where quantity supplied meets quantity '
+        '- As the price falls, buyers want more but suppliers offer less.\n'
+        '- The market price settles where quantity supplied meets quantity '
         'demanded.',
     keywords: [],
     isConcept: true,
   ),
   (
     front: 'Explain why Earth has seasons.',
-    back: 'Earth’s axis is tilted about 23.5 degrees relative to its '
+    back: '- Earth’s axis is tilted about 23.5 degrees relative to its '
         'orbit.\n'
-        'As Earth orbits the Sun, each hemisphere spends part of the year '
+        '- As Earth orbits the Sun, each hemisphere spends part of the year '
         'tilted toward the Sun and part tilted away.\n'
-        'The hemisphere tilted toward the Sun gets more direct light and '
+        '- The hemisphere tilted toward the Sun gets more direct light and '
         'longer days — that is its summer.',
     keywords: [],
     isConcept: true,
