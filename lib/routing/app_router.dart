@@ -7,9 +7,9 @@ import '../features/auth/presentation/forgot_password_screen.dart';
 import '../features/auth/presentation/login_screen.dart';
 import '../features/auth/presentation/signup_screen.dart';
 import '../features/courses/presentation/course_creator_screen.dart';
-import '../features/decks/presentation/add_card_screen.dart';
 import '../features/decks/presentation/deck_detail_screen.dart';
 import '../features/decks/presentation/decks_tab_screen.dart';
+import '../features/decks/presentation/import_cards_screen.dart';
 import '../features/splash/presentation/splash_screen.dart';
 import '../features/stats/presentation/mastery_tab_screen.dart';
 import '../features/study/domain/study_session.dart';
@@ -134,30 +134,21 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const CourseCreatorScreen(),
       ),
       GoRoute(
-        path: AppRoutes.addCardPath,
-        name: AppRoutes.addCardName,
-        parentNavigatorKey: rootNavigatorKey,
-        builder: (context, state) => AddCardScreen(
-          deckId: state.pathParameters['deckId']!,
-          deckName: state.uri.queryParameters['name'],
-        ),
-      ),
-      GoRoute(
         path: AppRoutes.deckDetailPath,
         name: AppRoutes.deckDetailName,
         parentNavigatorKey: rootNavigatorKey,
         builder: (context, state) =>
             DeckDetailScreen(deckId: state.pathParameters['deckId']!),
       ),
-      // Placeholders until U14 (import) and U15 (card list) build these
-      // screens — registered so the deck-detail pushes resolve.
       GoRoute(
         path: AppRoutes.importCardsPath,
         name: AppRoutes.importCardsName,
         parentNavigatorKey: rootNavigatorKey,
         builder: (context, state) =>
-            const _MilestoneStubScreen(title: 'Import cards'),
+            ImportCardsScreen(deckId: state.pathParameters['deckId']!),
       ),
+      // Placeholder until U15 builds the card list screen — registered so the
+      // deck-detail and import-screen pushes resolve.
       GoRoute(
         path: AppRoutes.cardListPath,
         name: AppRoutes.cardListName,
@@ -175,9 +166,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
   return router;
 });
 
-/// A stand-in for a screen that a later milestone builds (ui-spec-v2 §6.4/§6.5).
-/// Present only so a `pushNamed` to `/deck/:deckId/import` or `/cards` resolves
-/// to a real route from U13's deck detail screen.
+/// A stand-in for the card list screen U15 builds (ui-spec-v2 §6.5). Present
+/// only so a `pushNamed` to `/deck/:deckId/cards` resolves to a real route from
+/// the deck detail and import screens.
 class _MilestoneStubScreen extends StatelessWidget {
   const _MilestoneStubScreen({required this.title});
 

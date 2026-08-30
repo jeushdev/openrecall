@@ -114,12 +114,12 @@ class _StudySessionScreenState extends ConsumerState<StudySessionScreen> {
     ref.invalidate(preSessionCardsProvider(widget.deckId));
   }
 
-  /// Opens Add Card for this deck from a "can't study" dead-end. On return the
-  /// pre-session load is invalidated so a now-populated deck can be studied
-  /// without leaving the screen.
-  Future<void> _addCards() async {
+  /// Opens the Import screen for this deck from a "can't study" dead-end. On
+  /// return the pre-session load is invalidated so a now-populated deck can be
+  /// studied without leaving the screen.
+  Future<void> _importCards() async {
     await context.pushNamed(
-      AppRoutes.addCardName,
+      AppRoutes.importCardsName,
       pathParameters: {'deckId': widget.deckId},
     );
     if (!mounted) return;
@@ -205,7 +205,7 @@ class _StudySessionScreenState extends ConsumerState<StudySessionScreen> {
                 ? 'Nothing to study — every card here is already mastered.'
                 : "Couldn't start this session.",
             actionLabel: empty ? 'Add cards' : 'Retry',
-            onAction: empty ? _addCards : _retry,
+            onAction: empty ? _importCards : _retry,
             onBack: _leave,
           ),
         );
@@ -247,7 +247,7 @@ class _StudySessionScreenState extends ConsumerState<StudySessionScreen> {
             return _Message(
               text: 'Nothing to study in this deck yet.',
               actionLabel: 'Add cards',
-              onAction: _addCards,
+              onAction: _importCards,
               onBack: _leave,
             );
           }

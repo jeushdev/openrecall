@@ -57,10 +57,10 @@ Widget _host({
         ],
       ),
       GoRoute(
-        path: AppRoutes.addCardPath,
-        name: AppRoutes.addCardName,
+        path: AppRoutes.importCardsPath,
+        name: AppRoutes.importCardsName,
         builder: (_, state) => Scaffold(
-          body: Text('add-card ${state.pathParameters['deckId']}'),
+          body: Text('import ${state.pathParameters['deckId']}'),
         ),
       ),
     ],
@@ -286,7 +286,7 @@ void main() {
     expect(find.byType(CircularProgressIndicator), findsNothing);
   });
 
-  testWidgets('the no-cards empty state opens Add Card for the deck',
+  testWidgets('the no-cards empty state opens the import screen for the deck',
       (tester) async {
     await _open(
       tester,
@@ -297,10 +297,10 @@ void main() {
     await tester.tap(find.widgetWithText(FilledButton, 'Add cards'));
     await tester.pumpAndSettle();
 
-    expect(find.text('add-card deck-1'), findsOneWidget);
+    expect(find.text('import deck-1'), findsOneWidget);
   });
 
-  testWidgets('the all-mastered dead-end offers Add Card', (tester) async {
+  testWidgets('the all-mastered dead-end offers to import cards', (tester) async {
     await _open(
       tester,
       decks: FakeDeckRepository(cards: [_card('a', mastery: 4)]),
@@ -310,6 +310,6 @@ void main() {
     await tester.tap(find.widgetWithText(FilledButton, 'Add cards'));
     await tester.pumpAndSettle();
 
-    expect(find.text('add-card deck-1'), findsOneWidget);
+    expect(find.text('import deck-1'), findsOneWidget);
   });
 }

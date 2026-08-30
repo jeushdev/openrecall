@@ -47,6 +47,12 @@ Future<void> _pump(
         path: AppRoutes.deckCreatorPath,
         builder: (_, _) => const Scaffold(body: Text('deck-creator-stub')),
       ),
+      GoRoute(
+        path: AppRoutes.importCardsPath,
+        builder: (_, state) => Scaffold(
+          body: Text('import-stub ${state.pathParameters['deckId']}'),
+        ),
+      ),
     ],
   );
 
@@ -93,9 +99,8 @@ void main() {
     expect(find.text('deck-creator-stub'), findsOneWidget);
   });
 
-  testWidgets(
-      'Import card expands the deck list; picking one is stubbed until U14',
-      (tester) async {
+  testWidgets('Import card expands the deck list; picking one opens its import '
+      'screen', (tester) async {
     await _pump(
       tester,
       decks: FakeDeckRepository(decks: [_deck('deck-1', 'Spanish')]),
@@ -110,7 +115,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Create course'), findsNothing); // sheet closed
-    expect(find.textContaining('coming soon'), findsOneWidget);
+    expect(find.text('import-stub deck-1'), findsOneWidget);
   });
 
   testWidgets('Import card with no decks routes to the Deck Creator with a hint',

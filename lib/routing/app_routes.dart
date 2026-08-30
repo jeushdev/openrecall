@@ -52,21 +52,15 @@ abstract final class AppRoutes {
   static const String courseCreatorPath = '/course-creator';
   static const String courseCreatorName = 'course-creator';
 
-  /// Add Card — a rapid single-card entry screen for one deck, at
-  /// `/deck/:deckId/add-card` (optional `name` query parameter for the title).
-  /// Reached straight after creating a deck and from the study-session
-  /// dead-ends. Outside the shell, like the study session.
-  static const String addCardPath = '/deck/:deckId/add-card';
-  static const String addCardName = 'add-card';
-
   /// Deck detail (ui-spec-v2 §6.3), at `/deck/:deckId`. The mode picker + Import
   /// + View cards + edit/delete deck screen a deck tile now opens instead of
   /// going straight to a study session. Top-level, so the bottom bar is absent.
   static const String deckDetailPath = '/deck/:deckId';
   static const String deckDetailName = 'deck-detail';
 
-  /// Import cards (ui-spec-v2 §6.4), at `/deck/:deckId/import`. Lands in U14 —
-  /// U13 registers a placeholder so the deck-detail push resolves.
+  /// Import cards (ui-spec-v2 §6.4), at `/deck/:deckId/import` — the unified
+  /// manual-add + bulk-paste screen (U14). Reached from the + menu, the deck
+  /// detail screen, and the study-session "add cards" dead-ends.
   static const String importCardsPath = '/deck/:deckId/import';
   static const String importCardsName = 'import-cards';
 

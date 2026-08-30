@@ -15,9 +15,17 @@ import '../../domain/bulk_paste_parser.dart';
 /// Parsing is debounced (Performance & Responsiveness) so editing a large
 /// pasted batch does not re-parse on every keystroke.
 class BulkPastePanel extends ConsumerStatefulWidget {
-  const BulkPastePanel({super.key, required this.deckId});
+  const BulkPastePanel({
+    super.key,
+    required this.deckId,
+    this.initiallyExpanded = false,
+  });
 
   final String deckId;
+
+  /// Whether the panel starts open. The Import screen (ui-spec-v2 §6.4) shows it
+  /// expanded; the legacy card-manager keeps the collapsed default.
+  final bool initiallyExpanded;
 
   @override
   ConsumerState<BulkPastePanel> createState() => _BulkPastePanelState();
@@ -77,6 +85,7 @@ class _BulkPastePanelState extends ConsumerState<BulkPastePanel> {
     final busy = ref.watch(decksControllerProvider).isLoading;
 
     return ExpansionTile(
+      initiallyExpanded: widget.initiallyExpanded,
       title: const Text('Bulk paste'),
       childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
       children: [

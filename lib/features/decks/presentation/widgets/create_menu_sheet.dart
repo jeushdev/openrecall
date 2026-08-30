@@ -12,9 +12,8 @@ import '../../application/deck_providers.dart';
 ///
 /// Three rows: **Create course** (→ `/course-creator`), **Create deck** (→
 /// `/deck-creator`), and **Import card** (expands an inline picker of the user's
-/// decks). Picking a deck to import into is stubbed until U14 wires the
-/// `/deck/:deckId/import` route; with no decks yet, Import card routes to the
-/// Deck Creator instead with a one-line hint.
+/// decks; picking one opens `/deck/:deckId/import`). With no decks yet, Import
+/// card routes to the Deck Creator instead with a one-line hint.
 ///
 /// The codebase's first `showModalBottomSheet`; the static [show] helper mirrors
 /// `ParkPromptDialog.show`.
@@ -70,16 +69,13 @@ class _CreateMenuSheetState extends ConsumerState<CreateMenuSheet> {
     setState(() => _importExpanded = !_importExpanded);
   }
 
-  // Picking a deck to import into lands in U14 (`/deck/:deckId/import`). For now
-  // the row acknowledges the tap and closes.
-  void _importStub() {
-    final messenger = ScaffoldMessenger.of(context);
+  /// Closes the sheet and opens the Import screen for [deckId] (ui-spec-v2
+  /// §6.4). The router is read before the pop because this element's context is
+  /// defunct once the sheet is gone.
+  void _openImport(String deckId) {
+    final router = GoRouter.of(context);
     Navigator.of(context).pop();
-    messenger
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        const SnackBar(content: Text('Card import is coming soon.')),
-      );
+    router.push('/deck/$deckId/import');
   }
 
   @override
@@ -155,7 +151,7 @@ class _CreateMenuSheetState extends ConsumerState<CreateMenuSheet> {
                       label: deck.name,
                       indented: true,
                       tokens: tokens,
-                      onTap: _importStub,
+                      onTap: () => _openImport(deck.id),
                     ),
                 ],
               ),
