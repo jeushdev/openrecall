@@ -226,4 +226,105 @@ void main() {
     expect(find.text('All'), findsNothing);
     expect(find.byType(DeckGridTile), findsOneWidget);
   });
+
+  group('course management (ui-spec-v2 §7)', () {
+    // Groups are ordered by course created_at ascending, so the ⋮ menus render
+    // in that order: [0] = the default "Uncategorized", [1] = "Biology".
+    Finder defaultMenu() => find.byIcon(Icons.more_vert).first;
+    Finder bioMenu() => find.byIcon(Icons.more_vert).last;
+
+    Future<void> pumpTab(WidgetTester tester, FakeCourseRepository courses) async {
+      await tester.pumpWidget(_host(
+        _Recorder(),
+        decks: FakeDeckRepository(decks: [
+          _deck('d1', name: 'Cell structure', courseId: 'c-bio'),
+          _deck('d2', name: 'Shopping list', courseId: 'c-default'),
+        ]),
+        courses: courses,
+      ));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('a non-default course header offers Edit and Delete',
+        (tester) async {
+      await pumpTab(tester, FakeCourseRepository(courses: _courses()));
+
+      await tester.tap(bioMenu());
+      await tester.pumpAndSettle();
+
+      expect(find.text('Edit course'), findsOneWidget);
+      expect(find.text('Delete course'), findsOneWidget);
+    });
+
+    testWidgets('the default course header offers Edit but not Delete',
+        (tester) async {
+      await pumpTab(tester, FakeCourseRepository(courses: _courses()));
+
+      await tester.tap(defaultMenu());
+      await tester.pumpAndSettle();
+
+      expect(find.text('Edit course'), findsOneWidget);
+      expect(find.text('Delete course'), findsNothing);
+    });
+
+    testWidgets('Delete course confirms, then calls deleteCourse',
+        (tester) async {
+      final courses = FakeCourseRepository(courses: _courses());
+      await pumpTab(tester, courses);
+
+      await tester.tap(bioMenu());
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Delete course'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Delete course?'), findsOneWidget);
+      await tester.tap(find.widgetWithText(FilledButton, 'Delete'));
+      await tester.pumpAndSettle();
+
+      expect(courses.calls, contains('deleteCourse(c-bio)'));
+    });
+
+    testWidgets('Delete course can be cancelled', (tester) async {
+      final courses = FakeCourseRepository(courses: _courses());
+      await pumpTab(tester, courses);
+
+      await tester.tap(bioMenu());
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Delete course'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(TextButton, 'Cancel'));
+      await tester.pumpAndSettle();
+
+      expect(courses.calls.where((c) => c.startsWith('deleteCourse')), isEmpty);
+    });
+
+    testWidgets('Edit course renames and recolors through CourseController',
+        (tester) async {
+      final courses = FakeCourseRepository(courses: _courses());
+      await pumpTab(tester, courses);
+
+      await tester.tap(bioMenu());
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Edit course'));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextField), 'Bio 101');
+      await tester.tap(find.byKey(const ValueKey('accent-red')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, 'Save'));
+      await tester.pumpAndSettle();
+
+      expect(
+        courses.calls,
+        contains('updateCourse(id=c-bio, name=Bio 101, accent=red)'),
+      );
+    });
+
+    testWidgets('the synthetic fallback course (courses still loading) has no menu',
+        (tester) async {
+      await pumpTab(tester, FakeCourseRepository()..throwOnNextCall = StateError('offline'));
+
+      expect(find.byIcon(Icons.more_vert), findsNothing);
+    });
+  });
 }

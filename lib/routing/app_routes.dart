@@ -64,8 +64,8 @@ abstract final class AppRoutes {
   static const String importCardsPath = '/deck/:deckId/import';
   static const String importCardsName = 'import-cards';
 
-  /// Card list (ui-spec-v2 §6.5), at `/deck/:deckId/cards`. Lands in U15 — U13
-  /// registers a placeholder so the deck-detail push resolves.
+  /// Card list (ui-spec-v2 §6.5), at `/deck/:deckId/cards` — view / edit / delete
+  /// a deck's cards. Reached from the deck detail screen and the Import screen.
   static const String cardListPath = '/deck/:deckId/cards';
   static const String cardListName = 'card-list';
 

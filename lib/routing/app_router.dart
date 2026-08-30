@@ -7,6 +7,7 @@ import '../features/auth/presentation/forgot_password_screen.dart';
 import '../features/auth/presentation/login_screen.dart';
 import '../features/auth/presentation/signup_screen.dart';
 import '../features/courses/presentation/course_creator_screen.dart';
+import '../features/decks/presentation/card_list_screen.dart';
 import '../features/decks/presentation/deck_detail_screen.dart';
 import '../features/decks/presentation/decks_tab_screen.dart';
 import '../features/decks/presentation/import_cards_screen.dart';
@@ -147,14 +148,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) =>
             ImportCardsScreen(deckId: state.pathParameters['deckId']!),
       ),
-      // Placeholder until U15 builds the card list screen — registered so the
-      // deck-detail and import-screen pushes resolve.
       GoRoute(
         path: AppRoutes.cardListPath,
         name: AppRoutes.cardListName,
         parentNavigatorKey: rootNavigatorKey,
         builder: (context, state) =>
-            const _MilestoneStubScreen(title: 'Cards'),
+            CardListScreen(deckId: state.pathParameters['deckId']!),
       ),
     ],
   );
@@ -165,20 +164,3 @@ final appRouterProvider = Provider<GoRouter>((ref) {
   });
   return router;
 });
-
-/// A stand-in for the card list screen U15 builds (ui-spec-v2 §6.5). Present
-/// only so a `pushNamed` to `/deck/:deckId/cards` resolves to a real route from
-/// the deck detail and import screens.
-class _MilestoneStubScreen extends StatelessWidget {
-  const _MilestoneStubScreen({required this.title});
-
-  final String title;
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text(title)),
-      body: const Center(child: Text('Coming soon')),
-    );
-  }
-}

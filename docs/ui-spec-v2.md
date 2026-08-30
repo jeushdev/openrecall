@@ -24,6 +24,7 @@ adds no schema, no columns, no tables — the `courses` data model already exist
 It supersedes parts of `docs/ui-spec-v1.md` where noted in §1.
 
 Milestones here are **U10–U15**, executed one per session per `CLAUDE.md`.
+**U10–U15 are all complete** — this UI revamp has shipped in full.
 
 ---
 
@@ -162,6 +163,13 @@ Top-level:
 
 ## 5. Decks tab — course accordion (§6.1 replacement)
 
+> **Overrides `docs/ui-spec-v1.md` §6.1.** The v1 Decks tab's **Due / All**
+> segmented control and its `{n} due` / `×{n} cleared` per-segment badges are
+> removed entirely — there is no scope selector anywhere in the app. The Decks tab
+> is the course accordion described below; every session runs `CardScope.all`
+> (`/study/:deckId` takes no `scope` param) and each deck tile's badge shows card
+> count only (`"12 cards"` / `"no cards yet"`).
+
 `lib/features/decks/presentation/decks_tab_screen.dart`.
 
 - Header "Decks". **No segmented control, no caption.** Remove
@@ -184,15 +192,19 @@ Top-level:
 - Body: a scroll view of accordion sections. Each section:
   - **Header** — a 4px left accent bar (`AppTokens.accents[course.accentColor].fill`),
     course name (`w600`), `"{n} decks"` in `text.secondary`, a trailing chevron
-    (rotates on expand). Tapping toggles expansion. A trailing ⋮ (or long-press)
-    opens Edit course / Delete course (U15; default course: no delete).
+    (rotates on expand). Tapping the header toggles expansion. A trailing ⋮
+    `PopupMenuButton` opens **Edit course** / **Delete course** (§7). The default
+    ("Uncategorized") course shows **Edit course** only — never Delete. While the
+    course list is still loading (the synthetic single-bucket fallback), no ⋮ menu
+    renders.
   - **Body** (when expanded) — the course's deck tiles. Reuse `DeckGridTile`
     (2-column grid or a vertical list — pick during build; grid keeps the
     existing tile visual). The trailing `CreateDeckTile` (→ `/deck-creator`)
     stays, ideally inside the default course's body or as a global affordance.
 - **Expand/collapse state** is persisted per course id in `SharedPreferences`
-  (follow the U8 settings-persistence pattern). Default: all collapsed, or the
-  default course expanded — pick during build. Survives app restart.
+  (`DecksAccordionPreferences`, following the U8 settings-persistence pattern).
+  Before the user has toggled anything, only the default course is expanded.
+  Survives app restart.
 - **Deck tile badge** → `"{totalCards} cards"` (`DeckSummary.totalCards`),
   `"no cards yet"` when zero. Remove the Due/All badge branching in
   `widgets/deck_badge.dart`.
@@ -292,32 +304,52 @@ Two stacked sections:
 
 Top-level route. `CardListScreen(deckId)`.
 
-- `deckCardsProvider(deckId)` → a list of `CardListItem`
-  (`widgets/card_list_item.dart`) rows showing front / back / keyword preview.
-  Empty state → "No cards yet" + a link to `/deck/:deckId/import`.
-- **Tap a row** → a card edit screen (push, or a full-screen dialog). Reuse
-  `widgets/card_fields.dart` (or `edit_card_dialog.dart`'s `CardFields`):
-  Front / Back / Keyword, same validation as add.
-  - **Top-right Delete** action → confirm dialog ("Delete card?") →
-    `DecksController.deleteCard(id)` → pop back to the list.
-  - **Save** → `DecksController.updateCard(id:, front:, back:, keyword:)`.
-- The list refreshes via the `deckCardsProvider` invalidation the controller
-  already does on card mutations.
+- `deckCardsProvider(deckId)` → a `ListView` of `CardListItem`
+  (`widgets/card_list_item.dart`) rows: a single-tap row showing the front / back /
+  keyword preview and a trailing chevron. App-bar title is the deck name (from
+  `decksProvider`). Empty state → "No cards yet." + an **Add cards** button to
+  `/deck/:deckId/import`; a load failure → Retry.
+- **Tap a row** → `EditCardDialog` (`widgets/edit_card_dialog.dart`), a
+  `ConsumerStatefulWidget` `AlertDialog` reusing `CardFields`
+  (`widgets/card_fields.dart`) for Front / Back / Keyword with the same
+  `keywordError` validation as add:
+  - The dialog's **title row** carries a top-right `delete_outline`
+    `IconButton` → confirm dialog ("Delete card?") →
+    `DecksController.deleteCard(deckId:, id:)` → pop.
+  - **Save** → `DecksController.updateCard(deckId:, id:, front:, back:, keyword:)`
+    → pop. A failure stays in `decksControllerProvider` and `CardListScreen`'s
+    listener shows a snackbar.
+- The list refreshes via the `deckCardsProvider(deckId)` invalidation the
+  controller already does on every card mutation.
+- The pre-revamp `deck_creator_screen.dart` (unrouted since U4) and its
+  add-only `card_editor_form.dart` are retired here — `ImportCardsScreen` (§6.4)
+  and this screen fully replace them.
 
 ---
 
 ## 7. Course & deck management affordances (milestone U15)
 
-- **Course header ⋮ / long-press** (Decks tab §5): **Edit course** (name +
-  accent picker, reusing the Course Creator's widgets →
-  `courseControllerProvider.update`) and **Delete course** (confirm: "Delete
-  course? Its decks move to Uncategorized." → `courseControllerProvider.delete`).
-- **The default ("Uncategorized") course** — no Delete affordance. Rename /
-  recolor is allowed or omitted (decide during build; engine-v2-spec §3.1 notes
-  the default is identified by `is_default`, never by name, so renaming it is
-  safe).
-- **Empty states** — (a) only the default course, no decks; (b) an expanded
-  course with no decks; (c) Import card chosen with zero decks anywhere.
+- **Course header ⋮** (Decks tab §5): a `PopupMenuButton` with **Edit course**
+  and (non-default only) **Delete course**.
+  - **Edit course** → `_CourseEditSheet`, a bottom sheet mirroring
+    `DeckDetailScreen._DeckEditSheet` (name `TextField` + a single-select row of
+    the 8 named accent swatches) → `courseControllerProvider.notifier.updateCourse`.
+  - **Delete course** → confirm dialog ("Delete course? / Its decks move to
+    Uncategorized." — Cancel / Delete) → `courseControllerProvider.notifier.delete`.
+    The tab stays put; the controller reassigns the decks to the default course
+    and refreshes the accordion.
+- **The default ("Uncategorized") course** — Delete is hidden; **Edit course**
+  (rename + recolor) is allowed (engine-v2-spec §3.1: the default is identified by
+  `is_default`, never by name, so renaming it is safe).
+- **Empty states** —
+  - *(a) only the default course, no decks* — the expanded default section shows a
+    "No decks yet — create one to get started." caption above its Create tile.
+  - *(b) an expanded non-default course with no decks* — a "No decks yet" line.
+  - *(c) Import card chosen with zero decks anywhere* (`CreateMenuSheet`,
+    delivered U14) — routes to `/deck-creator` with a "Create a deck first."
+    snackbar.
+  - *Card list of an empty deck* — "No cards yet." + an Add cards button into
+    `/deck/:deckId/import`.
 
 ---
 
@@ -330,7 +362,7 @@ Top-level route. `CardListScreen(deckId)`.
 | **U12** | Decks tab course accordion (§5): grouped provider, collapsible sections, persisted expand state, `"{n} cards"` badge, remove Due/All control. `/study` always `CardScope.all`. | Decks render grouped under collapsible course headers; expand state survives restart; no Due/All control anywhere; every session row records `card_scope='all'`; Mastery "deck completions" still works. |
 | **U13** | Deck detail screen (§6.3) + edit/delete deck. Deck tiles route to `/deck/:deckId`. `/deck-creator` success → deck detail. | Tapping a deck opens detail; mode picker starts an `all` session; Edit renames / re-courses a deck (reflected on the tab); Delete removes it after confirmation. |
 | **U14** | Import cards screen (§6.4): manual + bulk with Copy-AI-prompt and live preview. Wire the + menu's Import card and deck detail's Import action. Repoint / retire `/deck/:deckId/add-card`. | Manual add and bulk paste both create cards in the right deck; bad bulk lines flagged with a reason, never dropped; View cards / Start session navigate correctly. |
-| **U15** | Card list + card edit/delete (§6.5). Course edit/delete from the accordion header (§7). Empty states. Finalize this doc. | Cards can be viewed / edited / deleted; courses renamed / recolored / deleted with decks reassigned to Uncategorized; `flutter analyze` clean, `flutter test` green, manual device pass. |
+| **U15 ✅** | Card list + card edit/delete (§6.5). Course edit/delete from the accordion header (§7). Empty-state polish. Retire the legacy `deck_creator_screen.dart` + `card_editor_form.dart`. Finalize this doc. | **Shipped.** `/deck/:deckId/cards` lists cards; a row opens `EditCardDialog` with Save → `updateCard` and a title-bar Delete → confirm → `deleteCard`. Course headers carry a ⋮ menu: Edit (name + accent sheet) → `updateCourse`; Delete (non-default, confirm) → `delete`, decks reassigned to Uncategorized. `flutter analyze` clean, `flutter test` green. |
 
 **Sequencing:** U10 first (unblocks all write paths). Then U11 → U12 → U13 →
 U14 → U15. **U12 and U13 may be merged** into one session if context allows —

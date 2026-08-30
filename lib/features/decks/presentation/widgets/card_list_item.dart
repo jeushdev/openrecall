@@ -1,60 +1,86 @@
 import 'package:flutter/material.dart';
 
+import '../../../../theme/app_tokens.dart';
 import '../../domain/card.dart';
 
-/// One existing card in the Deck Creator list, with edit and delete actions
-/// (spec §3).
+/// One card in the Card List screen (ui-spec-v2 §6.5) — a single tappable row
+/// showing a preview of the front, back, and (if set) keyword. Tapping it opens
+/// the card editor; there is no inline edit / delete button any more (delete
+/// lives in the editor's title bar).
 class CardListItem extends StatelessWidget {
   const CardListItem({
     super.key,
     required this.card,
-    required this.onEdit,
-    required this.onDelete,
+    required this.onTap,
   });
 
   final FlashCard card;
-  final VoidCallback onEdit;
-  final VoidCallback onDelete;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 12, 8, 12),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(card.front, style: theme.textTheme.titleSmall),
-                  const SizedBox(height: 4),
-                  Text(card.back, style: theme.textTheme.bodyMedium),
-                  if (card.keyword != null) ...[
-                    const SizedBox(height: 8),
-                    Chip(
-                      label: Text(card.keyword!),
-                      visualDensity: VisualDensity.compact,
-                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+    final tokens = Theme.of(context).extension<AppTokens>()!;
+
+    return Material(
+      type: MaterialType.transparency,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      card.front,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: tokens.textPrimary,
+                      ),
                     ),
+                    const SizedBox(height: 4),
+                    Text(
+                      card.back,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: tokens.textSecondary,
+                      ),
+                    ),
+                    if (card.keyword != null) ...[
+                      const SizedBox(height: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 3,
+                        ),
+                        decoration: BoxDecoration(
+                          color: tokens.mutedFill,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          card.keyword!,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: tokens.textSecondary,
+                          ),
+                        ),
+                      ),
+                    ],
                   ],
-                ],
+                ),
               ),
-            ),
-            IconButton(
-              icon: const Icon(Icons.edit_outlined),
-              tooltip: 'Edit card',
-              onPressed: onEdit,
-            ),
-            IconButton(
-              icon: const Icon(Icons.delete_outline),
-              tooltip: 'Delete card',
-              onPressed: onDelete,
-            ),
-          ],
+              const SizedBox(width: 8),
+              Icon(Icons.chevron_right, color: tokens.textSecondary),
+            ],
+          ),
         ),
       ),
     );
