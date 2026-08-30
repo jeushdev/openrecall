@@ -32,7 +32,6 @@ TroublemakerCard _troublemaker(String id, int failCount) => TroublemakerCard(
       deckId: 'deck-1',
       front: 'front $id',
       back: 'back $id',
-      keyword: null,
       failCount: failCount,
     );
 

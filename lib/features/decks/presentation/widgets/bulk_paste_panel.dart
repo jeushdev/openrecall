@@ -150,9 +150,9 @@ class _Preview extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 2),
             child: switch (line) {
-              ParsedCard(:final front, :final back, :final keyword) => Text(
+              ParsedCard(:final front, :final back, :final keywords) => Text(
                   '✓  $front  —  $back'
-                  '${keyword == null ? '' : '   [keyword: $keyword]'}',
+                  '${keywords.isEmpty ? '' : '   [keyword: ${keywords.join(', ')}]'}',
                   style: theme.textTheme.bodySmall,
                 ),
               ParseFailure(:final lineNumber, :final raw, :final reason) => Text(

@@ -21,7 +21,8 @@ import '../../support/fake_study_repository.dart';
 FlashCard _card(
   String id, {
   int mastery = 0,
-  String? keyword,
+  List<String> keywords = const [],
+  bool isConcept = false,
   String? front,
   String? back,
 }) =>
@@ -30,7 +31,8 @@ FlashCard _card(
       deckId: 'deck-1',
       front: front ?? 'front-$id',
       back: back ?? 'back-$id',
-      keyword: keyword,
+      keywords: keywords,
+      isConcept: isConcept,
       masteryLevel: mastery,
       failCount: 0,
       createdAt: DateTime.utc(2026),
@@ -181,7 +183,7 @@ void main() {
     await _open(
       tester,
       decks: FakeDeckRepository(cards: [
-        _card('a', front: 'Paris is the capital', keyword: 'Paris'),
+        _card('a', front: 'Paris is the capital', keywords: ['Paris']),
       ]),
       study: FakeStudyRepository(),
     );
@@ -201,7 +203,9 @@ void main() {
       tester,
       decks: FakeDeckRepository(cards: [
         _card('a',
-            front: 'Paris is the capital', keyword: 'Paris', back: 'of France'),
+            front: 'Paris is the capital',
+            keywords: ['Paris'],
+            back: 'of France'),
         _card('b'),
       ]),
       study: FakeStudyRepository(),
@@ -218,39 +222,6 @@ void main() {
 
     // Reveal the blank, then rate.
     await tester.tap(find.byIcon(Icons.touch_app_outlined).first);
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Mastered'));
-    await tester.pumpAndSettle();
-    expect(find.byType(SessionSummaryView), findsOneWidget);
-  });
-
-  testWidgets('List reveals items in any order and gates the rating row',
-      (tester) async {
-    await _open(
-      tester,
-      decks: FakeDeckRepository(cards: [
-        _card('a', front: 'Primary colours', back: 'red\ngreen\nblue'),
-      ]),
-      study: FakeStudyRepository(),
-    );
-
-    await tester.tap(find.text('List Unmask'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('Tap to reveal'), findsNWidgets(3));
-
-    // Reveal out of order (last, then first, then middle).
-    await tester.tap(find.text('Tap to reveal').at(2));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Tap to reveal').at(0));
-    await tester.pumpAndSettle();
-
-    // One still hidden — rating inert.
-    await tester.tap(find.text('Mastered'));
-    await tester.pumpAndSettle();
-    expect(find.byType(SessionSummaryView), findsNothing);
-
-    await tester.tap(find.text('Tap to reveal'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Mastered'));
     await tester.pumpAndSettle();
@@ -365,8 +336,10 @@ void main() {
   group('mode routing (milestone R1)', () {
     FakeDeckRepository twoModeDeck() => FakeDeckRepository(cards: [
           _card('a',
-              front: 'Paris is the capital', keyword: 'Paris', back: 'of France'),
-          _card('b', front: 'Rome', keyword: 'Rome', back: 'is in Italy'),
+              front: 'Paris is the capital',
+              keywords: ['Paris'],
+              back: 'of France'),
+          _card('b', front: 'Rome', keywords: ['Rome'], back: 'is in Italy'),
         ]);
 
     testWidgets('a forwarded mode starts it, skipping the in-screen picker',

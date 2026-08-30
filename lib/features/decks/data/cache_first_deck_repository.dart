@@ -128,9 +128,16 @@ class CacheFirstDeckRepository implements DeckRepository {
     required String deckId,
     required String front,
     required String back,
-    String? keyword,
+    required List<String> keywords,
+    required bool isConcept,
   }) =>
-      _remote.addCard(deckId: deckId, front: front, back: back, keyword: keyword);
+      _remote.addCard(
+        deckId: deckId,
+        front: front,
+        back: back,
+        keywords: keywords,
+        isConcept: isConcept,
+      );
 
   @override
   Future<List<FlashCard>> addCards(String deckId, List<ParsedCard> cards) =>
@@ -152,9 +159,16 @@ class CacheFirstDeckRepository implements DeckRepository {
     required String id,
     required String front,
     required String back,
-    String? keyword,
+    required List<String> keywords,
+    required bool isConcept,
   }) =>
-      _remote.updateCard(id: id, front: front, back: back, keyword: keyword);
+      _remote.updateCard(
+        id: id,
+        front: front,
+        back: back,
+        keywords: keywords,
+        isConcept: isConcept,
+      );
 
   @override
   Future<void> deleteCard(String id) => _remote.deleteCard(id);

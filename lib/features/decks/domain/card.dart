@@ -28,9 +28,10 @@ int masteryPercentFromLevelSum(int sum, int count) {
   return (sum / (count * masteredLevel) * 100).round();
 }
 
-/// The unified card model (spec §3): every card is `front` + `back` +
-/// optional `keyword`, with no stored `type`. Which study modes a card
-/// supports is computed elsewhere, at read time.
+/// The unified card model (docs/spec-v3-card-model.md): every card is `front` +
+/// `back`, plus a list of Cloze `keywords` and an `isConcept` flag, with no
+/// stored `type`. Which study modes a card supports is computed elsewhere, at
+/// read time.
 @immutable
 class FlashCard {
   const FlashCard({
@@ -38,7 +39,8 @@ class FlashCard {
     required this.deckId,
     required this.front,
     required this.back,
-    required this.keyword,
+    required this.keywords,
+    required this.isConcept,
     required this.masteryLevel,
     required this.failCount,
     required this.createdAt,
@@ -50,7 +52,9 @@ class FlashCard {
         deckId: json['deck_id'] as String,
         front: json['front'] as String,
         back: json['back'] as String,
-        keyword: json['keyword'] as String?,
+        keywords:
+            (json['keywords'] as List?)?.cast<String>() ?? const <String>[],
+        isConcept: json['is_concept'] as bool? ?? false,
         masteryLevel: json['mastery_level'] as int,
         failCount: json['fail_count'] as int,
         createdAt: DateTime.parse(json['created_at'] as String),
@@ -61,7 +65,8 @@ class FlashCard {
   final String deckId;
   final String front;
   final String back;
-  final String? keyword;
+  final List<String> keywords;
+  final bool isConcept;
   final int masteryLevel;
   final int failCount;
   final DateTime createdAt;
@@ -76,7 +81,8 @@ class FlashCard {
       other.deckId == deckId &&
       other.front == front &&
       other.back == back &&
-      other.keyword == keyword &&
+      listEquals(other.keywords, keywords) &&
+      other.isConcept == isConcept &&
       other.masteryLevel == masteryLevel &&
       other.failCount == failCount &&
       other.createdAt == createdAt &&
@@ -88,7 +94,8 @@ class FlashCard {
         deckId,
         front,
         back,
-        keyword,
+        Object.hashAll(keywords),
+        isConcept,
         masteryLevel,
         failCount,
         createdAt,

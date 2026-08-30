@@ -2,12 +2,12 @@ import 'package:flutter/material.dart';
 
 import '../../domain/study_mode.dart';
 
-/// The four study-mode buttons on the Deck Overview (spec §4).
+/// The study-mode buttons on the Deck Overview (docs/spec-v3-card-model.md).
 ///
 /// Every mode is always shown; a mode the deck has no qualifying card for is
 /// rendered disabled with a caption, so it's clear the option exists but needs
 /// the right kind of card. [onStart] launches a session for whichever mode is
-/// tapped (spec §5A–§5D).
+/// tapped.
 class ModeSelector extends StatelessWidget {
   const ModeSelector({
     super.key,

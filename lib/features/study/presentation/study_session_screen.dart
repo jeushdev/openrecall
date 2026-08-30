@@ -17,7 +17,6 @@ import 'widgets/cloze_reveal_card.dart';
 import 'widgets/feynman_card_view.dart';
 import 'widgets/feynman_timer_picker.dart';
 import 'widgets/flip_card.dart';
-import 'widgets/list_reveal_card.dart';
 import 'widgets/mode_picker.dart';
 import 'widgets/park_prompt_dialog.dart';
 import 'widgets/rating_row.dart';
@@ -438,11 +437,6 @@ class _ActiveBodyState extends State<_ActiveBody> {
 
     final Widget cardArea = switch (state.session.studyMode) {
       StudyMode.cloze => ClozeRevealCard(
-          key: key,
-          card: item.card,
-          onAllRevealed: () => setState(() => _revealed = true),
-        ),
-      StudyMode.list => ListRevealCard(
           key: key,
           card: item.card,
           onAllRevealed: () => setState(() => _revealed = true),

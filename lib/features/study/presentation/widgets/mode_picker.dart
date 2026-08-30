@@ -10,7 +10,7 @@ import '../../../decks/domain/study_mode.dart';
 /// choice, and the engine still stores one `study_mode` per session — so the
 /// choice is made here, once, before the session is built. Same "chosen once at
 /// session start" shape §6.2.1 uses for the Feynman timer. Only the modes the
-/// deck structurally supports are offered; Feynman is excluded until U6.
+/// deck structurally supports are offered.
 class ModePicker extends StatelessWidget {
   const ModePicker({
     super.key,
@@ -18,7 +18,7 @@ class ModePicker extends StatelessWidget {
     required this.onSelected,
   });
 
-  /// The offered modes, in [StudyMode] declaration order (Flip, Cloze, List).
+  /// The offered modes, in [StudyMode] declaration order (Flip, Cloze, Feynman).
   final List<StudyMode> modes;
   final ValueChanged<StudyMode> onSelected;
 

@@ -8,17 +8,17 @@ import 'study_session.dart';
 /// renumbering the rest of the queue (spec §5).
 const int kPositionStep = 1000;
 
-/// The cards from [cards] that structurally support [mode] (spec §4):
-/// Flip has no filter, Cloze needs a keyword, List/Feynman need 2+ lines on a
-/// side. Order is preserved.
+/// The cards from [cards] that structurally support [mode]
+/// (docs/spec-v3-card-model.md): Flip has no filter, Cloze needs a keyword,
+/// Feynman needs a concept-flagged card. Order is preserved.
 Iterable<FlashCard> cardsSupportingMode(
   Iterable<FlashCard> cards,
   StudyMode mode,
 ) =>
     switch (mode) {
       StudyMode.flip => cards,
-      StudyMode.cloze => cards.where(cardHasKeyword),
-      StudyMode.list || StudyMode.feynman => cards.where(cardIsMultiLine),
+      StudyMode.cloze => cards.where(cardHasKeywords),
+      StudyMode.feynman => cards.where(cardIsConcept),
     };
 
 /// The queue for a new session (spec §4, engine-v2-spec §4.2). For

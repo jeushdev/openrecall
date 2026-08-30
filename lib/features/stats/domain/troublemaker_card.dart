@@ -4,9 +4,9 @@ import 'package:flutter/foundation.dart';
 /// (engine-v2-spec §6): the cards with the highest lifetime `fail_count` across
 /// every deck the user owns.
 ///
-/// Lean by design — the query behind it selects only these six columns, not the
-/// full `cards` row, so this is a separate model from `FlashCard` (no
-/// `mastery_level`, no timestamps).
+/// Lean by design — the query behind it selects only these five columns, not
+/// the full `cards` row, so this is a separate model from `FlashCard` (no
+/// `mastery_level`, no timestamps, no keywords — nothing here renders them).
 @immutable
 class TroublemakerCard {
   const TroublemakerCard({
@@ -14,7 +14,6 @@ class TroublemakerCard {
     required this.deckId,
     required this.front,
     required this.back,
-    required this.keyword,
     required this.failCount,
   });
 
@@ -24,7 +23,6 @@ class TroublemakerCard {
         deckId: json['deck_id'] as String,
         front: json['front'] as String,
         back: json['back'] as String,
-        keyword: json['keyword'] as String?,
         failCount: json['fail_count'] as int,
       );
 
@@ -32,7 +30,6 @@ class TroublemakerCard {
   final String deckId;
   final String front;
   final String back;
-  final String? keyword;
   final int failCount;
 
   @override
@@ -42,10 +39,8 @@ class TroublemakerCard {
       other.deckId == deckId &&
       other.front == front &&
       other.back == back &&
-      other.keyword == keyword &&
       other.failCount == failCount;
 
   @override
-  int get hashCode =>
-      Object.hash(id, deckId, front, back, keyword, failCount);
+  int get hashCode => Object.hash(id, deckId, front, back, failCount);
 }

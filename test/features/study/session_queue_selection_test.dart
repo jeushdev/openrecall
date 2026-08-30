@@ -8,7 +8,8 @@ FlashCard _card({
   required String id,
   String front = 'Front',
   String back = 'Back',
-  String? keyword,
+  List<String> keywords = const [],
+  bool isConcept = false,
   int mastery = 0,
 }) =>
     FlashCard(
@@ -16,7 +17,8 @@ FlashCard _card({
       deckId: 'deck-1',
       front: front,
       back: back,
-      keyword: keyword,
+      keywords: keywords,
+      isConcept: isConcept,
       masteryLevel: mastery,
       failCount: 0,
       createdAt: DateTime.utc(2026),
@@ -55,9 +57,9 @@ void main() {
 
     test('Cloze keeps only cards with a keyword', () {
       final cards = [
-        _card(id: 'a', keyword: 'Paris'),
+        _card(id: 'a', keywords: ['Paris']),
         _card(id: 'b'),
-        _card(id: 'c', keyword: '  '),
+        _card(id: 'c', keywords: ['  ']),
       ];
       expect(
         selectSessionCards(
@@ -70,15 +72,15 @@ void main() {
       );
     });
 
-    test('List keeps only cards with 2+ lines on a side', () {
+    test('Feynman keeps only concept-flagged cards', () {
       final cards = [
-        _card(id: 'a', back: 'one\ntwo'),
-        _card(id: 'b'),
+        _card(id: 'a', isConcept: true),
+        _card(id: 'b', back: 'one\ntwo'),
       ];
       expect(
         selectSessionCards(
           cards: cards,
-          mode: StudyMode.list,
+          mode: StudyMode.feynman,
           cap: null,
           cardScope: CardScope.due,
         ).map((c) => c.id),
@@ -176,9 +178,9 @@ void main() {
 
     test('still applies the mode filter', () {
       final cards = [
-        _card(id: 'a', keyword: 'Paris'),
+        _card(id: 'a', keywords: ['Paris']),
         _card(id: 'b'),
-        _card(id: 'm', keyword: 'Rome', mastery: 4),
+        _card(id: 'm', keywords: ['Rome'], mastery: 4),
       ];
       expect(
         selectSessionCards(

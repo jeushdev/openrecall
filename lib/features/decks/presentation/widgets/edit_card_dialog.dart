@@ -7,8 +7,8 @@ import 'card_fields.dart';
 
 /// Edits one card's content (ui-spec-v2 §6.5). Opened from a [CardListItem] row.
 ///
-/// The form reuses [CardFields] (Front / Back / Keyword + `keywordError`
-/// validation). **Save** calls [DecksController.updateCard]; the **delete**
+/// The form reuses [CardFields] (Front / Back / keyword chips / concept
+/// toggle). **Save** calls [DecksController.updateCard]; the **delete**
 /// action in the title bar confirms, then calls [DecksController.deleteCard].
 /// Both pop the dialog on success; a failure is left in `decksControllerProvider`
 /// for the host screen's listener to surface.
@@ -26,25 +26,25 @@ class _EditCardDialogState extends ConsumerState<EditCardDialog> {
   final _formKey = GlobalKey<FormState>();
   late final _front = TextEditingController(text: widget.card.front);
   late final _back = TextEditingController(text: widget.card.back);
-  late final _keyword = TextEditingController(text: widget.card.keyword ?? '');
+  late List<String> _keywords = List.of(widget.card.keywords);
+  late bool _isConcept = widget.card.isConcept;
 
   @override
   void dispose() {
     _front.dispose();
     _back.dispose();
-    _keyword.dispose();
     super.dispose();
   }
 
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
-    final keyword = _keyword.text.trim();
     final card = await ref.read(decksControllerProvider.notifier).updateCard(
           deckId: widget.deckId,
           id: widget.card.id,
           front: _front.text.trim(),
           back: _back.text.trim(),
-          keyword: keyword.isEmpty ? null : keyword,
+          keywords: _keywords,
+          isConcept: _isConcept,
         );
     if (card != null && mounted) Navigator.of(context).pop();
   }
@@ -100,7 +100,10 @@ class _EditCardDialogState extends ConsumerState<EditCardDialog> {
           child: CardFields(
             frontController: _front,
             backController: _back,
-            keywordController: _keyword,
+            keywords: _keywords,
+            onKeywordsChanged: (v) => setState(() => _keywords = v),
+            isConcept: _isConcept,
+            onIsConceptChanged: (v) => setState(() => _isConcept = v),
             enabled: !busy,
           ),
         ),

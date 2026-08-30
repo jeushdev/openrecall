@@ -45,6 +45,7 @@
 - Creating/editing decks and cards requires connectivity (see §10) — the create/edit affordances should be disabled or hidden while offline, not left to fail silently
 
 ## 4. Deck Overview & Mode Selector
+> **Superseded by `docs/spec-v3-card-model.md`** for the card model: List mode is removed, cards carry multiple `keywords`, and Feynman is triggered by `is_concept` (not a multi-line side).
 - Deck stats: mastery %, card count, how many have a keyword / multi-line back
 - **"Troublemaker cards"** — cards with high lifetime `fail_count`. (Not "parked" cards — parking is session-scoped and doesn't persist past its own session; see §6.)
 - "Add cards" entry point back into §3's screen — Deck Overview isn't just for starting sessions, it's also where you return to add more cards to an existing deck later
@@ -59,6 +60,7 @@
 - **Empty state:** deck has cards, but none are due/parked right now → "all caught up" state, no forced action
 
 ## 5. Study Execution Screens
+> **Superseded by `docs/spec-v3-card-model.md`:** 5C (List Unmask) is removed; multi-line content is just a Flip card with a bulleted back. Cloze blanks a list of `keywords`. Feynman (5D) is offered only for `is_concept` cards, and its prompt/reference are always `front`/`back`.
 - **5A — Flip & Rate:** works on literally every card, no exceptions
 - **5B — Cloze Type-in:** blanks the single keyword wherever it appears, Levenshtein fuzzy match, letter-by-letter diff feedback, manual "I was right" override
 - **5C — List Unmask:** shows the single-line side as the prompt, reveals each line of the multi-line side in order, one tap at a time, scored on reveals-before-recall
@@ -72,7 +74,7 @@
 A List card and a Feynman card are the same underlying shape — a short prompt on one side, key points as separate lines on the other. The only difference is which button you tap to study it: "reveal these one at a time" (List) or "write your own explanation, then compare it to these" (Feynman). It doesn't matter whether you wrote the multi-line part in Front or Back — whichever side has multiple lines is treated as the content, the other side is the prompt. Write cards in whatever order feels natural (definition-first or term-first); the app figures out the rest. (Edge case: if both sides end up multi-line, Back is treated as the content side by default, just to have a consistent rule.)
 
 ### Simplifications locked in this round
-- **One keyword per card, not several.** The original doc allowed multiple `{{blanks}}` per card with auto-advancing inputs — dropped for v1. Want to quiz two different words from one fact? That's two cards, not one card with two tracked blanks.
+- ~~**One keyword per card, not several.**~~ **Reversed in R3** (`docs/spec-v3-card-model.md`): `cards.keywords` is a `text[]` and a card may carry several. The original doc allowed multiple `{{blanks}}` per card with auto-advancing inputs; R3 restores the multi-keyword column and R4 restores the auto-advancing type-in.
 - **Keyword is typed, not tap-to-select.** You retype the word into a small field rather than tapping to highlight it in your text — much simpler to build reliably, barely slower to use.
 
 ## 6. Mastery Tracking — one number per card, shared across all modes
@@ -136,6 +138,8 @@ Since any card can now be studied through multiple modes, all of them have to up
 3. **P2P/QR deck transfer?** → Skip for beta.
 
 ## Data Model (Schema)
+
+> The `cards` table below is out of date — see `docs/spec-v3-card-model.md` and `supabase/schema.sql`: `keyword text` is now `keywords text[]` plus `is_concept boolean`, and `study_sessions.study_mode` no longer includes `list`. `supabase/schema.sql` is the authoritative DDL.
 
 **Session-conflict rule, carried over from Synapse:** starting a new session on a deck that already has an active one marks the old one `abandoned` before the new one starts — same rule Synapse already uses, no reason to invent a different one here.
 
@@ -218,12 +222,15 @@ create index on session_cards (card_id);
 **RLS ownership pattern:** `profiles`, `decks`, `study_sessions` have a direct `user_id`/`id` column → straightforward `= auth.uid()` policy. `cards` and `session_cards` have **no direct owner column on purpose** (same call Synapse made) — their policies check ownership through a join (`cards` → `decks.user_id`, `session_cards` → `study_sessions.user_id`). This is exactly the pattern that's easy to get subtly wrong — worth personally reading the generated policy SQL rather than assuming it's correct.
 
 ## Card model (field-level detail)
-Every card has exactly three content fields, described in full in §3:
+> **Superseded by `docs/spec-v3-card-model.md`.** As of R3: `keyword text` → `keywords text[]` (zero or more, each a substring of front or back), plus `is_concept boolean` (the Feynman trigger).
+
+Every card has:
 - `front` (text, required)
 - `back` (text, required — one line or several)
-- `keyword` (text, optional — must be a substring of front or back)
+- `keywords` (text[] — each entry must be a substring of front or back)
+- `is_concept` (boolean — flags a card for Feynman)
 
-There is no stored `type` column. Which study modes are available is computed from front/back/keyword at read time (see §4/§5), not chosen when the card is created.
+There is no stored `type` column. Which study modes are available is computed from front/back/keywords/is_concept at read time (see §4/§5 and `docs/spec-v3-card-model.md`), not chosen when the card is created.
 
 ## Error states
 - Bad bulk-paste line: shown inline with a reason, never silently dropped

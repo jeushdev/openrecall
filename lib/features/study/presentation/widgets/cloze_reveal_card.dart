@@ -52,9 +52,9 @@ class _ClozeRevealCardState extends State<ClozeRevealCard> {
   }
 
   void _split() {
-    final (front, next) = clozeSegments(widget.card.front, widget.card.keyword);
+    final (front, next) = clozeSegments(widget.card.front, widget.card.keywords);
     final (back, end) =
-        clozeSegments(widget.card.back, widget.card.keyword, startIndex: next);
+        clozeSegments(widget.card.back, widget.card.keywords, startIndex: next);
     _front = front;
     _back = back;
     _blankCount = end;

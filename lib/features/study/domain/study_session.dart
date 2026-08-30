@@ -19,6 +19,17 @@ extension CardScopeDb on CardScope {
 CardScope cardScopeFromDb(String value) =>
     value == 'all' ? CardScope.all : CardScope.due;
 
+/// Reads a `study_sessions.study_mode` string back into a [StudyMode],
+/// tolerating values no longer in the enum. List mode was removed in R3; a
+/// persisted or synced `study_mode = 'list'` row is read as [StudyMode.flip]
+/// (its queue is rebuilt on resume anyway).
+StudyMode _studyModeFromDb(String value) {
+  for (final mode in StudyMode.values) {
+    if (mode.name == value) return mode;
+  }
+  return StudyMode.flip;
+}
+
 /// One `study_sessions` row (spec schema): a single-mode, resumable study
 /// session over one deck. Has no `updated_at` — that column and its trigger
 /// exist only on `courses`, `decks` and `cards`.
@@ -41,7 +52,7 @@ class StudySession {
         id: json['id'] as String,
         deckId: json['deck_id'] as String,
         status: sessionStatusFromDb(json['status'] as String),
-        studyMode: StudyMode.values.byName(json['study_mode'] as String),
+        studyMode: _studyModeFromDb(json['study_mode'] as String),
         lengthMode: sessionLengthModeFromDb(json['length_mode'] as String),
         cappedLength: json['capped_length'] as int?,
         cardScope: json['card_scope'] == null

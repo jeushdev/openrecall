@@ -11,7 +11,8 @@ FlashCard _card({
   String id = 'card-1',
   String front = 'Capital of France',
   String back = 'Paris',
-  String? keyword,
+  List<String> keywords = const [],
+  bool isConcept = false,
   int mastery = 0,
   int fails = 0,
 }) =>
@@ -20,7 +21,8 @@ FlashCard _card({
       deckId: 'deck-1',
       front: front,
       back: back,
-      keyword: keyword,
+      keywords: keywords,
+      isConcept: isConcept,
       masteryLevel: mastery,
       failCount: fails,
       createdAt: DateTime.utc(2026),
@@ -59,7 +61,7 @@ void main() {
 
   testWidgets('renders deck stats from real card data', (tester) async {
     await tester.pumpWidget(_host(FakeDeckRepository(cards: [
-      _card(id: 'a', keyword: 'Paris', mastery: 4),
+      _card(id: 'a', keywords: ['Paris'], mastery: 4),
       _card(id: 'b', back: 'one\ntwo'),
       _card(id: 'c'),
     ])));
@@ -71,35 +73,33 @@ void main() {
     expect(find.textContaining('1 multi-line'), findsOneWidget);
   });
 
-  testWidgets('Flip is always enabled; Cloze/List/Feynman gate on card content',
+  testWidgets('Flip is always enabled; Cloze/Feynman gate on card content',
       (tester) async {
     await tester.pumpWidget(_host(FakeDeckRepository(cards: [_card()])));
     await tester.pumpAndSettle();
 
     expect(_enabled(tester, 'Flip & Rate'), isTrue);
     expect(_enabled(tester, 'Cloze Type-in'), isFalse);
-    expect(_enabled(tester, 'List Unmask'), isFalse);
     expect(_enabled(tester, 'Feynman Synthesis'), isFalse);
-    expect(find.text('No cards support this yet'), findsNWidgets(3));
+    expect(find.text('No cards support this yet'), findsNWidgets(2));
   });
 
   testWidgets('a keyword card enables Cloze', (tester) async {
     await tester.pumpWidget(_host(FakeDeckRepository(cards: [
-      _card(keyword: 'Paris'),
+      _card(keywords: ['Paris']),
     ])));
     await tester.pumpAndSettle();
 
     expect(_enabled(tester, 'Cloze Type-in'), isTrue);
-    expect(_enabled(tester, 'List Unmask'), isFalse);
+    expect(_enabled(tester, 'Feynman Synthesis'), isFalse);
   });
 
-  testWidgets('a multi-line card enables List and Feynman', (tester) async {
+  testWidgets('a concept card enables Feynman', (tester) async {
     await tester.pumpWidget(_host(FakeDeckRepository(cards: [
-      _card(back: 'point one\npoint two'),
+      _card(back: 'point one\npoint two', isConcept: true),
     ])));
     await tester.pumpAndSettle();
 
-    expect(_enabled(tester, 'List Unmask'), isTrue);
     expect(_enabled(tester, 'Feynman Synthesis'), isTrue);
     expect(_enabled(tester, 'Cloze Type-in'), isFalse);
   });

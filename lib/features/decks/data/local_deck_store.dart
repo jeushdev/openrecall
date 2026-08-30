@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:sqflite/sqflite.dart';
 
 import '../domain/card.dart';
@@ -244,7 +246,8 @@ class LocalDeckStore {
       deckId: existing.deckId,
       front: existing.front,
       back: existing.back,
-      keyword: existing.keyword,
+      keywords: existing.keywords,
+      isConcept: existing.isConcept,
       masteryLevel: masteryLevel,
       failCount: failCount,
       createdAt: existing.createdAt,
@@ -324,7 +327,9 @@ class LocalDeckStore {
       'deck_id': c.deckId,
       'front': c.front,
       'back': c.back,
-      'keyword': c.keyword,
+      // `keyword` (singular) is a dead column since R3 — left NULL.
+      'keywords': jsonEncode(c.keywords),
+      'is_concept': c.isConcept ? 1 : 0,
       'mastery_level': c.masteryLevel,
       'fail_count': c.failCount,
       'created_at': c.createdAt.toUtc().toIso8601String(),
@@ -339,12 +344,19 @@ class LocalDeckStore {
         deckId: r['deck_id'] as String,
         front: r['front'] as String,
         back: r['back'] as String,
-        keyword: r['keyword'] as String?,
+        keywords: _decodeKeywords(r['keywords']),
+        isConcept: (r['is_concept'] as int? ?? 0) == 1,
         masteryLevel: r['mastery_level'] as int,
         failCount: r['fail_count'] as int,
         createdAt: DateTime.parse(r['created_at'] as String),
         updatedAt: DateTime.parse(r['updated_at'] as String),
       );
+
+  static List<String> _decodeKeywords(Object? raw) {
+    if (raw is! String || raw.isEmpty) return const [];
+    final decoded = jsonDecode(raw);
+    return decoded is List ? decoded.cast<String>() : const [];
+  }
 
   DateTime? _parseNullable(Object? value) =>
       value == null ? null : DateTime.parse(value as String);

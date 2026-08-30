@@ -34,14 +34,16 @@ FlashCard _card({
   String id = 'card-1',
   String front = 'Capital of France',
   String back = 'Paris',
-  String? keyword,
+  List<String> keywords = const [],
+  bool isConcept = false,
 }) =>
     FlashCard(
       id: id,
       deckId: 'deck-1',
       front: front,
       back: back,
-      keyword: keyword,
+      keywords: keywords,
+      isConcept: isConcept,
       masteryLevel: 0,
       failCount: 0,
       createdAt: DateTime.utc(2026),

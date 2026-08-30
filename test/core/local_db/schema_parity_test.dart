@@ -65,6 +65,75 @@ const List<String> _v1Schema = <String>[
       'ON offline_session_cards(session_id)',
 ];
 
+/// The frozen schema version 2 — the SQLite mirror as it was after
+/// engine-v2-spec §5 and before the R3 card model. A v2 database that runs
+/// `onUpgrade` must reach the same schema a fresh v3 install creates. Like
+/// [_v1Schema], this list is history and must never change.
+const List<String> _v2Schema = <String>[
+  '''
+  CREATE TABLE offline_decks (
+    id              TEXT PRIMARY KEY,
+    name            TEXT NOT NULL,
+    course_id       TEXT,
+    last_studied_at TEXT
+  )
+  ''',
+  '''
+  CREATE TABLE offline_courses (
+    id           TEXT PRIMARY KEY,
+    name         TEXT NOT NULL,
+    accent_color TEXT NOT NULL,
+    is_default   INTEGER NOT NULL DEFAULT 0
+  )
+  ''',
+  '''
+  CREATE TABLE offline_cards (
+    id              TEXT PRIMARY KEY,
+    deck_id         TEXT NOT NULL,
+    front           TEXT NOT NULL,
+    back            TEXT NOT NULL,
+    keyword         TEXT,
+    mastery_level   INTEGER NOT NULL,
+    fail_count      INTEGER NOT NULL,
+    created_at      TEXT NOT NULL,
+    updated_at      TEXT NOT NULL,
+    base_updated_at TEXT NOT NULL,
+    is_synced       INTEGER NOT NULL DEFAULT 1
+  )
+  ''',
+  'CREATE INDEX idx_offline_cards_deck ON offline_cards(deck_id)',
+  '''
+  CREATE TABLE offline_study_sessions (
+    id             TEXT PRIMARY KEY,
+    deck_id        TEXT NOT NULL,
+    user_id        TEXT,
+    status         TEXT NOT NULL,
+    study_mode     TEXT NOT NULL,
+    length_mode    TEXT NOT NULL,
+    capped_length  INTEGER,
+    card_scope     TEXT NOT NULL DEFAULT 'due',
+    mastery_delta  INTEGER,
+    started_at     TEXT NOT NULL,
+    completed_at   TEXT,
+    is_synced      INTEGER NOT NULL DEFAULT 1
+  )
+  ''',
+  'CREATE INDEX idx_offline_sessions_deck ON offline_study_sessions(deck_id)',
+  '''
+  CREATE TABLE offline_session_cards (
+    id                TEXT PRIMARY KEY,
+    session_id        TEXT NOT NULL,
+    card_id           TEXT NOT NULL,
+    position          INTEGER NOT NULL,
+    consecutive_fails INTEGER NOT NULL DEFAULT 0,
+    is_parked         INTEGER NOT NULL DEFAULT 0,
+    is_synced         INTEGER NOT NULL DEFAULT 1
+  )
+  ''',
+  'CREATE INDEX idx_offline_session_cards_session '
+      'ON offline_session_cards(session_id)',
+];
+
 /// A normalized view of a schema: table -> (column -> definition), plus indexes.
 class _Schema {
   final Map<String, Map<String, String>> tables = {};
@@ -130,19 +199,30 @@ _Schema _build(List<String> statements) {
 void main() {
   group('SQLite mirror schema parity', () {
     final fresh = _build(AppDatabase.schemaStatements);
-    final upgraded =
-        _build([..._v1Schema, ...AppDatabase.upgradeToV2Statements]);
+    final upgradedFromV1 = _build([
+      ..._v1Schema,
+      ...AppDatabase.upgradeToV2Statements,
+      ...AppDatabase.upgradeToV3Statements,
+    ]);
+    final upgradedFromV2 =
+        _build([..._v2Schema, ...AppDatabase.upgradeToV3Statements]);
 
-    test('a v1 database upgraded to v2 matches a fresh v2 install — tables', () {
-      expect(upgraded.tables, equals(fresh.tables));
+    test('a v1 database upgraded to the current version matches a fresh install '
+        '— tables', () {
+      expect(upgradedFromV1.tables, equals(fresh.tables));
     });
 
-    test('a v1 database upgraded to v2 matches a fresh v2 install — indexes',
-        () {
-      expect(upgraded.indexes, equals(fresh.indexes));
+    test('a v1 database upgraded to the current version matches a fresh install '
+        '— indexes', () {
+      expect(upgradedFromV1.indexes, equals(fresh.indexes));
     });
 
-    test('the fresh v2 schema carries the Engine V2 additions', () {
+    test('a v2 database upgraded to v3 matches a fresh v3 install', () {
+      expect(upgradedFromV2.tables, equals(fresh.tables));
+      expect(upgradedFromV2.indexes, equals(fresh.indexes));
+    });
+
+    test('the fresh schema carries the Engine V2 additions', () {
       expect(
         fresh.tables.keys,
         containsAll(<String>[
@@ -157,6 +237,17 @@ void main() {
       expect(
         fresh.tables['offline_study_sessions']!['card_scope'],
         "text not null default 'due'",
+      );
+    });
+
+    test('the fresh schema carries the R3 card-model columns', () {
+      expect(
+        fresh.tables['offline_cards']!['keywords'],
+        "text not null default '[]'",
+      );
+      expect(
+        fresh.tables['offline_cards']!['is_concept'],
+        'integer not null default 0',
       );
     });
   });

@@ -49,12 +49,14 @@ void main() {
           deckId: 'deck-1',
           front: 'Q',
           back: 'A',
-          keyword: 'A',
+          keywords: ['A'],
+          isConcept: true,
         );
 
     expect(
       fake.calls,
-      contains('addCard(deck=deck-1, front=Q, back=A, keyword=A)'),
+      contains('addCard(deck=deck-1, front=Q, back=A, '
+          'keywords=[A], concept=true)'),
     );
     final cards = await container.read(deckCardsProvider('deck-1').future);
     expect(cards.single.front, 'Q');

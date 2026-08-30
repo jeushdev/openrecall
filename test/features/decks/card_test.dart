@@ -2,13 +2,19 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:open_recall/features/decks/domain/card.dart';
 
 void main() {
-  Map<String, dynamic> row({String? keyword, int mastery = 0, int fails = 0}) =>
+  Map<String, dynamic> row({
+    Object? keywords,
+    Object? isConcept,
+    int mastery = 0,
+    int fails = 0,
+  }) =>
       {
         'id': 'card-1',
         'deck_id': 'deck-1',
         'front': 'Capital of France',
         'back': 'Paris',
-        'keyword': keyword,
+        'keywords': ?keywords,
+        'is_concept': ?isConcept,
         'mastery_level': mastery,
         'fail_count': fails,
         'created_at': '2026-08-01T00:00:00Z',
@@ -17,20 +23,30 @@ void main() {
 
   group('FlashCard.fromJson', () {
     test('maps the snake_case columns onto the model', () {
-      final card = FlashCard.fromJson(row(keyword: 'Paris', mastery: 3, fails: 2));
+      final card = FlashCard.fromJson(row(
+        keywords: ['Paris', 'France'],
+        isConcept: true,
+        mastery: 3,
+        fails: 2,
+      ));
 
       expect(card.id, 'card-1');
       expect(card.deckId, 'deck-1');
       expect(card.front, 'Capital of France');
       expect(card.back, 'Paris');
-      expect(card.keyword, 'Paris');
+      expect(card.keywords, ['Paris', 'France']);
+      expect(card.isConcept, isTrue);
       expect(card.masteryLevel, 3);
       expect(card.failCount, 2);
       expect(card.updatedAt, DateTime.utc(2026, 8, 2));
     });
 
-    test('a null keyword stays null', () {
-      expect(FlashCard.fromJson(row()).keyword, isNull);
+    test('a missing keywords column becomes an empty list', () {
+      expect(FlashCard.fromJson(row()).keywords, isEmpty);
+    });
+
+    test('a missing is_concept column defaults to false', () {
+      expect(FlashCard.fromJson(row()).isConcept, isFalse);
     });
   });
 
@@ -41,6 +57,20 @@ void main() {
 
     test('cards differing by a field are not equal', () {
       expect(FlashCard.fromJson(row(mastery: 1)), isNot(FlashCard.fromJson(row())));
+    });
+
+    test('cards differing only by keywords are not equal', () {
+      expect(
+        FlashCard.fromJson(row(keywords: ['Paris'])),
+        isNot(FlashCard.fromJson(row(keywords: ['France']))),
+      );
+    });
+
+    test('cards differing only by is_concept are not equal', () {
+      expect(
+        FlashCard.fromJson(row(isConcept: true)),
+        isNot(FlashCard.fromJson(row(isConcept: false))),
+      );
     });
   });
 

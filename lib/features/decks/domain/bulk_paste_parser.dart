@@ -2,9 +2,11 @@
 ///
 /// Input is free text, one card per line, in `FRONT | BACK` form. A single
 /// optional keyword can be marked inline with `{{double braces}}` on either
-/// side; the parser lifts it into [ParsedCard.keyword] and strips the braces
+/// side; the parser lifts it into [ParsedCard.keywords] and strips the braces
 /// from the stored text, so however a card was entered, what ends up stored is
-/// identical — clean text plus a separate keyword value.
+/// identical — clean text plus a separate keyword value. (The single-line
+/// format still allows only one marker per card; R5 adds a multi-line block
+/// format with multiple keywords and a `[concept]` tag.)
 ///
 /// Nothing here touches the network or the database — it only turns text into
 /// a [BulkParseResult] the UI can preview and the repository can insert.
@@ -30,12 +32,20 @@ class ParsedCard extends BulkParseLine {
     required super.raw,
     required this.front,
     required this.back,
-    this.keyword,
+    this.keywords = const [],
+    this.isConcept = false,
   });
 
   final String front;
   final String back;
-  final String? keyword;
+
+  /// The `{{ }}`-marked Cloze keywords. Currently 0 or 1 entry — the bulk
+  /// format still rejects multiple markers per card (R4 relaxes that).
+  final List<String> keywords;
+
+  /// Whether this card is a Feynman concept. Always `false` from the current
+  /// single-line bulk format (R5 adds a `[concept]` tag).
+  final bool isConcept;
 }
 
 /// A line that could not be parsed, with a user-facing reason. Never dropped
@@ -102,9 +112,9 @@ BulkParseResult parseBulkPaste(String raw) {
       continue;
     }
 
-    String? keyword;
+    final keywords = <String>[];
     if (markers.length == 1) {
-      keyword = markers.single.group(1)!.trim();
+      keywords.add(markers.single.group(1)!.trim());
       front = _stripBraces(front);
       back = _stripBraces(back);
     }
@@ -131,7 +141,7 @@ BulkParseResult parseBulkPaste(String raw) {
       raw: line,
       front: front,
       back: back,
-      keyword: keyword,
+      keywords: keywords,
     ));
   }
 

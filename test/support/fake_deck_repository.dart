@@ -62,7 +62,8 @@ class FakeDeckRepository implements DeckRepository {
     required String deckId,
     required String front,
     required String back,
-    String? keyword,
+    List<String> keywords = const [],
+    bool isConcept = false,
     int masteryLevel = 0,
     int failCount = 0,
   }) =>
@@ -71,7 +72,8 @@ class FakeDeckRepository implements DeckRepository {
         deckId: deckId,
         front: front,
         back: back,
-        keyword: keyword,
+        keywords: keywords,
+        isConcept: isConcept,
         masteryLevel: masteryLevel,
         failCount: failCount,
         createdAt: _now,
@@ -165,11 +167,19 @@ class FakeDeckRepository implements DeckRepository {
     required String deckId,
     required String front,
     required String back,
-    String? keyword,
+    required List<String> keywords,
+    required bool isConcept,
   }) async {
-    calls.add('addCard(deck=$deckId, front=$front, back=$back, keyword=$keyword)');
+    calls.add('addCard(deck=$deckId, front=$front, back=$back, '
+        'keywords=$keywords, concept=$isConcept)');
     _maybeThrow();
-    final card = _card(deckId: deckId, front: front, back: back, keyword: keyword);
+    final card = _card(
+      deckId: deckId,
+      front: front,
+      back: back,
+      keywords: keywords,
+      isConcept: isConcept,
+    );
     _cards.add(card);
     return card;
   }
@@ -180,7 +190,13 @@ class FakeDeckRepository implements DeckRepository {
     _maybeThrow();
     final added = [
       for (final c in cards)
-        _card(deckId: deckId, front: c.front, back: c.back, keyword: c.keyword),
+        _card(
+          deckId: deckId,
+          front: c.front,
+          back: c.back,
+          keywords: c.keywords,
+          isConcept: c.isConcept,
+        ),
     ];
     _cards.addAll(added);
     return added;
@@ -191,9 +207,11 @@ class FakeDeckRepository implements DeckRepository {
     required String id,
     required String front,
     required String back,
-    String? keyword,
+    required List<String> keywords,
+    required bool isConcept,
   }) async {
-    calls.add('updateCard(id=$id, front=$front, back=$back, keyword=$keyword)');
+    calls.add('updateCard(id=$id, front=$front, back=$back, '
+        'keywords=$keywords, concept=$isConcept)');
     _maybeThrow();
     final i = _cards.indexWhere((c) => c.id == id);
     final existing = _cards[i];
@@ -202,7 +220,8 @@ class FakeDeckRepository implements DeckRepository {
       deckId: existing.deckId,
       front: front,
       back: back,
-      keyword: keyword,
+      keywords: keywords,
+      isConcept: isConcept,
       masteryLevel: existing.masteryLevel,
       failCount: existing.failCount,
       createdAt: existing.createdAt,
@@ -304,7 +323,8 @@ class FakeDeckRepository implements DeckRepository {
         deckId: c.deckId,
         front: c.front,
         back: c.back,
-        keyword: c.keyword,
+        keywords: c.keywords,
+        isConcept: c.isConcept,
         masteryLevel: masteryLevel ?? c.masteryLevel,
         failCount: failCount ?? c.failCount,
         createdAt: c.createdAt,

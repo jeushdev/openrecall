@@ -7,7 +7,8 @@ FlashCard _card({
   String id = 'card',
   String front = 'Front',
   String back = 'Back',
-  String? keyword,
+  List<String> keywords = const [],
+  bool isConcept = false,
   int mastery = 0,
   int fails = 0,
 }) =>
@@ -16,7 +17,8 @@ FlashCard _card({
       deckId: 'deck-1',
       front: front,
       back: back,
-      keyword: keyword,
+      keywords: keywords,
+      isConcept: isConcept,
       masteryLevel: mastery,
       failCount: fails,
       createdAt: DateTime.utc(2026),
@@ -38,8 +40,8 @@ void main() {
 
     test('counts totals, due, keyword and multi-line cards', () {
       final stats = DeckOverviewStats.fromCards([
-        _card(id: 'a', keyword: 'k', front: 'k', mastery: 4),
-        _card(id: 'b', back: 'one\ntwo'),
+        _card(id: 'a', keywords: ['k'], front: 'k', mastery: 4),
+        _card(id: 'b', back: 'one\ntwo', isConcept: true),
         _card(id: 'c'),
       ]);
 
@@ -50,7 +52,6 @@ void main() {
       expect(stats.modes, {
         StudyMode.flip,
         StudyMode.cloze,
-        StudyMode.list,
         StudyMode.feynman,
       });
     });

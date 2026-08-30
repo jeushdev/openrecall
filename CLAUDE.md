@@ -6,12 +6,14 @@ A Flutter mobile study app implementing multi-modal active recall (Flip, Cloze, 
 ## Full spec — read this before starting any feature
 `docs/spec.md` is the complete, decision-by-decision spec: screens, the unified card model, mastery translation rules, the full database schema, offline/sync design, and performance requirements. This file is a short orientation, not a substitute for it. If something isn't covered in docs/spec.md, it isn't decided yet — ask rather than assume.
 
+**The card model has since been revised — `docs/spec-v3-card-model.md` is the source of truth for it** (List mode removed, multiple keywords per card, the `is_concept` flag, the Feynman trigger). It supersedes `docs/spec.md` §4/§5/§6 where they disagree. `docs/ui-spec-v2.md` covers the presentation-layer revamp.
+
 ## Non-negotiable constraints
 - No AI API calls anywhere in the app, for any reason — not grading, not anything server-side. Cost, not capability.
 - No custom backend. Flutter talks to Supabase directly.
 - Android-only for this phase. No billing/paywall logic yet — a `tier` column exists on `profiles` but nothing reads it.
 - Study interactions (flip, rate, type an answer) must never block on a network call, online or offline — see "Performance & Responsiveness" in the spec.
-- `cards` has no `type` column. Which study modes a card supports is computed from `front`/`back`/`keyword` at read time.
+- `cards` has no `type` column. Which study modes a card supports is computed from `front`/`back`/`keywords`/`is_concept` at read time (`availableModes()`). `cards.keywords` is a `text[]` (multiple keywords per card) and `cards.is_concept` is the sole Feynman trigger — see `docs/spec-v3-card-model.md`. List mode no longer exists.
 - `cards` and `session_cards` have no direct owner column — their RLS policies check ownership through a join (`cards` → `decks.user_id`, `session_cards` → `study_sessions.user_id`). Read the generated policy SQL and confirm it's actually scoped correctly; don't assume it.
 - `updated_at` is set by a database trigger, not by application code, on every table that has one.
 

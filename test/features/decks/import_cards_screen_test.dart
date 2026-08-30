@@ -116,40 +116,60 @@ void main() {
 
   testWidgets('a manual add writes the card, clears the fields and stays put',
       (tester) async {
+    _useTallSurface(tester);
     final decks = FakeDeckRepository(decks: [_deck('deck-1')]);
     await _pump(tester, decks: decks);
 
     await _enter(tester, 'Front', 'Capital of France');
     await _enter(tester, 'Back', 'Paris');
-    await _enter(tester, 'Keyword (optional)', 'Paris');
+    await tester.enterText(
+      find.widgetWithText(TextField, 'Add a keyword'),
+      'Paris',
+    );
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pump();
     await tester.tap(find.widgetWithText(FilledButton, 'Add card'));
     await tester.pumpAndSettle();
 
     expect(
       decks.calls,
-      contains(
-          'addCard(deck=deck-1, front=Capital of France, back=Paris, keyword=Paris)'),
+      contains('addCard(deck=deck-1, front=Capital of France, back=Paris, '
+          'keywords=[Paris], concept=false)'),
     );
     expect(find.text('Card added'), findsOneWidget);
     expect(find.byType(ImportCardsScreen), findsOneWidget);
     expect(find.text('Capital of France'), findsNothing);
-    expect(find.text('Paris'), findsNothing);
+    // The keyword chip is cleared too.
+    expect(find.widgetWithText(InputChip, 'Paris'), findsNothing);
   });
 
-  testWidgets('a keyword absent from Front and Back blocks the write',
+  testWidgets('a keyword absent from Front and Back is rejected as a chip',
       (tester) async {
+    _useTallSurface(tester);
     final decks = FakeDeckRepository(decks: [_deck('deck-1')]);
     await _pump(tester, decks: decks);
 
     await _enter(tester, 'Front', 'Capital of France');
     await _enter(tester, 'Back', 'Paris');
-    await _enter(tester, 'Keyword (optional)', 'Berlin');
+    await tester.enterText(
+      find.widgetWithText(TextField, 'Add a keyword'),
+      'Berlin',
+    );
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pump();
+
+    expect(find.text('Keyword must appear in the front or back text.'),
+        findsOneWidget);
+    expect(find.widgetWithText(InputChip, 'Berlin'), findsNothing);
+
     await tester.tap(find.widgetWithText(FilledButton, 'Add card'));
     await tester.pumpAndSettle();
 
-    expect(find.textContaining('must appear in the front or back'),
-        findsOneWidget);
-    expect(decks.calls.where((c) => c.startsWith('addCard')), isEmpty);
+    expect(
+      decks.calls,
+      contains('addCard(deck=deck-1, front=Capital of France, back=Paris, '
+          'keywords=[], concept=false)'),
+    );
   });
 
   testWidgets('a failed manual write surfaces an error and keeps the text',

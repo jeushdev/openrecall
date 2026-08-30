@@ -65,13 +65,19 @@ create table decks (
   updated_at timestamptz not null default now()
 );
 
--- cards — the unified front/back/keyword model
+-- cards — the unified front/back model (docs/spec-v3-card-model.md)
+--
+-- `keywords` (a text[] — was a single `keyword text` before milestone R3) lists
+-- the words Cloze blanks; `is_concept` flags a card as worth a Feynman
+-- synthesis. Which study modes a card supports is still computed at read time
+-- from front/back/keywords/is_concept — there is no stored `type`.
 create table cards (
   id uuid primary key default gen_random_uuid(),
   deck_id uuid not null references decks(id) on delete cascade,
   front text not null,
   back text not null,
-  keyword text,
+  keywords text[] not null default '{}',
+  is_concept boolean not null default false,
   mastery_level smallint not null default 0,  -- 0 Unfamiliar .. 4 Mastered
   fail_count integer not null default 0,      -- lifetime, feeds Troublemaker Cards
   created_at timestamptz not null default now(),
@@ -84,7 +90,7 @@ create table study_sessions (
   user_id uuid not null references profiles(id) on delete cascade,
   deck_id uuid not null references decks(id) on delete cascade,
   status text not null default 'active',         -- active | completed | abandoned
-  study_mode text not null,                      -- flip | cloze | list | feynman — which mode this session was studied in
+  study_mode text not null,                      -- flip | cloze | feynman — which mode this session was studied in (List removed in R3; legacy 'list' rows are read as flip)
   length_mode text not null default 'uncapped',  -- uncapped | capped (renamed from session_mode to avoid confusion with study_mode)
   capped_length integer,                         -- only set if length_mode = 'capped'
   -- Queue-selection metadata, not a mode (engine-v2-spec §3.3): 'due' is the V1
@@ -344,3 +350,27 @@ set course_id = (
 where d.course_id is null;
 
 alter table decks alter column course_id set not null;
+
+-- ---------------------------------------------------------------------------
+-- One-time card-model migration — milestone R3 (docs/spec-v3-card-model.md)
+--
+-- No-ops on a fresh project (the `create table cards` above already has the new
+-- columns and no `keyword`). On a project that predates R3: add the columns,
+-- fold each existing `keyword` into the `keywords` array, then drop `keyword`.
+-- ---------------------------------------------------------------------------
+
+do $$
+begin
+  alter table cards add column if not exists keywords text[] not null default '{}';
+  alter table cards add column if not exists is_concept boolean not null default false;
+  if exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'cards'
+      and column_name = 'keyword'
+  ) then
+    update cards set keywords = array[keyword]
+      where keyword is not null and btrim(keyword) <> '';
+    alter table cards drop column keyword;
+  end if;
+end $$;

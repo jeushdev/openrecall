@@ -4,9 +4,9 @@ import '../../../../theme/app_tokens.dart';
 import '../../domain/card.dart';
 
 /// One card in the Card List screen (ui-spec-v2 §6.5) — a single tappable row
-/// showing a preview of the front, back, and (if set) keyword. Tapping it opens
-/// the card editor; there is no inline edit / delete button any more (delete
-/// lives in the editor's title bar).
+/// showing a preview of the front, back, its Cloze keywords and a "concept"
+/// marker. Tapping it opens the card editor; there is no inline edit / delete
+/// button any more (delete lives in the editor's title bar).
 class CardListItem extends StatelessWidget {
   const CardListItem({
     super.key,
@@ -54,24 +54,17 @@ class CardListItem extends StatelessWidget {
                         color: tokens.textSecondary,
                       ),
                     ),
-                    if (card.keyword != null) ...[
+                    if (card.keywords.isNotEmpty || card.isConcept) ...[
                       const SizedBox(height: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 3,
-                        ),
-                        decoration: BoxDecoration(
-                          color: tokens.mutedFill,
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Text(
-                          card.keyword!,
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: tokens.textSecondary,
-                          ),
-                        ),
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 6,
+                        children: [
+                          for (final keyword in card.keywords)
+                            _Pill(text: keyword, tokens: tokens),
+                          if (card.isConcept)
+                            _Pill(text: 'concept', tokens: tokens),
+                        ],
                       ),
                     ],
                   ],
@@ -82,6 +75,28 @@ class CardListItem extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _Pill extends StatelessWidget {
+  const _Pill({required this.text, required this.tokens});
+
+  final String text;
+  final AppTokens tokens;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: tokens.mutedFill,
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(fontSize: 12, color: tokens.textSecondary),
       ),
     );
   }

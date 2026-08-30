@@ -27,7 +27,7 @@ class LocalStatsStore {
     if (db == null) return const [];
     final rows = await db.query(
       'offline_cards',
-      columns: ['id', 'deck_id', 'front', 'back', 'keyword', 'fail_count'],
+      columns: ['id', 'deck_id', 'front', 'back', 'fail_count'],
       orderBy: 'fail_count DESC',
       limit: limit,
     );
@@ -38,7 +38,6 @@ class LocalStatsStore {
           deckId: r['deck_id'] as String,
           front: r['front'] as String,
           back: r['back'] as String,
-          keyword: r['keyword'] as String?,
           failCount: r['fail_count'] as int,
         ),
     ];

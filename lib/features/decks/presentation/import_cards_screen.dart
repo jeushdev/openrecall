@@ -7,8 +7,8 @@ import '../../../theme/app_geometry.dart';
 import '../../../theme/app_tokens.dart';
 import '../application/deck_providers.dart';
 import '../domain/deck.dart';
-import '../domain/keyword_validator.dart';
 import 'widgets/bulk_paste_panel.dart';
+import 'widgets/keyword_chips_field.dart';
 
 /// Import cards (`/deck/:deckId/import`, ui-spec-v2 §6.4) — the single screen
 /// that folds together rapid single-card entry and bulk AI-paste import.
@@ -33,8 +33,13 @@ class _ImportCardsScreenState extends ConsumerState<ImportCardsScreen> {
   final _formKey = GlobalKey<FormState>();
   final _front = TextEditingController();
   final _back = TextEditingController();
-  final _keyword = TextEditingController();
   final _frontFocus = FocusNode();
+  List<String> _keywords = [];
+  bool _isConcept = false;
+
+  /// Bumped after each successful add so the keyword-chips [FormField] is
+  /// rebuilt fresh (it only reads `initialValue` on first build).
+  int _formGen = 0;
 
   @override
   void initState() {
@@ -47,7 +52,6 @@ class _ImportCardsScreenState extends ConsumerState<ImportCardsScreen> {
   void dispose() {
     _front.dispose();
     _back.dispose();
-    _keyword.dispose();
     _frontFocus.dispose();
     super.dispose();
   }
@@ -60,12 +64,12 @@ class _ImportCardsScreenState extends ConsumerState<ImportCardsScreen> {
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
 
-    final keyword = _keyword.text.trim();
     final card = await ref.read(decksControllerProvider.notifier).addCard(
           deckId: widget.deckId,
           front: _front.text.trim(),
           back: _back.text.trim(),
-          keyword: keyword.isEmpty ? null : keyword,
+          keywords: _keywords,
+          isConcept: _isConcept,
         );
 
     if (!mounted) return;
@@ -86,7 +90,11 @@ class _ImportCardsScreenState extends ConsumerState<ImportCardsScreen> {
     _formKey.currentState!.reset();
     _front.clear();
     _back.clear();
-    _keyword.clear();
+    setState(() {
+      _keywords = [];
+      _isConcept = false;
+      _formGen++;
+    });
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(const SnackBar(
@@ -157,19 +165,27 @@ class _ImportCardsScreenState extends ConsumerState<ImportCardsScreen> {
                       : null,
                 ),
                 const SizedBox(height: 16),
-                _field(
-                  tokens: tokens,
-                  controller: _keyword,
-                  label: 'Keyword (optional)',
-                  hint: 'A word from the front or back, for Cloze mode',
+                KeywordChipsField(
+                  key: ValueKey(_formGen),
+                  initialValue: _keywords,
+                  onChanged: (v) => setState(() => _keywords = v),
                   enabled: !busy,
-                  minLines: 1,
-                  maxLines: 1,
-                  textCapitalization: TextCapitalization.none,
-                  validator: (v) => keywordError(
-                    v ?? '',
-                    front: _front.text,
-                    back: _back.text,
+                  front: () => _front.text,
+                  back: () => _back.text,
+                ),
+                const SizedBox(height: 4),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  value: _isConcept,
+                  onChanged:
+                      busy ? null : (v) => setState(() => _isConcept = v),
+                  title: Text(
+                    'Concept card',
+                    style: TextStyle(color: tokens.textPrimary),
+                  ),
+                  subtitle: Text(
+                    'Enables Feynman mode — explain it in your own words.',
+                    style: TextStyle(color: tokens.textSecondary),
                   ),
                 ),
                 const SizedBox(height: 16),

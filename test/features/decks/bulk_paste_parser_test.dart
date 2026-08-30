@@ -11,7 +11,8 @@ void main() {
       expect(card.lineNumber, 1);
       expect(card.front, 'Capital of France');
       expect(card.back, 'Paris');
-      expect(card.keyword, isNull);
+      expect(card.keywords, isEmpty);
+      expect(card.isConcept, isFalse);
     });
 
     test('trims whitespace around front and back', () {
@@ -69,7 +70,7 @@ void main() {
           .single as ParsedCard;
 
       expect(card.back, 'The capital is Paris');
-      expect(card.keyword, 'Paris');
+      expect(card.keywords, ['Paris']);
     });
 
     test('extracts a {{keyword}} from the front and strips the braces', () {
@@ -78,14 +79,14 @@ void main() {
           .single as ParsedCard;
 
       expect(card.front, 'The mitochondria does what?');
-      expect(card.keyword, 'mitochondria');
+      expect(card.keywords, ['mitochondria']);
     });
 
     test('trims whitespace inside the braces', () {
       final card = parseBulkPaste('Q | a {{ Paris }} b').lines.single
           as ParsedCard;
 
-      expect(card.keyword, 'Paris');
+      expect(card.keywords, ['Paris']);
       expect(card.back, 'a Paris b');
     });
 

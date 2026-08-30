@@ -32,7 +32,7 @@ class AppDatabase {
 
   /// Bump this and add a step to [_onUpgrade] whenever [schemaStatements]
   /// changes.
-  static const _version = 2;
+  static const _version = 3;
 
   /// Opens (creating on first run) the database. [path] overrides the platform
   /// default and is only passed by tests.
@@ -82,6 +82,12 @@ class AppDatabase {
     // written locally during offline study. `base_updated_at` is the Supabase
     // `updated_at` last seen for this row — the compare-and-set target the sync
     // pass hands to `updateCardMasteryGuarded` (spec: never a blind update).
+    //
+    // `keyword` (singular) is a dead column since R3: Postgres replaced it with
+    // `keywords text[]`, but SQLite `ALTER TABLE` here only ever adds columns
+    // (and the schema-parity test can't parse a table rebuild), so the old
+    // column stays, unread and unwritten. `keywords` is a JSON-encoded string
+    // array; `is_concept` is 0/1.
     '''
     CREATE TABLE offline_cards (
       id              TEXT PRIMARY KEY,
@@ -89,6 +95,8 @@ class AppDatabase {
       front           TEXT NOT NULL,
       back            TEXT NOT NULL,
       keyword         TEXT,
+      keywords        TEXT NOT NULL DEFAULT '[]',
+      is_concept      INTEGER NOT NULL DEFAULT 0,
       mastery_level   INTEGER NOT NULL,
       fail_count      INTEGER NOT NULL,
       created_at      TEXT NOT NULL,
@@ -144,6 +152,16 @@ class AppDatabase {
     _offlineCoursesTable,
   ];
 
+  /// The delta from schema version 2 to version 3 (docs/spec-v3-card-model.md):
+  /// the multi-keyword + concept card model. The old `keyword` column is left in
+  /// place (SQLite migrations here only add columns). All new columns have
+  /// constant defaults, as `ALTER TABLE ADD COLUMN` requires.
+  @visibleForTesting
+  static const List<String> upgradeToV3Statements = <String>[
+    "ALTER TABLE offline_cards ADD COLUMN keywords TEXT NOT NULL DEFAULT '[]'",
+    "ALTER TABLE offline_cards ADD COLUMN is_concept INTEGER NOT NULL DEFAULT 0",
+  ];
+
   static Future<void> _createSchema(Database db, int version) async {
     final batch = db.batch();
     for (final statement in schemaStatements) {
@@ -160,6 +178,11 @@ class AppDatabase {
     final batch = db.batch();
     if (oldVersion < 2) {
       for (final statement in upgradeToV2Statements) {
+        batch.execute(statement);
+      }
+    }
+    if (oldVersion < 3) {
+      for (final statement in upgradeToV3Statements) {
         batch.execute(statement);
       }
     }

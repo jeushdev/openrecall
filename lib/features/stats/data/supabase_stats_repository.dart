@@ -20,7 +20,7 @@ class SupabaseStatsRepository implements StatsRepository {
     // Library's deck select (engine-v2-spec §6).
     final rows = await _client
         .from('cards')
-        .select('id, deck_id, front, back, keyword, fail_count')
+        .select('id, deck_id, front, back, fail_count')
         .order('fail_count', ascending: false)
         .limit(limit);
     return rows.map(TroublemakerCard.fromJson).toList();

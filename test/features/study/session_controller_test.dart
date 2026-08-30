@@ -15,13 +15,20 @@ import 'package:open_recall/features/study/domain/study_session_state.dart';
 import '../../support/fake_deck_repository.dart';
 import '../../support/fake_study_repository.dart';
 
-FlashCard _card(String id, {int mastery = 0, int fails = 0, String? keyword}) =>
+FlashCard _card(
+  String id, {
+  int mastery = 0,
+  int fails = 0,
+  List<String> keywords = const [],
+  bool isConcept = false,
+}) =>
     FlashCard(
       id: id,
       deckId: 'deck-1',
       front: 'front-$id',
       back: 'back-$id',
-      keyword: keyword,
+      keywords: keywords,
+      isConcept: isConcept,
       masteryLevel: mastery,
       failCount: fails,
       createdAt: DateTime.utc(2026),

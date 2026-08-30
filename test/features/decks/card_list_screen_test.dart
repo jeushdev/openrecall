@@ -27,14 +27,16 @@ FlashCard _card({
   String id = 'card-1',
   String front = 'Capital of France',
   String back = 'Paris',
-  String? keyword,
+  List<String> keywords = const [],
+  bool isConcept = false,
 }) =>
     FlashCard(
       id: id,
       deckId: 'deck-1',
       front: front,
       back: back,
-      keyword: keyword,
+      keywords: keywords,
+      isConcept: isConcept,
       masteryLevel: 0,
       failCount: 0,
       createdAt: DateTime.utc(2026),
@@ -112,7 +114,7 @@ void main() {
       decks: FakeDeckRepository(
         decks: [_deck('deck-1')],
         cards: [
-          _card(front: 'Capital of France', back: 'Paris', keyword: 'Paris'),
+          _card(front: 'Capital of France', back: 'Paris', keywords: ['Paris']),
           _card(id: 'card-2', front: 'Largest planet', back: 'Jupiter'),
         ],
       ),
@@ -163,23 +165,38 @@ void main() {
 
     expect(
       decks.calls,
-      contains('updateCard(id=card-1, front=New front, back=Paris, keyword=null)'),
+      contains('updateCard(id=card-1, front=New front, back=Paris, '
+          'keywords=[], concept=false)'),
     );
     expect(find.text('Edit card'), findsNothing);
   });
 
-  testWidgets('an invalid keyword blocks Save', (tester) async {
+  testWidgets('a keyword absent from the front and back is rejected',
+      (tester) async {
     final decks =
         FakeDeckRepository(decks: [_deck('deck-1')], cards: [_card()]);
     await _pump(tester, _Recorder(), decks: decks);
 
     await _openEditor(tester);
-    await tester.enterText(find.byType(TextFormField).at(2), 'notonthecard');
+    await tester.enterText(
+      find.widgetWithText(TextField, 'Add a keyword'),
+      'notonthecard',
+    );
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pumpAndSettle();
+
+    // The chip was not added; an inline error explains why.
+    expect(find.text('Keyword must appear in the front or back text.'),
+        findsOneWidget);
+
     await tester.tap(find.widgetWithText(FilledButton, 'Save'));
     await tester.pumpAndSettle();
 
-    expect(decks.calls.where((c) => c.startsWith('updateCard')), isEmpty);
-    expect(find.text('Edit card'), findsOneWidget);
+    expect(
+      decks.calls,
+      contains('updateCard(id=card-1, front=Capital of France, back=Paris, '
+          'keywords=[], concept=false)'),
+    );
   });
 
   testWidgets('Delete in the editor confirms, calls deleteCard, then closes',

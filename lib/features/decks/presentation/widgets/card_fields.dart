@@ -1,24 +1,31 @@
 import 'package:flutter/material.dart';
 
-import '../../domain/keyword_validator.dart';
+import 'keyword_chips_field.dart';
 
-/// The three content fields shared by the add-card form and the edit-card
-/// dialog (spec §3): Front, Back (one line or many), and an optional Keyword.
+/// The content fields shared by the add-card form and the edit-card dialog
+/// (docs/spec-v3-card-model.md): Front, Back (one line or many), the Cloze
+/// [keywords] chips, and the [isConcept] toggle.
 ///
-/// Wrap in a [Form] and supply the controllers. The keyword is validated
-/// against the current front/back text via [keywordError].
+/// Wrap in a [Form] and supply the controllers. Keywords are validated against
+/// the current front/back text via [KeywordChipsField].
 class CardFields extends StatelessWidget {
   const CardFields({
     super.key,
     required this.frontController,
     required this.backController,
-    required this.keywordController,
+    required this.keywords,
+    required this.onKeywordsChanged,
+    required this.isConcept,
+    required this.onIsConceptChanged,
     required this.enabled,
   });
 
   final TextEditingController frontController;
   final TextEditingController backController;
-  final TextEditingController keywordController;
+  final List<String> keywords;
+  final ValueChanged<List<String>> onKeywordsChanged;
+  final bool isConcept;
+  final ValueChanged<bool> onIsConceptChanged;
   final bool enabled;
 
   @override
@@ -47,25 +54,28 @@ class CardFields extends StatelessWidget {
           textCapitalization: TextCapitalization.sentences,
           decoration: const InputDecoration(
             labelText: 'Back',
-            helperText: 'One line, or one point per line for List / Feynman.',
+            helperText: 'One line, or one point per line for a concept card.',
             border: OutlineInputBorder(),
           ),
           validator: (v) =>
               (v ?? '').trim().isEmpty ? 'Enter the back of the card.' : null,
         ),
         const SizedBox(height: 12),
-        TextFormField(
-          controller: keywordController,
+        KeywordChipsField(
+          initialValue: keywords,
+          onChanged: onKeywordsChanged,
           enabled: enabled,
-          decoration: const InputDecoration(
-            labelText: 'Keyword (optional)',
-            helperText: 'A single word from the front or back, for Cloze mode.',
-            border: OutlineInputBorder(),
-          ),
-          validator: (v) => keywordError(
-            v ?? '',
-            front: frontController.text,
-            back: backController.text,
+          front: () => frontController.text,
+          back: () => backController.text,
+        ),
+        const SizedBox(height: 4),
+        SwitchListTile(
+          contentPadding: EdgeInsets.zero,
+          value: isConcept,
+          onChanged: enabled ? onIsConceptChanged : null,
+          title: const Text('Concept card'),
+          subtitle: const Text(
+            'Enables Feynman mode — explain it in your own words.',
           ),
         ),
       ],

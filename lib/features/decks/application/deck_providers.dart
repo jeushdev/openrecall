@@ -91,7 +91,8 @@ class DecksController extends AsyncNotifier<void> {
             raw: '',
             front: c.front,
             back: c.back,
-            keyword: c.keyword,
+            keywords: c.keywords,
+            isConcept: c.isConcept,
           ),
       ]);
       return deck;
@@ -151,13 +152,15 @@ class DecksController extends AsyncNotifier<void> {
     required String deckId,
     required String front,
     required String back,
-    String? keyword,
+    List<String> keywords = const [],
+    bool isConcept = false,
   }) async {
     final card = await _run(() => _repo.addCard(
           deckId: deckId,
           front: front,
           back: back,
-          keyword: keyword,
+          keywords: keywords,
+          isConcept: isConcept,
         ));
     if (card != null) _refresh(deckId);
     return card;
@@ -174,13 +177,15 @@ class DecksController extends AsyncNotifier<void> {
     required String id,
     required String front,
     required String back,
-    String? keyword,
+    List<String> keywords = const [],
+    bool isConcept = false,
   }) async {
     final card = await _run(() => _repo.updateCard(
           id: id,
           front: front,
           back: back,
-          keyword: keyword,
+          keywords: keywords,
+          isConcept: isConcept,
         ));
     if (card != null) _refresh(deckId);
     return card;

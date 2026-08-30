@@ -34,7 +34,6 @@ class SessionSummaryView extends StatelessWidget {
   String get _firstTryLabel => switch (mode) {
         StudyMode.flip => 'recalled on the first flip',
         StudyMode.cloze => 'typed right on the first try',
-        StudyMode.list => 'recalled with no reveals',
         StudyMode.feynman => 'recalled on the first pass',
       };
 

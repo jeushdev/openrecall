@@ -35,7 +35,10 @@ class FeynmanReferenceDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tokens = Theme.of(context).extension<AppTokens>()!;
-    final content = listContentOf(card);
+    // The prompt is the concept card's front; the reference is its (possibly
+    // multi-line / bulleted) back — docs/spec-v3-card-model.md.
+    final prompt = card.front.trim();
+    final lines = contentLines(card.back);
 
     return Center(
       child: Padding(
@@ -69,7 +72,7 @@ class FeynmanReferenceDialog extends StatelessWidget {
                   ),
                   const SizedBox(height: 10),
                   Text(
-                    content.prompt,
+                    prompt,
                     style: TextStyle(
                       fontSize: 16,
                       height: 1.4,
@@ -78,7 +81,7 @@ class FeynmanReferenceDialog extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  for (var i = 0; i < content.lines.length; i++) ...[
+                  for (var i = 0; i < lines.length; i++) ...[
                     if (i > 0) const SizedBox(height: 8),
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -93,7 +96,7 @@ class FeynmanReferenceDialog extends StatelessWidget {
                         ),
                         Expanded(
                           child: Text(
-                            content.lines[i],
+                            lines[i],
                             style: TextStyle(
                               fontSize: 15,
                               height: 1.4,

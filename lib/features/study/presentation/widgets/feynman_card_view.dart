@@ -5,7 +5,6 @@ import 'package:flutter/services.dart';
 
 import '../../../../theme/app_tokens.dart';
 import '../../../decks/domain/card.dart';
-import '../../domain/list_content.dart';
 import 'feynman_reference_dialog.dart';
 import 'stacked_deck.dart';
 
@@ -103,7 +102,9 @@ class _FeynmanCardViewState extends State<FeynmanCardView> {
   @override
   Widget build(BuildContext context) {
     final tokens = Theme.of(context).extension<AppTokens>()!;
-    final prompt = listContentOf(widget.card).prompt;
+    // A concept card's Feynman prompt is its front; the back is the reference
+    // (docs/spec-v3-card-model.md).
+    final prompt = widget.card.front.trim();
 
     return StackedDeck(
       child: ConstrainedBox(

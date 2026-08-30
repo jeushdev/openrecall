@@ -41,7 +41,8 @@ abstract interface class DeckRepository {
     required String deckId,
     required String front,
     required String back,
-    String? keyword,
+    required List<String> keywords,
+    required bool isConcept,
   });
 
   /// Adds every [cards] entry in a single batched insert and returns them.
@@ -53,7 +54,8 @@ abstract interface class DeckRepository {
     required String id,
     required String front,
     required String back,
-    String? keyword,
+    required List<String> keywords,
+    required bool isConcept,
   });
 
   /// Permanently deletes a card.

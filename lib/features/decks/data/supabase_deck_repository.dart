@@ -83,11 +83,12 @@ class SupabaseDeckRepository implements DeckRepository {
     required String deckId,
     required String front,
     required String back,
-    String? keyword,
+    required List<String> keywords,
+    required bool isConcept,
   }) async {
     final row = await _client
         .from('cards')
-        .insert(_cardValues(deckId, front, back, keyword))
+        .insert(_cardValues(deckId, front, back, keywords, isConcept))
         .select()
         .single();
     return FlashCard.fromJson(row);
@@ -99,7 +100,7 @@ class SupabaseDeckRepository implements DeckRepository {
         .from('cards')
         .insert([
           for (final c in cards)
-            _cardValues(deckId, c.front, c.back, c.keyword),
+            _cardValues(deckId, c.front, c.back, c.keywords, c.isConcept),
         ])
         .select();
     return rows.map(FlashCard.fromJson).toList();
@@ -110,12 +111,18 @@ class SupabaseDeckRepository implements DeckRepository {
     required String id,
     required String front,
     required String back,
-    String? keyword,
+    required List<String> keywords,
+    required bool isConcept,
   }) async {
     // updated_at is left to the database trigger (CLAUDE.md).
     final row = await _client
         .from('cards')
-        .update({'front': front, 'back': back, 'keyword': keyword})
+        .update({
+          'front': front,
+          'back': back,
+          'keywords': keywords,
+          'is_concept': isConcept,
+        })
         .eq('id', id)
         .select()
         .single();
@@ -179,12 +186,14 @@ class SupabaseDeckRepository implements DeckRepository {
     String deckId,
     String front,
     String back,
-    String? keyword,
+    List<String> keywords,
+    bool isConcept,
   ) =>
       {
         'deck_id': deckId,
         'front': front,
         'back': back,
-        'keyword': keyword,
+        'keywords': keywords,
+        'is_concept': isConcept,
       };
 }

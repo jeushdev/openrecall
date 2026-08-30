@@ -43,4 +43,32 @@ void main() {
       );
     });
   });
+
+  group('keywordsError', () {
+    test('an empty list is allowed', () {
+      expect(keywordsError(const [], front: 'a', back: 'b'), isNull);
+    });
+
+    test('passes when every keyword appears in the front or back', () {
+      expect(
+        keywordsError(
+          ['mitochondria', 'ATP'],
+          front: 'The mitochondria does what?',
+          back: 'Makes ATP',
+        ),
+        isNull,
+      );
+    });
+
+    test('returns the first offending keyword\'s message', () {
+      final error = keywordsError(
+        ['Paris', 'Berlin'],
+        front: 'Capital of France',
+        back: 'The capital is Paris',
+      );
+
+      expect(error, isNotNull);
+      expect(error, contains('front or back'));
+    });
+  });
 }
