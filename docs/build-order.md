@@ -70,6 +70,7 @@ Milestones 1–14 are v1 / Beta. Milestones 15–17 are **Engine V2** — see `d
 - Scope: per-deck "available offline" toggle, local SQLite mirror, `is_synced` flag mechanism, fully offline session flow, batched sync-on-reconnect
 - Spec refs: §10, Performance & Responsiveness
 - Done when: with wifi off, a downloaded deck runs a full study session, and turning wifi back on syncs the results into Supabase within a few seconds
+- **Superseded by the Offline-First Authoring revamp (O1–O4) — see `docs/spec-v4-offline-authoring.md`.** That revamp makes browsing, studying, and full course/deck/card authoring work offline (not just pinned decks, not study-only), by extending the `is_synced` dirty-flag surface to content plus a tombstone table.
 
 **14. Beta polish**
 - Scope: sample starter deck, signed release APK build, Google Form link placed somewhere reachable, final check against Beta Logistics
