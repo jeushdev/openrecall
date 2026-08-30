@@ -82,6 +82,10 @@ class _StudySessionScreenState extends ConsumerState<StudySessionScreen> {
     if (!_isOurSession(state)) return false;
     final requested = widget.requestedMode;
     if (requested == null) return true;
+    // A session this screen drove to completion: keep it so the Summary
+    // renders. (A completed session left over from before we mounted —
+    // _startRequested still false — instead means the user asked for a new run.)
+    if (_startRequested && state!.isComplete) return true;
     return state!.session.studyMode == requested && !state.isComplete;
   }
 

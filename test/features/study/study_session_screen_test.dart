@@ -376,6 +376,24 @@ void main() {
       expect(find.byType(ClozeTypeCard), findsOneWidget);
     });
 
+    testWidgets('completing a mode-forwarded session shows the Summary, not a '
+        'spinner', (tester) async {
+      await _openWithMode(
+        tester,
+        StudyMode.flip,
+        decks: FakeDeckRepository(cards: [_card('a')]),
+        study: FakeStudyRepository(),
+      );
+
+      await tester.tap(find.byType(FlipCard));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Mastered'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(SessionSummaryView), findsOneWidget);
+      expect(find.byType(CircularProgressIndicator), findsNothing);
+    });
+
     testWidgets('re-entering with the same mode resumes the live session',
         (tester) async {
       final decks = twoModeDeck();
