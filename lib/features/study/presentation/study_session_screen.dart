@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -412,6 +413,37 @@ class _ActiveBodyState extends State<_ActiveBody> {
   bool _flipped = false;
   bool _revealed = false;
 
+  /// Which way the outgoing card slides on the next advance. A gentle upward
+  /// drift is the default for non-rating advances (e.g. a confirmed park); each
+  /// rating overrides it with a direction that matches the verdict.
+  Offset _exitOffset = const Offset(0, -0.06);
+
+  /// The directional exit "nudge" for a rating's `mastery_level`: Unfamiliar
+  /// throws the card left, Mastered right, the middle verdicts nudge it down.
+  Offset _exitFor(int level) => switch (level) {
+        0 => const Offset(-0.55, 0),
+        4 => const Offset(0.55, 0),
+        _ => const Offset(0, 0.22),
+      };
+
+  /// The rating path for every mode that uses the rating row (Flip, Feynman)
+  /// plus the Flip swipe gestures. Fires the haptic and records the exit
+  /// direction, then advances the queue synchronously — the animation never
+  /// gates it.
+  void _rate(FlipRating rating) {
+    HapticFeedback.selectionClick();
+    setState(() => _exitOffset = _exitFor(rating.level));
+    widget.onRate(rating);
+  }
+
+  /// Cloze's auto-derived outcome, under the same non-blocking contract as
+  /// [_rate].
+  void _cloze(ClozeOutcome outcome) {
+    HapticFeedback.selectionClick();
+    setState(() => _exitOffset = _exitFor(outcome.masteryLevel));
+    widget.onCloze(outcome);
+  }
+
   @override
   void didUpdateWidget(_ActiveBody oldWidget) {
     super.didUpdateWidget(oldWidget);
@@ -436,9 +468,9 @@ class _ActiveBodyState extends State<_ActiveBody> {
     if (!_isFlip || !_flipped) return;
     final v = details.primaryVelocity ?? 0;
     if (v <= -300) {
-      widget.onRate(FlipRating.unfamiliar); // swipe-left → 0
+      _rate(FlipRating.unfamiliar); // swipe-left → 0
     } else if (v >= 300) {
-      widget.onRate(FlipRating.mastered); // swipe-right → 4
+      _rate(FlipRating.mastered); // swipe-right → 4
     }
   }
 
@@ -453,7 +485,7 @@ class _ActiveBodyState extends State<_ActiveBody> {
       StudyMode.cloze => ClozeTypeCard(
           key: key,
           card: item.card,
-          onOutcome: widget.onCloze,
+          onOutcome: _cloze,
         ),
       StudyMode.feynman => FeynmanCardView(
           key: key,
@@ -470,6 +502,24 @@ class _ActiveBodyState extends State<_ActiveBody> {
           ),
         ),
     };
+
+    // Card-to-card motion: the outgoing card slides + fades toward [_exitOffset]
+    // as the next sweeps in from the same side. Keyed strictly on the
+    // session-card id + queue position so any change of current card animates.
+    final Widget animatedCardArea = AnimatedSwitcher(
+      duration: const Duration(milliseconds: 220),
+      switchInCurve: Curves.easeOut,
+      switchOutCurve: Curves.easeIn,
+      transitionBuilder: (child, animation) => FadeTransition(
+        opacity: animation,
+        child: SlideTransition(
+          position: Tween<Offset>(begin: _exitOffset, end: Offset.zero)
+              .animate(animation),
+          child: child,
+        ),
+      ),
+      child: KeyedSubtree(key: key, child: cardArea),
+    );
 
     return PopScope<Object?>(
       canPop: false,
@@ -515,7 +565,7 @@ class _ActiveBodyState extends State<_ActiveBody> {
                       ),
                       child: Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 20),
-                        child: Center(child: cardArea),
+                        child: Center(child: animatedCardArea),
                       ),
                     ),
                   ),
@@ -529,7 +579,7 @@ class _ActiveBodyState extends State<_ActiveBody> {
                   padding: const EdgeInsets.fromLTRB(16, 14, 16, 20),
                   child: RatingRow(
                     enabled: _ratingEnabled,
-                    onRate: widget.onRate,
+                    onRate: _rate,
                   ),
                 ),
             ],

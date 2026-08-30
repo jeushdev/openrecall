@@ -15,6 +15,7 @@ import 'package:open_recall/features/study/presentation/widgets/rating_row.dart'
 import 'package:open_recall/features/study/presentation/widgets/session_summary_view.dart';
 import 'package:open_recall/routing/app_routes.dart';
 import 'package:open_recall/theme/app_theme.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../support/fake_deck_repository.dart';
 import '../../support/fake_study_repository.dart';
@@ -121,6 +122,11 @@ Future<void> _openWithMode(
 }
 
 void main() {
+  // Pin the "Card transition" setting so `studyAppearanceProvider` resolves
+  // deterministically (to the flip3d default) instead of degrading off a
+  // missing SharedPreferences plugin. Individual tests re-seed it as needed.
+  setUp(() => SharedPreferences.setMockInitialValues({}));
+
   testWidgets('a single-mode deck skips the picker and opens Flip',
       (tester) async {
     await _open(
@@ -134,6 +140,20 @@ void main() {
   });
 
   testWidgets('tapping the card flips it to the back', (tester) async {
+    await _open(
+      tester,
+      decks: FakeDeckRepository(cards: [_card('a')]),
+      study: FakeStudyRepository(),
+    );
+
+    await tester.tap(find.byType(FlipCard));
+    await tester.pumpAndSettle();
+    expect(find.text('back-a'), findsOneWidget);
+  });
+
+  testWidgets('the fade transition setting still reveals the back on tap',
+      (tester) async {
+    SharedPreferences.setMockInitialValues({'card_transition': 'fade'});
     await _open(
       tester,
       decks: FakeDeckRepository(cards: [_card('a')]),

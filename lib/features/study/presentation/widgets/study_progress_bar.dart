@@ -32,10 +32,17 @@ class StudyProgressBar extends StatelessWidget {
         fit: StackFit.expand,
         children: [
           ColoredBox(color: tokens.borderHairline),
-          FractionallySizedBox(
-            alignment: Alignment.centerLeft,
-            widthFactor: fraction,
-            child: ColoredBox(color: tokens.accent('blue').fill),
+          // Ease the fill toward the new fraction instead of snapping it — on
+          // each card resolution the bar glides rather than jumps.
+          TweenAnimationBuilder<double>(
+            tween: Tween<double>(end: fraction),
+            duration: const Duration(milliseconds: 260),
+            curve: Curves.easeOut,
+            builder: (context, value, _) => FractionallySizedBox(
+              alignment: Alignment.centerLeft,
+              widthFactor: value.clamp(0.0, 1.0),
+              child: ColoredBox(color: tokens.accent('blue').fill),
+            ),
           ),
         ],
       ),
