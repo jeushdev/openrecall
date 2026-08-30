@@ -19,14 +19,17 @@ riskiest and is deliberately last, after the smaller UX work has stabilised.
 
 ## Decisions already made (do not re-litigate)
 
-- Offline scope includes all four parts the user selected: per-deck "make
-  available offline", offline deck creation, offline course creation, and the
-  slow-launch fix.
+- Offline scope: per-deck "make available offline", plus offline creation of
+  courses, decks **and cards**, plus the slow-launch fix.
 - Offline writes use a **local queue replayed on reconnect** (offline-first),
   not an online-only "pending" indicator.
 - Neither decks nor courses are drag-reorderable today; build it for both.
-- Troublemaker cards are **removed entirely**, replaced by an activity feed in
-  the same UI slot.
+- **Courses are a first-class table** with their own rows. **Every deck belongs
+  to a course** (a deck always has a `course_id`). So course ordering is the
+  top level and deck ordering is within a course.
+- Troublemaker cards are **removed entirely**. In their place, a recent-activity
+  feed is added to the **Mastery section** of the app (not the old troublemaker
+  location, wherever that was).
 - Activity feed contents: deck completions, all session completions, deck
   created, course created.
 - Profile metrics to add: current streak, longest streak, and study-volume
@@ -37,8 +40,12 @@ riskiest and is deliberately last, after the smaller UX work has stabilised.
 - Offline launch is **stale-first for downloaded decks only**: cached
   profile/mastery and downloaded decks render immediately; non-downloaded decks
   show a locked/placeholder state while offline.
-- Local persistence is **SQLite**. The wrapper package (`drift` vs raw
-  `sqflite`) is still open — see Milestone E.
+- Local persistence is **SQLite via the `drift` package** (typed queries +
+  versioned migrations). The "no ORM" rule in CLAUDE.md governs the Supabase
+  boundary, not the local cache.
+- New narrow columns on `study_sessions` (e.g. completion timestamp, deck
+  reference, duration) are **acceptable** where Milestones C/D need them —
+  `updated_at` stays trigger-managed, RLS unchanged.
 - Downloaded decks rarely go stale because cards are only created/edited inside
   the app. Offline-created content auto-syncs on reconnect; server-created
   content must be explicitly downloaded to be usable offline. No download cap,
@@ -90,13 +97,14 @@ Let the user manually order both their course list and their deck list by
 dragging, with the order persisted across launches and devices.
 
 ### Behaviour
-- Both the course list and the deck list (deck list is per-course, or global —
-  confirm during verify) use `ReorderableListView` (or the project's existing
-  list pattern if one already supports reordering).
+- The **course list** is one reorderable list (top level, ordered per user).
+- Each **deck list is reorderable within its course** (ordered per `course_id`).
+- Use `ReorderableListView` (or the project's existing list pattern if one
+  already supports reordering).
 - Drag end: update local/Riverpod state immediately (optimistic), then persist.
 - Ordering is **server-backed** so it survives reinstall and syncs across
   devices.
-- New decks/courses are appended to the end of the order.
+- New decks/courses are appended to the end of their list.
 - Deleting an item leaves a gap; gaps are harmless (order is by `position`
   ascending, ties broken by `created_at`). A full renumber on delete is
   optional, not required.
@@ -104,9 +112,9 @@ dragging, with the order persisted across launches and devices.
 ### Data model
 - Add `position` (integer, `not null`, default `0`) to the **decks** table and
   the **courses** table.
-- Backfill existing rows: `position` = row number ordered by `created_at` within
-  each owner (and within each parent course, for decks, if decks belong to
-  courses).
+- Backfill existing rows: `courses.position` = row number ordered by
+  `created_at` per `user_id`; `decks.position` = row number ordered by
+  `created_at` per `course_id`.
 - `updated_at` continues to be set by the existing DB trigger — application code
   must not write it.
 - RLS: `position` is just another column on an already user-scoped table
@@ -130,10 +138,8 @@ through the same write-queue mechanism. Note this as a follow-up in E, not a
 blocker for B.
 
 ### Verify first
-- Table names for decks and courses; whether "courses" is a real table or a
-  derived/virtual grouping. **If courses are not a first-class table, this
-  milestone needs redesign** — stop and flag it.
-- Whether decks belong to courses (nested ordering) or are flat.
+- Exact table names and the courses ownership column (assumed `courses.user_id`)
+  and deck parent column (assumed `decks.course_id`).
 - Whether any `position` / `sort_order` / `order_index` column already exists.
 - The existing list widgets for decks and courses and their providers.
 - Whether Supabase RPC is already used anywhere (for the batched update) or if
@@ -150,11 +156,12 @@ blocker for B.
 ## Milestone C — Remove troublemaker cards, add activity feed
 
 ### Goal
-Replace the "troublemaker cards" surface with a **recent-activity feed** showing
-what the user has recently done.
+Remove the "troublemaker cards" surface entirely, and add a **recent-activity
+feed** to the **Mastery section** of the app.
 
 ### Removal
-- Delete the troublemaker cards UI component(s) and their entry point.
+- Delete the troublemaker cards UI component(s) and their entry point, wherever
+  they currently render.
 - Delete or neutralise the logic that computes/surfaces troublemaker cards
   **only if that logic exists solely to feed this UI**.
 - **Critical constraint:** if any troublemaker-related tracking feeds the
@@ -187,9 +194,11 @@ Feed items, each with a timestamp:
 - Empty state: a friendly "Your recent study activity will show up here."
 
 ### Placement
-Exactly where troublemaker cards render today (verification will confirm whether
-that is the home screen or the profile screen). Same slot, same surrounding
-layout.
+In the **Mastery section** of the app, as a block below the existing mastery
+content. This is a different screen from the old troublemaker location and from
+the profile metrics (Milestone D). Verification must confirm exactly what the
+"Mastery section" is — a tab, a screen, a card on another screen — and where a
+list block fits within it.
 
 ### Data model
 Ideally none. If `study_sessions` lacks a reliable completion timestamp or a
@@ -199,6 +208,7 @@ event-log table.
 
 ### Verify first
 - Where troublemaker cards are rendered and what computes them.
+- What the "Mastery section" is (screen/tab/route) and its current layout.
 - Whether troublemaker tracking is coupled to the mastery session loop.
 - `study_sessions` schema: is there a `completed_at` / `status` / `ended_at`;
   is there a `deck_id` or a link table for multi-deck sessions; is there a
@@ -233,9 +243,9 @@ Give the profile screen a fuller picture of study habits.
 | This week | Cards reviewed, sessions completed, and study time for the current week (local timezone, week start per existing app convention or Monday). |
 
 ### Presentation
-- A metrics block on the profile screen (this is also where the activity feed
-  may live if verification puts the troublemaker slot on the profile screen —
-  coordinate layout with Milestone C).
+- A metrics block on the **profile screen**. (The activity feed from Milestone C
+  lives in the Mastery section, a different screen — no layout coupling between
+  C and D, but both read session history; see cross-milestone notes.)
 - Reuse the existing stat/tile styling from the profile screen. Do not
   introduce a charting library — these are single-value tiles. Trend lines /
   sparklines are explicitly out of scope for this milestone.
@@ -280,8 +290,8 @@ Three outcomes:
 1. Launching offline is fast and shows useful content instead of hanging.
 2. The user can mark specific decks "available offline" and study them with no
    connection.
-3. The user can create decks and courses offline; they sync automatically on
-   reconnect.
+3. The user can create courses, decks and cards offline; they sync automatically
+   on reconnect.
 
 This is the largest milestone. If, during planning, it proves too big for one
 session, decompose it into E1 (local store + slow-launch fix), E2 (per-deck
@@ -290,12 +300,9 @@ session and commit. Prefer this decomposition if there is any doubt.
 
 ### E.0 — Local persistence layer
 
-- **SQLite**, confirmed. Open decision: `drift` (typed, migrations, less
-  boilerplate, code-gen) vs `sqflite` (raw SQL, no code-gen, matches the
-  "no ORM" spirit of the Supabase side). **Recommendation: `drift`** — the
-  offline store has real schema and query complexity and will benefit from
-  typed migrations; the "no ORM" rule in CLAUDE.md is about the Supabase
-  boundary, not local caching. Confirm with the user before implementing.
+- **SQLite via `drift`**, decided. Typed queries and versioned migrations; the
+  "no ORM" rule in CLAUDE.md governs the Supabase boundary, not the local cache.
+  This adds `drift` + `sqlite3_flutter_libs` + a `build_runner` code-gen step.
 - Tables (names illustrative):
   - `cached_decks` — id, course_id, name, `position`, server `updated_at`,
     `downloaded_at`.
@@ -307,8 +314,9 @@ session and commit. Prefer this decomposition if there is any doubt.
     small key/value blob table, holding the last successfully fetched
     profile and mastery summary.
   - `write_queue` — id (local), op type
-    (`create_deck` | `create_course` | …), payload JSON, `created_at`,
-    `attempts`, `last_error`, `status` (`pending` | `syncing` | `failed`).
+    (`create_course` | `create_deck` | `create_card` | …), payload JSON,
+    `created_at`, `attempts`, `last_error`, `status`
+    (`pending` | `syncing` | `failed`).
   - `id_map` — `temp_id` → `server_id`, for reconciling offline-created rows.
 - Migrations: versioned from day one.
 
@@ -360,22 +368,25 @@ profile/mastery eventually load but slowly.
 
 ### E.3 — Offline creation and sync engine
 
-- **Offline deck creation** and **offline course creation**:
+- **Offline creation of courses, decks and cards** (all three, decided):
   - The create forms work with no connection.
   - A new row is written to SQLite with a **temp UUID** (client-generated) and
     an entry is added to `write_queue`.
-  - The new deck/course appears in the list immediately, flagged with a subtle
+  - A card created offline references its parent deck by that deck's id (a temp
+    id if the deck was also created offline); a deck references its course the
+    same way.
+  - The new course/deck/card appears immediately, flagged with a subtle
     "not synced yet" indicator.
-- **Card creation offline** — **OPEN SCOPE QUESTION.** Creating a deck offline
-  is of limited use if you cannot add cards to it offline. Recommend including
-  offline card creation in this milestone. Confirm with the user; if excluded,
-  a deck created offline is empty until reconnect.
+  - A deck created offline should be immediately study-able offline (its cards
+    are in SQLite already); treat a freshly-created offline deck as implicitly
+    "available offline".
 - **Sync engine**, triggered on connectivity regained (and on app resume, and
   after a successful manual retry):
-  1. Process `write_queue` in FIFO order. For each op: call Supabase, on
-     success record `temp_id → server_id` in `id_map`, rewrite any local
-     references (e.g. a queued card create that points at a not-yet-synced
-     deck's temp id), mark the op done.
+  1. Process `write_queue` in FIFO order (course before deck before card). For
+     each op: call Supabase, on success record `temp_id → server_id` in
+     `id_map`, rewrite any local references (a queued deck create pointing at a
+     not-yet-synced course's temp id; a queued card create pointing at a
+     not-yet-synced deck's temp id), mark the op done.
   2. On failure: increment `attempts`, store `last_error`, keep the op
      `pending` (with backoff). Surface a non-blocking "some changes haven't
      synced" affordance with a retry.
@@ -392,17 +403,15 @@ profile/mastery eventually load but slowly.
 - `cards` and `session_cards` have **no owner column**; their RLS is
   join-scoped (`cards` → `decks.user_id`, `session_cards` →
   `study_sessions.user_id`). When the sync engine inserts an offline-created
-  deck then its cards, the deck must land first so the card insert passes the
-  join-scoped policy. FIFO + the temp-id rewrite handle this, but the plan must
-  call it out explicitly and test it.
+  course → deck → cards chain, the parents must land first so each child insert
+  passes the join-scoped policy. FIFO ordering + the temp-id rewrite handle
+  this, but the plan must call it out explicitly and test the full chain.
 - Re-read the generated policy SQL for `decks`, `courses`, `cards`,
   `study_sessions`, `session_cards` and confirm INSERT policies actually permit
   the offline-created shapes.
 
 ### Verify first
 
-- The confirmed local-DB decision (SQLite) — pick `drift` vs `sqflite` with the
-  user.
 - The exact startup call chain in `main.dart` / `app.dart` and which `await`
   blocks first paint offline.
 - How Supabase auth session persistence and refresh currently work offline.
@@ -410,7 +419,8 @@ profile/mastery eventually load but slowly.
   exists.
 - Whether a connectivity package is already in the project
   (`connectivity_plus` or similar); if not, it is a new dependency here.
-- The current deck-create and course-create flows and their providers.
+- The current course-create, deck-create and card-create flows and their
+  providers (all three need an offline path).
 - Whether `cards.keywords` round-trips correctly as JSON in and out of SQLite
   (it is a Postgres `text[]`).
 - `docs/spec.md` "Offline/sync design" section and
@@ -428,30 +438,38 @@ profile/mastery eventually load but slowly.
   offline — should not crash, should show sensible empty/locked states).
 - Widget: offline launch renders cached content + banner within a tight frame
   budget; non-downloaded decks show the locked state.
-- Widget: creating a deck offline shows it immediately with the unsynced
-  indicator.
+- Widget: creating a course/deck/card offline shows it immediately with the
+  unsynced indicator; a deck created offline is studyable offline right away.
 - Integration (fake Supabase / local): go offline → create course + deck +
   card → go online → everything lands server-side with correct parent links and
   passes RLS.
 
 ---
 
-## Consolidated open decisions for the user
+## Planning decisions — all resolved
 
-1. **`drift` vs `sqflite`** for the local store (recommendation: `drift`).
-2. **Offline card creation** in Milestone E or not (recommendation: include it).
-3. Confirm the **courses table is first-class** (Milestone B depends on it).
-4. Confirm the **troublemaker/activity slot** location (home vs profile) — this
-   affects Milestones C and D layout.
-5. Whether any **new columns on `study_sessions`** (completion timestamp,
-   deck reference, duration) are acceptable, if verification shows they are
-   needed for Milestones C and D.
+Every open decision from the brainstorming round is settled and folded into the
+milestones above:
+
+1. Local store: **`drift`** over SQLite.
+2. Offline creation covers **courses, decks and cards**.
+3. **Courses are a first-class table**; every deck has a `course_id`.
+4. The activity feed lives in the **Mastery section**; profile metrics stay on
+   the **profile screen** (separate screens).
+5. **New narrow columns on `study_sessions` are pre-approved** where C/D need
+   them.
+
+What remains are implementation-time **verifications**, not decisions — each
+milestone's "Verify first" list. None of them should require coming back to the
+user unless a verification contradicts a decision above (e.g. `docs/spec.md`
+already specifies a different offline design), in which case: stop and ask.
 
 ## Cross-milestone notes
 
-- Milestones C and D both touch the profile/home area and both read session
-  history — build D immediately after C and reuse whatever history-access
-  helper C introduces.
+- Milestone C (activity feed, Mastery section) and Milestone D (metrics, profile
+  screen) are on different screens but both read session/completion history —
+  build D immediately after C and reuse whatever history-access helper C
+  introduces.
 - Once Milestone E lands, revisit Milestone B so reorder writes go through the
   write queue rather than failing offline.
 - Every milestone: `flutter analyze` clean before commit; add the tests listed;
