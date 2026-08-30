@@ -72,6 +72,21 @@ class SettingsTabScreen extends ConsumerWidget {
                     ],
                   ),
                 ),
+                const SizedBox(height: 20),
+                _AppearanceRow(
+                  label: 'Card text size',
+                  caption: 'Size of the text on study cards.',
+                  child: SettingsSegmentedControl<CardFontSize>(
+                    value: appearance.cardFontSize,
+                    onChanged: controller.setCardFontSize,
+                    options: const [
+                      (value: CardFontSize.small, label: 'S'),
+                      (value: CardFontSize.medium, label: 'M'),
+                      (value: CardFontSize.large, label: 'L'),
+                      (value: CardFontSize.xlarge, label: 'XL'),
+                    ],
+                  ),
+                ),
               ],
             ),
             const SizedBox(height: 28),

@@ -350,6 +350,36 @@ void main() {
     expect(find.text('1 / 3'), findsOneWidget);
   });
 
+  testWidgets('a larger "Card text size" preset scales only the card context',
+      (tester) async {
+    SharedPreferences.setMockInitialValues({'card_font_size': 'xlarge'});
+    await _open(
+      tester,
+      decks: FakeDeckRepository(cards: [_card('a')]),
+      study: FakeStudyRepository(),
+    );
+
+    // The card surface picks up the 1.3 scaler from the setting…
+    final cardContext = tester.element(find.text('front-a'));
+    expect(MediaQuery.textScalerOf(cardContext).scale(10), closeTo(13.0, 1e-6));
+
+    // …while the session chrome (the counter) stays at the app's normal size.
+    final counterContext = tester.element(find.text('0 / 1'));
+    expect(MediaQuery.textScalerOf(counterContext).scale(10), 10.0);
+  });
+
+  testWidgets('the default preset leaves the card text context unscaled',
+      (tester) async {
+    await _open(
+      tester,
+      decks: FakeDeckRepository(cards: [_card('a')]),
+      study: FakeStudyRepository(),
+    );
+
+    final cardContext = tester.element(find.text('front-a'));
+    expect(MediaQuery.textScalerOf(cardContext).scale(10), 10.0);
+  });
+
   group('mode routing (milestone R1)', () {
     FakeDeckRepository twoModeDeck() => FakeDeckRepository(cards: [
           _card('a',

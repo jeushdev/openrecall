@@ -7,6 +7,8 @@ import '../../../routing/app_routes.dart';
 import '../../../theme/app_tokens.dart';
 import '../../decks/application/deck_providers.dart';
 import '../../decks/domain/study_mode.dart';
+import '../../settings/application/settings_providers.dart';
+import '../../settings/data/study_appearance_preferences.dart';
 import '../application/feynman_timer_providers.dart';
 import '../application/pre_session_cards_provider.dart';
 import '../application/session_controller.dart';
@@ -190,6 +192,12 @@ class _StudySessionScreenState extends ConsumerState<StudySessionScreen> {
 
     final session = ref.watch(sessionControllerProvider);
 
+    // The §6.5 "Card text size" preset, applied only to the card surface below
+    // (and the Feynman reference overlay). A storage failure degrades to the
+    // medium (1.0) default, like the other study-appearance toggles.
+    final appearance = ref.watch(studyAppearanceProvider).asData?.value;
+    final cardFontSize = appearance?.cardFontSize ?? CardFontSize.medium;
+
     // Deck-detail picker forwarded a mode: start it (or, if a live session in
     // that same mode is still around, fall through and resume it below).
     if (widget.requestedMode != null &&
@@ -227,6 +235,7 @@ class _StudySessionScreenState extends ConsumerState<StudySessionScreen> {
       if (state.current != null) {
         return _ActiveBody(
           state: state,
+          cardTextScale: cardFontSize.scale,
           feynmanSeconds:
               _feynmanSeconds ?? FeynmanTimerPicker.defaultSeconds,
           onExit: _exitAndLeave,
@@ -387,6 +396,7 @@ class _Message extends StatelessWidget {
 class _ActiveBody extends StatefulWidget {
   const _ActiveBody({
     required this.state,
+    required this.cardTextScale,
     required this.feynmanSeconds,
     required this.onExit,
     required this.onRate,
@@ -394,6 +404,11 @@ class _ActiveBody extends StatefulWidget {
   });
 
   final StudySessionState state;
+
+  /// The linear `textScaler` multiplier for the card surface, from the §6.5
+  /// "Card text size" setting. Applied via a scoped [MediaQuery] so only the
+  /// card scales — the progress bar, counter, and rating row stay put.
+  final double cardTextScale;
 
   /// The per-card countdown length for Feynman mode (§6.2.1); ignored by every
   /// other mode.
@@ -481,27 +496,34 @@ class _ActiveBodyState extends State<_ActiveBody> {
     final item = state.current!;
     final key = ValueKey('${item.sessionCardId}:${item.position}');
 
-    final Widget cardArea = switch (state.session.studyMode) {
-      StudyMode.cloze => ClozeTypeCard(
-          key: key,
-          card: item.card,
-          onOutcome: _cloze,
-        ),
-      StudyMode.feynman => FeynmanCardView(
-          key: key,
-          card: item.card,
-          durationSeconds: widget.feynmanSeconds,
-          onFinished: () => setState(() => _revealed = true),
-        ),
-      StudyMode.flip => GestureDetector(
-          onHorizontalDragEnd: _onSwipe,
-          child: FlipCard(
+    // Only the card surface scales its text to the §6.5 preset — the header and
+    // rating row below stay at the app's normal size.
+    final Widget cardArea = MediaQuery(
+      data: MediaQuery.of(context).copyWith(
+        textScaler: TextScaler.linear(widget.cardTextScale),
+      ),
+      child: switch (state.session.studyMode) {
+        StudyMode.cloze => ClozeTypeCard(
             key: key,
             card: item.card,
-            onFlippedChanged: (f) => setState(() => _flipped = f),
+            onOutcome: _cloze,
           ),
-        ),
-    };
+        StudyMode.feynman => FeynmanCardView(
+            key: key,
+            card: item.card,
+            durationSeconds: widget.feynmanSeconds,
+            onFinished: () => setState(() => _revealed = true),
+          ),
+        StudyMode.flip => GestureDetector(
+            onHorizontalDragEnd: _onSwipe,
+            child: FlipCard(
+              key: key,
+              card: item.card,
+              onFlippedChanged: (f) => setState(() => _flipped = f),
+            ),
+          ),
+      },
+    );
 
     // Card-to-card motion: the outgoing card slides + fades toward [_exitOffset]
     // as the next sweeps in from the same side. Keyed strictly on the

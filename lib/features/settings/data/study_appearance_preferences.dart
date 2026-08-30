@@ -10,6 +10,22 @@ enum CardTransition { flip3d, fade }
 /// [hairline] per the spec. Not wired to `StudyProgressBar` yet.
 enum ProgressIndicatorStyle { hairline, pill }
 
+/// How large the text on a study card is drawn (ui-spec-v2, milestone UX5). The
+/// default is [medium] (scale 1.0 — the untouched design size); the other
+/// presets scale the card's `TextStyle`s up or down via a `TextScaler` that is
+/// scoped to the card surface only, leaving the rest of the app alone.
+enum CardFontSize { small, medium, large, xlarge }
+
+extension CardFontSizeScale on CardFontSize {
+  /// The linear `textScaler` multiplier this preset applies to study-card text.
+  double get scale => switch (this) {
+        CardFontSize.small => 0.9,
+        CardFontSize.medium => 1.0,
+        CardFontSize.large => 1.15,
+        CardFontSize.xlarge => 1.3,
+      };
+}
+
 /// Device-local store for the "Study appearance" toggles (ui-spec-v1 §6.5).
 ///
 /// Like [NotificationPreferences], these are per-device display choices, not
@@ -21,6 +37,7 @@ class StudyAppearancePreferences {
 
   static const String _transitionKey = 'card_transition';
   static const String _progressKey = 'progress_indicator';
+  static const String _cardFontSizeKey = 'card_font_size';
 
   final SharedPreferences? _injected;
 
@@ -49,5 +66,17 @@ class StudyAppearancePreferences {
 
   Future<void> setProgressIndicator(ProgressIndicatorStyle value) async {
     await (await _prefs).setString(_progressKey, value.name);
+  }
+
+  Future<CardFontSize> cardFontSize() async {
+    final raw = (await _prefs).getString(_cardFontSizeKey);
+    for (final v in CardFontSize.values) {
+      if (v.name == raw) return v;
+    }
+    return CardFontSize.medium;
+  }
+
+  Future<void> setCardFontSize(CardFontSize value) async {
+    await (await _prefs).setString(_cardFontSizeKey, value.name);
   }
 }

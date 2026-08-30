@@ -22,6 +22,27 @@ void main() {
     expect(await p.cardTransition(), CardTransition.fade);
   });
 
+  test('defaults the card font size to medium when nothing is stored', () async {
+    final p = await prefs({});
+    expect(await p.cardFontSize(), CardFontSize.medium);
+  });
+
+  test('round-trips the card font size', () async {
+    final p = await prefs({});
+    await p.setCardFontSize(CardFontSize.xlarge);
+    expect(await p.cardFontSize(), CardFontSize.xlarge);
+  });
+
+  test('reads back a previously persisted card font size', () async {
+    final p = await prefs({'card_font_size': 'large'});
+    expect(await p.cardFontSize(), CardFontSize.large);
+  });
+
+  test('falls back to medium on an unrecognized stored font size', () async {
+    final p = await prefs({'card_font_size': 'gigantic'});
+    expect(await p.cardFontSize(), CardFontSize.medium);
+  });
+
   test('round-trips the progress indicator', () async {
     final p = await prefs({});
     await p.setProgressIndicator(ProgressIndicatorStyle.pill);

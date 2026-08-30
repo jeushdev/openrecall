@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../theme/app_geometry.dart';
 import '../../../../theme/app_tokens.dart';
 import '../../../decks/domain/card.dart';
+import '../../../settings/application/settings_providers.dart';
+import '../../../settings/data/study_appearance_preferences.dart';
 import '../../domain/list_content.dart';
 
 /// The Feynman "Reveal reference" overlay (ui-spec-v1 §6.2).
@@ -12,7 +15,12 @@ import '../../domain/list_content.dart';
 /// per the spec; tapping the scrim outside the card dismisses it. Opening it is
 /// fully independent of rating — the rating row underneath stays live whether or
 /// not this is ever shown.
-class FeynmanReferenceDialog extends StatelessWidget {
+///
+/// It opens via [showGeneralDialog], so it sits outside the study session's
+/// widget subtree and can't inherit the screen's scoped [MediaQuery]. It reads
+/// the §6.5 "Card text size" setting itself and applies its own `textScaler`
+/// override so the reference matches the card just studied (milestone UX5).
+class FeynmanReferenceDialog extends ConsumerWidget {
   const FeynmanReferenceDialog._({required this.card});
 
   final FlashCard card;
@@ -33,14 +41,17 @@ class FeynmanReferenceDialog extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final tokens = Theme.of(context).extension<AppTokens>()!;
+    final scale = (ref.watch(studyAppearanceProvider).asData?.value.cardFontSize ??
+            CardFontSize.medium)
+        .scale;
     // The prompt is the concept card's front; the reference is its (possibly
     // multi-line / bulleted) back — docs/spec-v3-card-model.md.
     final prompt = card.front.trim();
     final lines = contentLines(card.back);
 
-    return Center(
+    final Widget reference = Center(
       child: Padding(
         padding: const EdgeInsets.all(28),
         child: ConstrainedBox(
@@ -113,6 +124,13 @@ class FeynmanReferenceDialog extends StatelessWidget {
           ),
         ),
       ),
+    );
+
+    return MediaQuery(
+      data: MediaQuery.of(context).copyWith(
+        textScaler: TextScaler.linear(scale),
+      ),
+      child: reference,
     );
   }
 }

@@ -66,23 +66,28 @@ class StudyAppearance {
   const StudyAppearance({
     required this.cardTransition,
     required this.progressIndicator,
+    required this.cardFontSize,
   });
 
   static const StudyAppearance defaults = StudyAppearance(
     cardTransition: CardTransition.flip3d,
     progressIndicator: ProgressIndicatorStyle.hairline,
+    cardFontSize: CardFontSize.medium,
   );
 
   final CardTransition cardTransition;
   final ProgressIndicatorStyle progressIndicator;
+  final CardFontSize cardFontSize;
 
   StudyAppearance copyWith({
     CardTransition? cardTransition,
     ProgressIndicatorStyle? progressIndicator,
+    CardFontSize? cardFontSize,
   }) {
     return StudyAppearance(
       cardTransition: cardTransition ?? this.cardTransition,
       progressIndicator: progressIndicator ?? this.progressIndicator,
+      cardFontSize: cardFontSize ?? this.cardFontSize,
     );
   }
 
@@ -90,10 +95,12 @@ class StudyAppearance {
   bool operator ==(Object other) =>
       other is StudyAppearance &&
       other.cardTransition == cardTransition &&
-      other.progressIndicator == progressIndicator;
+      other.progressIndicator == progressIndicator &&
+      other.cardFontSize == cardFontSize;
 
   @override
-  int get hashCode => Object.hash(cardTransition, progressIndicator);
+  int get hashCode =>
+      Object.hash(cardTransition, progressIndicator, cardFontSize);
 }
 
 /// Reads the persisted "Study appearance" toggles and writes them back on
@@ -116,6 +123,7 @@ class StudyAppearanceController extends AsyncNotifier<StudyAppearance> {
       return StudyAppearance(
         cardTransition: await _prefs.cardTransition(),
         progressIndicator: await _prefs.progressIndicator(),
+        cardFontSize: await _prefs.cardFontSize(),
       );
     } catch (_) {
       return StudyAppearance.defaults;
@@ -133,6 +141,13 @@ class StudyAppearanceController extends AsyncNotifier<StudyAppearance> {
     await _update(
       (a) => a.copyWith(progressIndicator: value),
       () => _prefs.setProgressIndicator(value),
+    );
+  }
+
+  Future<void> setCardFontSize(CardFontSize value) async {
+    await _update(
+      (a) => a.copyWith(cardFontSize: value),
+      () => _prefs.setCardFontSize(value),
     );
   }
 

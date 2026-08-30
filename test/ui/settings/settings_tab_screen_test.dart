@@ -46,6 +46,11 @@ void main() {
     expect(find.text('Progress indicator'), findsOneWidget);
     expect(find.text('Hairline'), findsOneWidget);
     expect(find.text('Pill'), findsOneWidget);
+    expect(find.text('Card text size'), findsOneWidget);
+    expect(find.text('S'), findsOneWidget);
+    expect(find.text('M'), findsOneWidget);
+    expect(find.text('L'), findsOneWidget);
+    expect(find.text('XL'), findsOneWidget);
   });
 
   testWidgets('tapping a segment persists the new value', (tester) async {
@@ -56,6 +61,25 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(await prefs.cardTransition(), CardTransition.fade);
+  });
+
+  testWidgets('the card text size control toggles and persists', (tester) async {
+    final prefs = await _pump(tester);
+    expect(await prefs.cardFontSize(), CardFontSize.medium);
+
+    await tester.tap(find.text('XL'));
+    await tester.pumpAndSettle();
+
+    expect(await prefs.cardFontSize(), CardFontSize.xlarge);
+  });
+
+  testWidgets('the card text size control reflects a stored preset',
+      (tester) async {
+    await _pump(tester, initialPrefs: {'card_font_size': 'large'});
+
+    final selected = tester.widget<Text>(find.text('L'));
+    final medium = tester.widget<Text>(find.text('M'));
+    expect(selected.style?.color, isNot(medium.style?.color));
   });
 
   testWidgets('Feynman row shows the "not yet" copy with no stored preset',
