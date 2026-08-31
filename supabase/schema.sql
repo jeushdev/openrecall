@@ -37,6 +37,11 @@ create table courses (
   name         text not null,
   accent_color text not null,
   is_default   boolean not null default false,
+  -- Manual drag-order within the user's course list (milestone B). Ascending;
+  -- ties broken by created_at. A BEFORE INSERT trigger appends new rows to the
+  -- end; deletes leave gaps, which are harmless. Reordered in bulk by
+  -- set_course_positions().
+  position     integer not null default 0,
   created_at   timestamptz not null default now(),
   updated_at   timestamptz not null default now(),
   -- Named so a future palette change is a clean drop/add. These are named keys
@@ -60,6 +65,10 @@ create table decks (
   user_id uuid not null references profiles(id) on delete cascade,
   course_id uuid references courses(id),
   name text not null,
+  -- Manual drag-order within this deck's course (milestone B). Ascending; ties
+  -- broken by created_at. A BEFORE INSERT trigger appends new rows to the end of
+  -- their course; deletes leave gaps. Reordered in bulk by set_deck_positions().
+  position integer not null default 0,
   last_studied_at timestamptz,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
@@ -170,6 +179,59 @@ $$;
 create trigger decks_fill_default_course
   before insert on decks
   for each row execute function public.decks_fill_default_course();
+
+-- ---------------------------------------------------------------------------
+-- Append-to-end triggers for the manual `position` column (milestone B)
+--
+-- `position` defaults to 0, so a client that never sets it (every insert path
+-- today) would pile every new row at the front. These BEFORE INSERT triggers
+-- instead place an unset row (`null` or the `0` default) at `max(position) + 1`
+-- within its list — per-user for courses, per-course for decks. An explicit
+-- non-zero position from a caller is left untouched.
+--
+-- The decks trigger name sorts after `decks_fill_default_course`, so
+-- `new.course_id` is already populated when it runs.
+-- ---------------------------------------------------------------------------
+
+create or replace function public.courses_append_position()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if coalesce(new.position, 0) = 0 then
+    select coalesce(max(position) + 1, 0) into new.position
+    from public.courses
+    where user_id = new.user_id;
+  end if;
+  return new;
+end;
+$$;
+
+create trigger courses_zz_append_position
+  before insert on courses
+  for each row execute function public.courses_append_position();
+
+create or replace function public.decks_append_position()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if coalesce(new.position, 0) = 0 then
+    select coalesce(max(position) + 1, 0) into new.position
+    from public.decks
+    where course_id = new.course_id;
+  end if;
+  return new;
+end;
+$$;
+
+create trigger decks_zz_append_position
+  before insert on decks
+  for each row execute function public.decks_append_position();
 
 -- ---------------------------------------------------------------------------
 -- updated_at triggers
@@ -305,6 +367,46 @@ create policy session_cards_owner_via_session on session_cards
   );
 
 -- ---------------------------------------------------------------------------
+-- Manual-reorder RPCs (milestone B)
+--
+-- Drag-to-reorder persists the whole affected list in one call: `items` is a
+-- JSON array of {id, position} objects and the function stamps each row's
+-- `position`. SECURITY INVOKER (the default) means the caller's RLS still
+-- applies, so ids the user does not own simply match no row — no separate
+-- ownership check is needed. `updated_at` is left to its trigger.
+--
+-- These are the ONLY writes to `position` from the client; every other path
+-- (insert) goes through the append triggers above.
+-- ---------------------------------------------------------------------------
+
+create or replace function public.set_course_positions(items jsonb)
+returns void
+language sql
+set search_path = ''
+as $$
+  update public.courses c
+  set position = (elem->>'position')::int
+  from jsonb_array_elements(items) as elem
+  where c.id = (elem->>'id')::uuid;
+$$;
+
+create or replace function public.set_deck_positions(items jsonb)
+returns void
+language sql
+set search_path = ''
+as $$
+  update public.decks d
+  set position = (elem->>'position')::int
+  from jsonb_array_elements(items) as elem
+  where d.id = (elem->>'id')::uuid;
+$$;
+
+revoke execute on function public.set_course_positions(jsonb) from public;
+revoke execute on function public.set_deck_positions(jsonb) from public;
+grant execute on function public.set_course_positions(jsonb) to authenticated;
+grant execute on function public.set_deck_positions(jsonb) to authenticated;
+
+-- ---------------------------------------------------------------------------
 -- Indexes
 --
 -- spec: foreign key columns are not indexed automatically by Postgres the way
@@ -312,12 +414,16 @@ create policy session_cards_owner_via_session on session_cards
 -- ---------------------------------------------------------------------------
 
 create index on courses (user_id);
+-- The Decks tab lists a user's courses in manual order.
+create index on courses (user_id, position);
 -- exactly one default course per user
 create unique index courses_one_default_per_user
   on courses (user_id) where is_default;
 
 create index on decks (user_id);
 create index on decks (course_id);
+-- The Decks tab lists a course's decks in manual order.
+create index on decks (course_id, position);
 create index on cards (deck_id);
 -- Headroom for the app-wide Troublemakers query (engine-v2-spec §6):
 -- `order by fail_count desc limit N` across every card the user owns.
@@ -372,5 +478,49 @@ begin
     update cards set keywords = array[keyword]
       where keyword is not null and btrim(keyword) <> '';
     alter table cards drop column keyword;
+  end if;
+end $$;
+
+-- ---------------------------------------------------------------------------
+-- One-time manual-order migration — milestone B
+-- (docs/superpowers/specs/2026-08-31-offline-and-ux-improvements-design.md)
+--
+-- No-ops on a fresh project (the `create table` statements above already carry
+-- `position`). On a project that predates milestone B: add the column to
+-- `courses` and `decks`, then backfill it once — number existing rows by
+-- `created_at` within their list (per user for courses, per course for decks),
+-- zero-based. Guarded so a re-apply on a project that already has a real manual
+-- order does not flatten it back to creation order.
+-- ---------------------------------------------------------------------------
+
+do $$
+begin
+  alter table courses add column if not exists position integer not null default 0;
+  alter table decks   add column if not exists position integer not null default 0;
+
+  if not exists (select 1 from courses where position <> 0) then
+    update courses c
+    set position = ranked.rn
+    from (
+      select id,
+             row_number() over (
+               partition by user_id order by created_at, id
+             ) - 1 as rn
+      from courses
+    ) ranked
+    where ranked.id = c.id;
+  end if;
+
+  if not exists (select 1 from decks where position <> 0) then
+    update decks d
+    set position = ranked.rn
+    from (
+      select id,
+             row_number() over (
+               partition by course_id order by created_at, id
+             ) - 1 as rn
+      from decks
+    ) ranked
+    where ranked.id = d.id;
   end if;
 end $$;

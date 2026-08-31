@@ -295,6 +295,32 @@ class FakeDeckRepository implements DeckRepository {
   }
 
   @override
+  Future<void> reorderDecks(List<String> orderedIds) async {
+    calls.add('reorderDecks([${orderedIds.join(', ')}])');
+    _maybeThrow();
+    // Stamp each named deck's position to its new index and re-sort so a
+    // follow-up fetchDecks reflects the manual order.
+    final index = {for (final (i, id) in orderedIds.indexed) id: i};
+    for (var i = 0; i < _decks.length; i++) {
+      final pos = index[_decks[i].id];
+      if (pos != null) _decks[i] = _withPosition(_decks[i], pos);
+    }
+    _decks.sort((a, b) => a.position.compareTo(b.position));
+  }
+
+  DeckSummary _withPosition(DeckSummary d, int position) => DeckSummary(
+        id: d.id,
+        name: d.name,
+        courseId: d.courseId,
+        lastStudiedAt: d.lastStudiedAt,
+        totalCards: d.totalCards,
+        dueCards: d.dueCards,
+        masteryPercent: d.masteryPercent,
+        masteryLevelSum: d.masteryLevelSum,
+        position: position,
+      );
+
+  @override
   Future<void> markDeckStudied(String deckId) async {
     calls.add('markDeckStudied($deckId)');
     _maybeThrow();

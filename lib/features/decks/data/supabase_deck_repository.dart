@@ -1,5 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../core/reorder.dart';
 import '../domain/bulk_paste_parser.dart';
 import '../domain/card.dart';
 import '../domain/deck.dart';
@@ -19,10 +20,24 @@ class SupabaseDeckRepository implements DeckRepository {
   Future<List<DeckSummary>> fetchDecks() async {
     final rows = await _client
         .from('decks')
-        .select('id, name, course_id, last_studied_at, created_at, updated_at, '
-            'cards(mastery_level)')
-        .order('created_at', ascending: false);
+        .select('id, name, course_id, position, last_studied_at, created_at, '
+            'updated_at, cards(mastery_level)')
+        .order('position')
+        .order('created_at');
     return rows.map(DeckSummary.fromJson).toList();
+  }
+
+  @override
+  Future<void> reorderDecks(List<String> orderedIds) async {
+    // One batched round-trip via a SECURITY INVOKER function — RLS
+    // (`decks_owner`) still scopes the UPDATE, so ids the user does not own
+    // simply match no row. `updated_at` is left to the database trigger.
+    await _client.rpc('set_deck_positions', params: {
+      'items': [
+        for (final e in positionsForOrder(orderedIds).entries)
+          {'id': e.key, 'position': e.value},
+      ],
+    });
   }
 
   @override

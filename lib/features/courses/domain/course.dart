@@ -18,6 +18,7 @@ class Course {
     required this.isDefault,
     required this.createdAt,
     required this.updatedAt,
+    this.position = 0,
   });
 
   factory Course.fromJson(Map<String, dynamic> json) => Course(
@@ -28,6 +29,7 @@ class Course {
         isDefault: json['is_default'] as bool,
         createdAt: DateTime.parse(json['created_at'] as String),
         updatedAt: DateTime.parse(json['updated_at'] as String),
+        position: json['position'] as int? ?? 0,
       );
 
   final String id;
@@ -38,6 +40,11 @@ class Course {
   final DateTime createdAt;
   final DateTime updatedAt;
 
+  /// The user's manual ordering key within their course list (milestone B).
+  /// Ascending; ties broken by [createdAt]. Defaults to 0 for rows from a
+  /// source that predates the column (e.g. the local offline mirror).
+  final int position;
+
   @override
   bool operator ==(Object other) =>
       other is Course &&
@@ -47,7 +54,8 @@ class Course {
       other.accentColor == accentColor &&
       other.isDefault == isDefault &&
       other.createdAt == createdAt &&
-      other.updatedAt == updatedAt;
+      other.updatedAt == updatedAt &&
+      other.position == position;
 
   @override
   int get hashCode => Object.hash(
@@ -58,5 +66,6 @@ class Course {
         isDefault,
         createdAt,
         updatedAt,
+        position,
       );
 }

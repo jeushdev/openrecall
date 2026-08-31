@@ -78,6 +78,26 @@ class FakeCourseRepository implements CourseRepository {
   }
 
   @override
+  Future<void> reorderCourses(List<String> orderedIds) async {
+    calls.add('reorderCourses([${orderedIds.join(', ')}])');
+    _maybeThrow();
+    // Reflect the new order in the in-memory list so a follow-up fetchCourses
+    // sees it, and stamp each course's position to its new index.
+    final byId = {for (final c in _courses) c.id: c};
+    final reordered = <Course>[
+      for (final (i, id) in orderedIds.indexed)
+        if (byId[id] case final c?) _withPosition(c, i),
+    ];
+    // Keep any course not named in the order (shouldn't happen) at the end.
+    for (final c in _courses) {
+      if (!orderedIds.contains(c.id)) reordered.add(c);
+    }
+    _courses
+      ..clear()
+      ..addAll(reordered);
+  }
+
+  @override
   Future<void> deleteCourse(String id, {required String defaultCourseId}) async {
     calls.add('deleteCourse($id)');
     _maybeThrow();
@@ -90,6 +110,17 @@ class FakeCourseRepository implements CourseRepository {
   }
 }
 
+Course _withPosition(Course c, int position) => Course(
+      id: c.id,
+      userId: c.userId,
+      name: c.name,
+      accentColor: c.accentColor,
+      isDefault: c.isDefault,
+      createdAt: c.createdAt,
+      updatedAt: c.updatedAt,
+      position: position,
+    );
+
 /// A plain [Course] for fixtures — only the fields the aggregation layer reads
 /// matter, the rest get neutral values.
 Course fakeCourse({
@@ -97,6 +128,7 @@ Course fakeCourse({
   String? name,
   String accentColor = 'slate',
   bool isDefault = false,
+  int position = 0,
 }) =>
     Course(
       id: id,
@@ -106,4 +138,5 @@ Course fakeCourse({
       isDefault: isDefault,
       createdAt: DateTime.utc(2026),
       updatedAt: DateTime.utc(2026),
+      position: position,
     );

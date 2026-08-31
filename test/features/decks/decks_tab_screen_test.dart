@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
+import 'package:reorderable_grid_view/reorderable_grid_view.dart';
 import 'package:open_recall/features/courses/application/course_providers.dart';
 import 'package:open_recall/features/courses/domain/course.dart';
 import 'package:open_recall/features/decks/application/deck_providers.dart';
@@ -35,6 +36,7 @@ Course _course(
   required String name,
   bool isDefault = false,
   DateTime? createdAt,
+  int position = 0,
 }) =>
     Course(
       id: id,
@@ -44,6 +46,7 @@ Course _course(
       isDefault: isDefault,
       createdAt: createdAt ?? DateTime.utc(2026),
       updatedAt: DateTime.utc(2026),
+      position: position,
     );
 
 /// A default "Uncategorized" course (created first) plus "Biology".
@@ -258,6 +261,67 @@ void main() {
 
     // Second fetch (throw already consumed) succeeds → error state clears.
     expect(find.text("Couldn't load your decks."), findsNothing);
+  });
+
+  group('drag-to-reorder (milestone B)', () {
+    testWidgets('reordering a course row changes the visible course order',
+        (tester) async {
+      final courses = FakeCourseRepository(courses: [
+        _course('c-a',
+            name: 'Alpha', isDefault: true, createdAt: DateTime.utc(2026, 1)),
+        _course('c-b', name: 'Bravo', createdAt: DateTime.utc(2026, 2)),
+        _course('c-c', name: 'Charlie', createdAt: DateTime.utc(2026, 3)),
+      ]);
+      await tester.pumpWidget(_host(
+        _Recorder(),
+        decks: FakeDeckRepository(decks: [_deck('d1', courseId: 'c-a')]),
+        courses: courses,
+      ));
+      await tester.pumpAndSettle();
+
+      expect(
+        tester.getCenter(find.text('Charlie')).dy,
+        greaterThan(tester.getCenter(find.text('Alpha')).dy),
+      );
+
+      // Drive the reorder the drag gesture would: move row 2 ("Charlie") to
+      // the front. onReorderItem's newIndex is the post-removal destination.
+      final list = tester.widget<ReorderableListView>(
+        find.byType(ReorderableListView),
+      );
+      list.onReorderItem!(2, 0);
+      await tester.pumpAndSettle();
+
+      expect(courses.calls, contains('reorderCourses([c-c, c-a, c-b])'));
+      expect(
+        tester.getCenter(find.text('Charlie')).dy,
+        lessThan(tester.getCenter(find.text('Alpha')).dy),
+      );
+    });
+
+    testWidgets('reordering deck tiles persists the new deck order',
+        (tester) async {
+      final decks = FakeDeckRepository(decks: [
+        _deck('d1', name: 'One', courseId: 'c-default'),
+        _deck('d2', name: 'Two', courseId: 'c-default'),
+        _deck('d3', name: 'Three', courseId: 'c-default'),
+      ]);
+      await tester.pumpWidget(_host(_Recorder(), decks: decks));
+      await tester.pumpAndSettle();
+
+      final grid = tester.widget<ReorderableGridView>(
+        find.byType(ReorderableGridView),
+      );
+      grid.onReorder(2, 0); // drag "Three" to the front
+      await tester.pumpAndSettle();
+
+      expect(decks.calls, contains('reorderDecks([d3, d1, d2])'));
+      final ids = tester
+          .widgetList<DeckGridTile>(find.byType(DeckGridTile))
+          .map((t) => t.deck.id)
+          .toList();
+      expect(ids, ['d3', 'd1', 'd2']);
+    });
   });
 
   testWidgets('renders nothing from the retired segmented control',

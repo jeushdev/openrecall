@@ -304,6 +304,13 @@ class CacheFirstDeckRepository implements DeckRepository {
   Future<void> resetDeckMastery(String deckId) =>
       _remote.resetDeckMastery(deckId);
 
+  /// Straight passthrough to Supabase — reorder has no local-queue fallback yet
+  /// (milestone B). A failure (offline) propagates so the caller reverts its
+  /// optimistic order; milestone E routes this through the write queue instead.
+  @override
+  Future<void> reorderDecks(List<String> orderedIds) =>
+      _remote.reorderDecks(orderedIds);
+
   /// A card authored offline: client-generated id, zeroed mastery, now-stamped.
   FlashCard _offlineCard(
     String deckId, {

@@ -91,4 +91,11 @@ class CacheFirstCourseRepository implements CourseRepository {
       await _local.deleteCourse(id, defaultCourseId: defaultCourseId);
     }
   }
+
+  /// Straight passthrough to Supabase — reorder has no local-queue fallback yet
+  /// (milestone B). A failure (offline) propagates so the caller reverts its
+  /// optimistic order; milestone E routes this through the write queue instead.
+  @override
+  Future<void> reorderCourses(List<String> orderedIds) =>
+      _remote.reorderCourses(orderedIds);
 }

@@ -85,4 +85,12 @@ abstract interface class DeckRepository {
   /// Stamps `decks.last_studied_at = now()`. Called when a session *starts*
   /// (spec §2/§4), not when it completes.
   Future<void> markDeckStudied(String deckId);
+
+  /// Persists a manual reordering of a single course's deck list: each id in
+  /// [orderedIds] gets its list index as its `position` (milestone B). One
+  /// batched round-trip; `updated_at` is left to the database trigger.
+  /// Online-only — throws when offline, and the caller reverts its optimistic
+  /// state on that failure ([CacheFirstDeckRepository] adds no local queue for
+  /// reorder; that arrives with the milestone E write queue).
+  Future<void> reorderDecks(List<String> orderedIds);
 }

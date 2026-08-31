@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/reorder.dart';
 import '../../../routing/app_routes.dart';
 import '../../../theme/app_geometry.dart';
 import '../../../theme/app_tokens.dart';
@@ -142,28 +143,60 @@ class _Accordion extends ConsumerWidget {
     ref.read(courseControllerProvider.notifier).delete(course.id);
   }
 
+  Widget _section(
+    BuildContext context,
+    WidgetRef ref,
+    CourseDeckGroup group, {
+    int? dragIndex,
+  }) =>
+      _CourseSection(
+        key: ValueKey(group.course.id),
+        group: group,
+        expanded: _isExpanded(group.course),
+        onToggle: () => _toggle(ref, group.course),
+        // A long-press on the header drags the course to reorder it
+        // (milestone B) — only when the list is genuinely reorderable.
+        dragIndex: dragIndex,
+        // The synthetic fallback course (userId == '') is only shown while
+        // the course list is still loading / failed — it has no real id to
+        // write against, so it carries no menu.
+        onEditCourse: group.course.userId.isEmpty
+            ? null
+            : () => _editCourse(context, group.course),
+        // The default course is never deletable (ui-spec-v2 §3.1 / §7).
+        onDeleteCourse: group.course.userId.isEmpty || group.course.isDefault
+            ? null
+            : () => _deleteCourse(context, ref, group.course),
+      );
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 120),
+    const padding = EdgeInsets.fromLTRB(16, 0, 16, 120);
+
+    // Reorder is only offered once there is a real, multi-item course list to
+    // reorder — never over the single synthetic loading-state group.
+    final reorderable = groups.length > 1 &&
+        groups.every((g) => g.course.userId.isNotEmpty);
+
+    if (!reorderable) {
+      return ListView(
+        padding: padding,
+        children: [for (final g in groups) _section(context, ref, g)],
+      );
+    }
+
+    return ReorderableListView(
+      padding: padding,
+      buildDefaultDragHandles: false,
+      onReorderItem: (oldIndex, newIndex) {
+        final ids = [for (final g in groups) g.course.id];
+        ref
+            .read(tabOrderProvider.notifier)
+            .reorderCourses(moveItemToIndex(ids, oldIndex, newIndex));
+      },
       children: [
-        for (final group in groups)
-          _CourseSection(
-            group: group,
-            expanded: _isExpanded(group.course),
-            onToggle: () => _toggle(ref, group.course),
-            // The synthetic fallback course (userId == '') is only shown while
-            // the course list is still loading / failed — it has no real id to
-            // write against, so it carries no menu.
-            onEditCourse: group.course.userId.isEmpty
-                ? null
-                : () => _editCourse(context, group.course),
-            // The default course is never deletable (ui-spec-v2 §3.1 / §7).
-            onDeleteCourse:
-                group.course.userId.isEmpty || group.course.isDefault
-                    ? null
-                    : () => _deleteCourse(context, ref, group.course),
-          ),
+        for (final (i, g) in groups.indexed)
+          _section(context, ref, g, dragIndex: i),
       ],
     );
   }
@@ -171,11 +204,13 @@ class _Accordion extends ConsumerWidget {
 
 class _CourseSection extends StatelessWidget {
   const _CourseSection({
+    super.key,
     required this.group,
     required this.expanded,
     required this.onToggle,
     required this.onEditCourse,
     required this.onDeleteCourse,
+    this.dragIndex,
   });
 
   final CourseDeckGroup group;
@@ -184,23 +219,32 @@ class _CourseSection extends StatelessWidget {
   final VoidCallback? onEditCourse;
   final VoidCallback? onDeleteCourse;
 
+  /// This section's index in the reorderable course list, or null when the list
+  /// isn't reorderable. When set, a long-press on the header starts a drag.
+  final int? dragIndex;
+
   @override
   Widget build(BuildContext context) {
     final tokens = Theme.of(context).extension<AppTokens>()!;
     final accent = tokens.accent(group.course.accentColor);
 
+    final header = _CourseHeader(
+      name: group.course.name,
+      deckCount: group.decks.length,
+      accent: accent,
+      expanded: expanded,
+      onTap: onToggle,
+      onEditCourse: onEditCourse,
+      onDeleteCourse: onDeleteCourse,
+    );
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _CourseHeader(
-          name: group.course.name,
-          deckCount: group.decks.length,
-          accent: accent,
-          expanded: expanded,
-          onTap: onToggle,
-          onEditCourse: onEditCourse,
-          onDeleteCourse: onDeleteCourse,
-        ),
+        if (dragIndex case final index?)
+          ReorderableDelayedDragStartListener(index: index, child: header)
+        else
+          header,
         if (expanded) ...[
           const SizedBox(height: 12),
           if (group.decks.isEmpty && !group.course.isDefault)
@@ -221,6 +265,7 @@ class _CourseSection extends StatelessWidget {
                 ),
               ),
             DeckGrid(
+              courseId: group.course.id,
               decks: group.decks,
               showCreateTile: group.course.isDefault,
             ),

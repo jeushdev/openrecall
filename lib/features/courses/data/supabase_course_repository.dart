@@ -1,5 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../core/reorder.dart';
 import '../domain/course.dart';
 import '../domain/course_repository.dart';
 
@@ -18,9 +19,25 @@ class SupabaseCourseRepository implements CourseRepository {
 
   @override
   Future<List<Course>> fetchCourses() async {
-    final rows =
-        await _client.from('courses').select(_columns).order('created_at');
+    final rows = await _client
+        .from('courses')
+        .select(_columns)
+        .order('position')
+        .order('created_at');
     return rows.map(Course.fromJson).toList();
+  }
+
+  @override
+  Future<void> reorderCourses(List<String> orderedIds) async {
+    // One batched round-trip via a SECURITY INVOKER function — RLS
+    // (`courses_owner`) still scopes the UPDATE, so ids the user does not own
+    // simply match no row. `updated_at` is left to the database trigger.
+    await _client.rpc('set_course_positions', params: {
+      'items': [
+        for (final e in positionsForOrder(orderedIds).entries)
+          {'id': e.key, 'position': e.value},
+      ],
+    });
   }
 
   @override

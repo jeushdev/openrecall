@@ -64,4 +64,35 @@ void main() {
       expect(repo.fetchCourses(), throwsStateError);
     });
   });
+
+  group('CacheFirstCourseRepository.reorderCourses', () {
+    test('delegates the new order straight to the remote', () async {
+      final remote = FakeCourseRepository(courses: [
+        fakeCourse(id: 'a', isDefault: true),
+        fakeCourse(id: 'b'),
+        fakeCourse(id: 'c'),
+      ]);
+      final repo = CacheFirstCourseRepository(
+        remote,
+        _FakeLocalCourseStore(const []),
+        () => 'u1',
+      );
+
+      await repo.reorderCourses(['c', 'a', 'b']);
+
+      expect(remote.calls, contains('reorderCourses([c, a, b])'));
+    });
+
+    test('propagates a remote failure (offline) without a local queue', () async {
+      final remote = FakeCourseRepository(courses: [fakeCourse(id: 'a')])
+        ..throwOnNextCall = StateError('offline');
+      final repo = CacheFirstCourseRepository(
+        remote,
+        _FakeLocalCourseStore(const []),
+        () => 'u1',
+      );
+
+      await expectLater(repo.reorderCourses(['a']), throwsStateError);
+    });
+  });
 }

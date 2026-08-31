@@ -79,4 +79,29 @@ void main() {
       expect(repo.createDeck('Cells'), throwsStateError);
     });
   });
+
+  group('CacheFirstDeckRepository.reorderDecks', () {
+    test('delegates the new order straight to the remote', () async {
+      final remote = FakeDeckRepository();
+      final repo = CacheFirstDeckRepository(
+        remote,
+        _FakeLocalDeckStore(),
+        _FakeLocalCourseStore(null),
+      );
+
+      await repo.reorderDecks(['d3', 'd1', 'd2']);
+
+      expect(remote.calls, contains('reorderDecks([d3, d1, d2])'));
+    });
+
+    test('propagates a remote failure (offline) without a local queue', () async {
+      final repo = CacheFirstDeckRepository(
+        FakeDeckRepository()..throwOnNextCall = StateError('offline'),
+        _FakeLocalDeckStore(),
+        _FakeLocalCourseStore(null),
+      );
+
+      await expectLater(repo.reorderDecks(['d1']), throwsStateError);
+    });
+  });
 }

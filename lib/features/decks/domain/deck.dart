@@ -12,6 +12,7 @@ class Deck {
     required this.createdAt,
     required this.updatedAt,
     this.courseId,
+    this.position = 0,
   });
 
   factory Deck.fromJson(Map<String, dynamic> json) => Deck(
@@ -21,10 +22,15 @@ class Deck {
         lastStudiedAt: _parseNullableDate(json['last_studied_at']),
         createdAt: DateTime.parse(json['created_at'] as String),
         updatedAt: DateTime.parse(json['updated_at'] as String),
+        position: json['position'] as int? ?? 0,
       );
 
   final String id;
   final String name;
+
+  /// The user's manual ordering key within its course's deck list (milestone
+  /// B). Ascending; ties broken by [createdAt].
+  final int position;
 
   /// The `courses` row this deck belongs to (engine-v2-spec §3.2). Nullable in
   /// the model only because the local mirror may not have it yet; a deck fetched
@@ -52,6 +58,7 @@ class DeckSummary {
     required this.masteryPercent,
     this.courseId,
     this.masteryLevelSum = 0,
+    this.position = 0,
   });
 
   /// Builds from a `decks` row with an embedded `cards(mastery_level)` list,
@@ -70,6 +77,7 @@ class DeckSummary {
       dueCards: levels.where((l) => l < masteredLevel).length,
       masteryPercent: masteryPercentFromLevels(levels),
       masteryLevelSum: levels.fold(0, (a, b) => a + b),
+      position: json['position'] as int? ?? 0,
     );
   }
 
@@ -88,6 +96,9 @@ class DeckSummary {
   /// card-weighted overall / per-course mastery % without re-fetching cards —
   /// `masteryPercent` alone is lossy (already rounded and deck-averaged).
   final int masteryLevelSum;
+
+  /// See [Deck.position].
+  final int position;
 }
 
 DateTime? _parseNullableDate(Object? value) =>

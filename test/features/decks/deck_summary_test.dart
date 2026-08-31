@@ -68,5 +68,10 @@ void main() {
     test('a null last_studied_at parses to null', () {
       expect(DeckSummary.fromJson(row()).lastStudiedAt, isNull);
     });
+
+    test('reads the manual-order position, defaulting to 0 when absent', () {
+      expect(DeckSummary.fromJson({...row(), 'position': 3}).position, 3);
+      expect(DeckSummary.fromJson(row()).position, 0);
+    });
   });
 }
