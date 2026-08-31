@@ -45,9 +45,17 @@ Future<StudyAppearancePreferences> _pump(
   return appearance;
 }
 
+/// Every section starts collapsed (milestone A). Tap its header to reveal the
+/// rows a test asserts on.
+Future<void> _expandSection(WidgetTester tester, String title) async {
+  await tester.tap(find.text(title));
+  await tester.pumpAndSettle();
+}
+
 void main() {
   testWidgets('renders both toggles and the section titles', (tester) async {
     await _pump(tester);
+    await _expandSection(tester, 'Study appearance');
 
     expect(find.text('Study appearance'), findsOneWidget);
     expect(find.text('Card transition'), findsOneWidget);
@@ -65,6 +73,7 @@ void main() {
 
   testWidgets('tapping a segment persists the new value', (tester) async {
     final prefs = await _pump(tester);
+    await _expandSection(tester, 'Study appearance');
     expect(await prefs.cardTransition(), CardTransition.flip3d);
 
     await tester.tap(find.text('Fade & slide'));
@@ -75,6 +84,7 @@ void main() {
 
   testWidgets('the card text size control toggles and persists', (tester) async {
     final prefs = await _pump(tester);
+    await _expandSection(tester, 'Study appearance');
     expect(await prefs.cardFontSize(), CardFontSize.medium);
 
     await tester.tap(find.text('XL'));
@@ -86,6 +96,7 @@ void main() {
   testWidgets('the card text size control reflects a stored preset',
       (tester) async {
     await _pump(tester, initialPrefs: {'card_font_size': 'large'});
+    await _expandSection(tester, 'Study appearance');
 
     final selected = tester.widget<Text>(find.text('L'));
     final medium = tester.widget<Text>(find.text('M'));
@@ -95,6 +106,7 @@ void main() {
   testWidgets('Feynman row shows the "not yet" copy with no stored preset',
       (tester) async {
     await _pump(tester);
+    await _expandSection(tester, 'Feynman mode');
     expect(
       find.textContaining("haven't timed a Feynman session"),
       findsOneWidget,
@@ -107,17 +119,20 @@ void main() {
       tester,
       initialPrefs: {'feynman_timer_seconds_last_used': 90},
     );
+    await _expandSection(tester, 'Feynman mode');
     expect(find.textContaining('Last used timer: 90s'), findsOneWidget);
   });
 
   testWidgets('About shows the app version', (tester) async {
     await _pump(tester);
+    await _expandSection(tester, 'General');
     expect(find.text('1.2.3+4'), findsOneWidget);
   });
 
   testWidgets('renders the Appearance section with the theme selector',
       (tester) async {
     await _pump(tester);
+    await _expandSection(tester, 'Appearance');
 
     expect(find.text('Appearance'), findsOneWidget);
     expect(find.text('Theme'), findsOneWidget);
@@ -128,6 +143,7 @@ void main() {
 
   testWidgets('picking a theme persists it as ThemeMode.name', (tester) async {
     await _pump(tester);
+    await _expandSection(tester, 'Appearance');
     final sp = await SharedPreferences.getInstance();
     expect(sp.getString('theme_mode'), isNull);
 
@@ -139,9 +155,26 @@ void main() {
 
   testWidgets('the theme selector reflects a stored override', (tester) async {
     await _pump(tester, initialPrefs: {'theme_mode': 'light'});
+    await _expandSection(tester, 'Appearance');
 
     final selected = tester.widget<Text>(find.text('Light'));
     final other = tester.widget<Text>(find.text('Dark'));
     expect(selected.style?.color, isNot(other.style?.color));
+  });
+
+  testWidgets('sections start collapsed and toggle independently of siblings',
+      (tester) async {
+    await _pump(tester);
+
+    // Nothing but the four headers is visible on entry.
+    expect(find.text('Card transition'), findsNothing);
+    expect(find.text('Theme'), findsNothing);
+
+    await _expandSection(tester, 'Study appearance');
+    expect(find.text('Card transition'), findsOneWidget);
+    expect(find.text('Theme'), findsNothing); // sibling untouched
+
+    await _expandSection(tester, 'Study appearance'); // collapse again
+    expect(find.text('Card transition'), findsNothing);
   });
 }

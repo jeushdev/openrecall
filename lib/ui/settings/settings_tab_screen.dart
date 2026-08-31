@@ -2,11 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../features/settings/application/settings_providers.dart';
+import '../../features/settings/application/settings_sections_expansion.dart';
 import '../../features/settings/data/study_appearance_preferences.dart';
 import '../../features/study/application/feynman_timer_providers.dart';
 import '../../theme/app_tokens.dart';
-import 'settings_section.dart';
+import 'collapsible_settings_section.dart';
 import 'settings_segmented_control.dart';
+
+// Stable ids for the collapsible sections — decoupled from the display titles
+// so a copy change never silently resets a section's expand state.
+const _kAppearance = 'appearance';
+const _kStudyAppearance = 'study_appearance';
+const _kFeynman = 'feynman';
+const _kGeneral = 'general';
 
 /// The Settings tab (`/settings`, ui-spec-v1 §6.5).
 ///
@@ -29,6 +37,8 @@ class SettingsTabScreen extends ConsumerWidget {
     final controller = ref.read(studyAppearanceProvider.notifier);
     final lastFeynman = ref.watch(lastFeynmanTimerProvider);
     final version = ref.watch(appVersionProvider);
+    final expanded = ref.watch(settingsSectionsExpansionProvider);
+    final sections = ref.read(settingsSectionsExpansionProvider.notifier);
 
     return Scaffold(
       backgroundColor: tokens.background,
@@ -47,8 +57,10 @@ class SettingsTabScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 24),
 
-            SettingsSection(
+            CollapsibleSettingsSection(
               title: 'Appearance',
+              expanded: expanded.contains(_kAppearance),
+              onToggle: () => sections.toggle(_kAppearance),
               children: [
                 _AppearanceRow(
                   label: 'Theme',
@@ -67,8 +79,10 @@ class SettingsTabScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 28),
 
-            SettingsSection(
+            CollapsibleSettingsSection(
               title: 'Study appearance',
+              expanded: expanded.contains(_kStudyAppearance),
+              onToggle: () => sections.toggle(_kStudyAppearance),
               children: [
                 _AppearanceRow(
                   label: 'Card transition',
@@ -114,8 +128,10 @@ class SettingsTabScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 28),
 
-            SettingsSection(
+            CollapsibleSettingsSection(
               title: 'Feynman mode',
+              expanded: expanded.contains(_kFeynman),
+              onToggle: () => sections.toggle(_kFeynman),
               children: [
                 Text(
                   switch (lastFeynman.asData?.value) {
@@ -133,8 +149,10 @@ class SettingsTabScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 28),
 
-            SettingsSection(
+            CollapsibleSettingsSection(
               title: 'General',
+              expanded: expanded.contains(_kGeneral),
+              onToggle: () => sections.toggle(_kGeneral),
               children: [
                 _LinkRow(
                   label: 'Send feedback',

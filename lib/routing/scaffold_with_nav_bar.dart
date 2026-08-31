@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../features/settings/application/settings_sections_expansion.dart';
 import 'glass_bottom_nav_bar.dart';
 
 /// The shell chrome wrapped around the four tab branches
@@ -29,7 +31,7 @@ import 'glass_bottom_nav_bar.dart';
 /// outgoing and incoming subtrees mounted under *different* slots at once,
 /// which throws duplicate-`GlobalKey` errors. The [Stack] here keeps each
 /// branch in a single stable slot for its whole lifetime.
-class ScaffoldWithNavBar extends StatefulWidget {
+class ScaffoldWithNavBar extends ConsumerStatefulWidget {
   const ScaffoldWithNavBar({
     super.key,
     required this.navigationShell,
@@ -43,13 +45,17 @@ class ScaffoldWithNavBar extends StatefulWidget {
   final List<Widget> children;
 
   @override
-  State<ScaffoldWithNavBar> createState() => _ScaffoldWithNavBarState();
+  ConsumerState<ScaffoldWithNavBar> createState() => _ScaffoldWithNavBarState();
 }
 
-class _ScaffoldWithNavBarState extends State<ScaffoldWithNavBar>
+class _ScaffoldWithNavBarState extends ConsumerState<ScaffoldWithNavBar>
     with SingleTickerProviderStateMixin {
   static const _still = AlwaysStoppedAnimation(Offset.zero);
   static const _duration = Duration(milliseconds: 240);
+
+  /// Branch order is fixed in `app_router.dart`: 0 Decks, 1 Mastery, 2 Profile,
+  /// 3 Settings.
+  static const _settingsBranchIndex = 3;
 
   late final AnimationController _controller;
 
@@ -110,6 +116,12 @@ class _ScaffoldWithNavBarState extends State<ScaffoldWithNavBar>
   }
 
   void _goBranch(int index) {
+    // Settings sections never remember their expand state — every entry to the
+    // tab shows a fully collapsed screen (milestone A). The nav bar is the only
+    // in-app route into `/settings`.
+    if (index == _settingsBranchIndex) {
+      ref.read(settingsSectionsExpansionProvider.notifier).collapseAll();
+    }
     widget.navigationShell.goBranch(
       index,
       // Tapping the active tab again returns it to its initial location.
