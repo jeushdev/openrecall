@@ -33,7 +33,7 @@ class AppDatabase {
 
   /// Bump this and add a step to [_onUpgrade] whenever [schemaStatements]
   /// changes.
-  static const _version = 4;
+  static const _version = 5;
 
   /// Opens (creating on first run) the database. [path] overrides the platform
   /// default and is only passed by tests.
@@ -142,6 +142,8 @@ class AppDatabase {
     // Full local sessions — a session can be started and finished entirely
     // offline. `user_id` is carried so the row can be upserted under RLS later.
     // `card_scope` mirrors `study_sessions.card_scope` (engine-v2-spec §3.3).
+    // `cards_reviewed` mirrors `study_sessions.cards_reviewed` — the distinct
+    // card count stamped on completion, for the milestone-D profile metrics.
     '''
     CREATE TABLE offline_study_sessions (
       id             TEXT PRIMARY KEY,
@@ -153,6 +155,7 @@ class AppDatabase {
       capped_length  INTEGER,
       card_scope     TEXT NOT NULL DEFAULT 'due',
       mastery_delta  INTEGER,
+      cards_reviewed INTEGER,
       started_at     TEXT NOT NULL,
       completed_at   TEXT,
       is_synced      INTEGER NOT NULL DEFAULT 1
@@ -249,6 +252,16 @@ class AppDatabase {
         'ON offline_deletions(entity_type, entity_id)',
   ];
 
+  /// The delta from schema version 4 to version 5 (offline-and-ux milestone D):
+  /// `offline_study_sessions` gains `cards_reviewed`, mirroring the new
+  /// `study_sessions.cards_reviewed` column. Nullable with no default, as
+  /// `ALTER TABLE ADD COLUMN` allows — a locally-recorded session stamps it on
+  /// completion, older rows stay null.
+  @visibleForTesting
+  static const List<String> upgradeToV5Statements = <String>[
+    'ALTER TABLE offline_study_sessions ADD COLUMN cards_reviewed INTEGER',
+  ];
+
   static Future<void> _createSchema(Database db, int version) async {
     final batch = db.batch();
     for (final statement in schemaStatements) {
@@ -275,6 +288,11 @@ class AppDatabase {
     }
     if (oldVersion < 4) {
       for (final statement in upgradeToV4Statements) {
+        batch.execute(statement);
+      }
+    }
+    if (oldVersion < 5) {
+      for (final statement in upgradeToV5Statements) {
         batch.execute(statement);
       }
     }

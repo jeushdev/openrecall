@@ -131,7 +131,8 @@ class LocalStudyStore {
 
   Future<bool> completeSession(
     String sessionId,
-    int? masteryDelta, {
+    int? masteryDelta,
+    int? cardsReviewed, {
     required bool synced,
   }) async {
     final db = _db;
@@ -142,6 +143,7 @@ class LocalStudyStore {
         'status': 'completed',
         'completed_at': DateTime.now().toUtc().toIso8601String(),
         'mastery_delta': ?masteryDelta,
+        'cards_reviewed': ?cardsReviewed,
         'is_synced': synced ? 1 : 0,
       },
       where: 'id = ?',
@@ -169,6 +171,7 @@ class LocalStudyStore {
           'capped_length': r['capped_length'],
           'card_scope': r['card_scope'],
           'mastery_delta': r['mastery_delta'],
+          'cards_reviewed': r['cards_reviewed'],
           'started_at': r['started_at'],
           'completed_at': r['completed_at'],
         }),

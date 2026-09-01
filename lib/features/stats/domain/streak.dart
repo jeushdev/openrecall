@@ -46,5 +46,36 @@ int currentStreak(
   return count;
 }
 
+/// The Profile tab's "longest streak" (offline-and-ux milestone D): the longest
+/// run of consecutive local-calendar days on which the user completed at least
+/// one study session, anywhere in their history.
+///
+/// Like [currentStreak], this is derived on read from `study_sessions.started_at`
+/// and works in the device-local timezone. [completedSessionStarts] is the
+/// `started_at` of every `completed` session (order irrelevant). Multiple
+/// sessions on one day count once.
+int longestStreak(Iterable<DateTime> completedSessionStarts) {
+  final days = <DateTime>{
+    for (final start in completedSessionStarts) _dateOnly(start.toLocal()),
+  };
+  if (days.isEmpty) return 0;
+
+  var longest = 0;
+  for (final day in days) {
+    // Count a run only from its first day — the day before is not a study day.
+    final previous = _dateOnly(day.subtract(const Duration(hours: 12)));
+    if (days.contains(previous)) continue;
+
+    var length = 0;
+    var cursor = day;
+    while (days.contains(cursor)) {
+      length++;
+      cursor = _dateOnly(cursor.add(const Duration(hours: 36)));
+    }
+    if (length > longest) longest = length;
+  }
+  return longest;
+}
+
 /// Strips the time component, keeping the calendar date in local time.
 DateTime _dateOnly(DateTime d) => DateTime(d.year, d.month, d.day);

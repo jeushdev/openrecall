@@ -6,13 +6,15 @@ import '../../features/settings/application/settings_providers.dart';
 import '../../theme/app_tokens.dart';
 import 'account_rows_card.dart';
 import 'profile_identity_header.dart';
+import 'profile_metrics_section.dart';
 import 'profile_stats_row.dart';
 import 'sign_out_button.dart';
 
 /// The Profile tab (`/profile`, ui-spec-v1 §6.4).
 ///
-/// Identity (avatar + email), two stat blocks (streak, aggregate mastery),
-/// placeholder Account/Subscription rows, and the outlined "Sign out" button.
+/// Identity (avatar + email), the streak / mastery stat blocks, the Study habits
+/// metrics block (milestone D), placeholder Account/Subscription rows, and the
+/// outlined "Sign out" button.
 /// No leave/close affordance — Profile is a shell-branch tab, the bottom nav
 /// bar is the way back.
 class ProfileTabScreen extends ConsumerWidget {
@@ -53,6 +55,8 @@ class ProfileTabScreen extends ConsumerWidget {
             ProfileIdentityHeader(email: email),
             const SizedBox(height: 24),
             const ProfileStatsRow(),
+            const SizedBox(height: 24),
+            const ProfileMetricsSection(),
             const SizedBox(height: 24),
             const AccountRowsCard(),
             const SizedBox(height: 32),

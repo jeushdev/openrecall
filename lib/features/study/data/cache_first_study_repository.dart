@@ -146,13 +146,30 @@ class CacheFirstStudyRepository implements StudyRepository {
   }
 
   @override
-  Future<void> completeSession(String sessionId, {int? masteryDelta}) async {
+  Future<void> completeSession(
+    String sessionId, {
+    int? masteryDelta,
+    int? cardsReviewed,
+  }) async {
     try {
-      await _remote.completeSession(sessionId, masteryDelta: masteryDelta);
-      await _local.completeSession(sessionId, masteryDelta, synced: true);
+      await _remote.completeSession(
+        sessionId,
+        masteryDelta: masteryDelta,
+        cardsReviewed: cardsReviewed,
+      );
+      await _local.completeSession(
+        sessionId,
+        masteryDelta,
+        cardsReviewed,
+        synced: true,
+      );
     } catch (_) {
-      final applied =
-          await _local.completeSession(sessionId, masteryDelta, synced: false);
+      final applied = await _local.completeSession(
+        sessionId,
+        masteryDelta,
+        cardsReviewed,
+        synced: false,
+      );
       if (!applied) rethrow;
     }
   }

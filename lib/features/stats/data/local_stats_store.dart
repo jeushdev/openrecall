@@ -1,5 +1,6 @@
 import 'package:sqflite/sqflite.dart';
 
+import '../domain/completed_session.dart';
 import '../domain/completed_session_activity.dart';
 
 /// Read-only DAO for the cross-deck stat aggregations (engine-v2-spec §6),
@@ -63,21 +64,30 @@ class LocalStatsStore {
     };
   }
 
-  /// `started_at` of every locally-recorded `completed` session, most-recent
-  /// first — the streak input (ui-spec-v1 §6.4). Partial by nature: only
-  /// sessions that ran on this device are mirrored.
-  Future<List<DateTime>> completedSessionStarts() async {
+  /// Every locally-recorded `completed` session, most-recent first, capped at
+  /// [limit] — the input for the Profile tab's streaks and study-volume metrics
+  /// (milestone D). Partial by nature: only sessions that ran on this device are
+  /// mirrored.
+  Future<List<CompletedSession>> completedSessions(int limit) async {
     final db = _db;
     if (db == null) return const [];
     final rows = await db.query(
       'offline_study_sessions',
-      columns: ['started_at'],
+      columns: ['started_at', 'completed_at', 'cards_reviewed'],
       where: 'status = ?',
       whereArgs: ['completed'],
       orderBy: 'started_at DESC',
+      limit: limit,
     );
     return [
-      for (final r in rows) DateTime.parse(r['started_at'] as String),
+      for (final r in rows)
+        CompletedSession(
+          startedAt: DateTime.parse(r['started_at'] as String),
+          completedAt: r['completed_at'] == null
+              ? null
+              : DateTime.parse(r['completed_at'] as String),
+          cardsReviewed: r['cards_reviewed'] as int?,
+        ),
     ];
   }
 }

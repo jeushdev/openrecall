@@ -1,4 +1,5 @@
 import 'package:open_recall/features/stats/domain/activity_feed.dart';
+import 'package:open_recall/features/stats/domain/completed_session.dart';
 import 'package:open_recall/features/stats/domain/completed_session_activity.dart';
 import 'package:open_recall/features/stats/domain/stats_repository.dart';
 
@@ -8,14 +9,14 @@ class FakeStatsRepository implements StatsRepository {
   FakeStatsRepository({
     List<CompletedSessionActivity>? recentCompletedSessions,
     Map<String, int>? runThroughs,
-    List<DateTime>? completedSessionStarts,
+    List<CompletedSession>? completedSessions,
   })  : _recentCompletedSessions = [...?recentCompletedSessions],
         _runThroughs = {...?runThroughs},
-        _completedSessionStarts = [...?completedSessionStarts];
+        _completedSessions = [...?completedSessions];
 
   final List<CompletedSessionActivity> _recentCompletedSessions;
   final Map<String, int> _runThroughs;
-  final List<DateTime> _completedSessionStarts;
+  final List<CompletedSession> _completedSessions;
 
   final List<String> calls = <String>[];
 
@@ -47,9 +48,11 @@ class FakeStatsRepository implements StatsRepository {
   }
 
   @override
-  Future<List<DateTime>> fetchCompletedSessionStarts() async {
-    calls.add('fetchCompletedSessionStarts()');
+  Future<List<CompletedSession>> fetchCompletedSessions({
+    int limit = completedSessionsLimit,
+  }) async {
+    calls.add('fetchCompletedSessions(limit=$limit)');
     _maybeThrow();
-    return List.unmodifiable(_completedSessionStarts);
+    return List.unmodifiable(_completedSessions.take(limit));
   }
 }

@@ -5,6 +5,7 @@ import 'package:open_recall/features/decks/application/deck_providers.dart';
 import 'package:open_recall/features/decks/domain/deck.dart';
 import 'package:open_recall/features/stats/application/stats_providers.dart';
 import 'package:open_recall/features/stats/domain/activity_feed.dart';
+import 'package:open_recall/features/stats/domain/completed_session.dart';
 import 'package:open_recall/features/stats/domain/completed_session_activity.dart';
 
 import '../../support/fake_course_repository.dart';
@@ -69,6 +70,18 @@ void main() {
         ),
       ],
       runThroughs: {'d1': 3, 'd3': 1},
+      completedSessions: [
+        CompletedSession(
+          startedAt: DateTime(2026, 8, 20, 9),
+          completedAt: DateTime(2026, 8, 20, 9, 30),
+          cardsReviewed: 6,
+        ),
+        CompletedSession(
+          startedAt: DateTime(2026, 8, 19, 9),
+          completedAt: DateTime(2026, 8, 19, 9, 20),
+          cardsReviewed: 4,
+        ),
+      ],
     );
     container = build();
     addTearDown(container.dispose);
@@ -130,5 +143,14 @@ void main() {
       {'d1': 3, 'd3': 1},
     );
     expect(stats.calls, contains('fetchDeckRunThroughs()'));
+  });
+
+  test('studyMetricsProvider folds the completed-session history', () async {
+    final metrics = await container.read(studyMetricsProvider.future);
+
+    expect(metrics.sessionsCompleted, 2);
+    expect(metrics.totalCardsReviewed, 10);
+    expect(metrics.totalStudyTime, const Duration(minutes: 50));
+    expect(stats.calls, contains('fetchCompletedSessions(limit=1000)'));
   });
 }

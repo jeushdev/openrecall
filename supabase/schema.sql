@@ -108,6 +108,10 @@ create table study_sessions (
   -- status='completed'.
   card_scope text not null default 'due' check (card_scope in ('due','all')),
   mastery_delta smallint,
+  -- Distinct cards the session covered, stamped on completion (milestone D
+  -- profile metrics). Null for in-progress rows and for sessions completed
+  -- before this column existed that the backfill below has not reached.
+  cards_reviewed smallint,
   started_at timestamptz not null default now(),
   completed_at timestamptz
 );
@@ -525,4 +529,27 @@ begin
     ) ranked
     where ranked.id = d.id;
   end if;
+end $$;
+
+-- ---------------------------------------------------------------------------
+-- One-time cards-reviewed migration — milestone D
+-- (docs/superpowers/specs/2026-08-31-offline-and-ux-improvements-design.md)
+--
+-- No-ops on a fresh project (the `create table study_sessions` above already
+-- carries `cards_reviewed`). On a project with existing history: add the
+-- column, then backfill every already-`completed` session from its
+-- `session_cards` row count — one row per distinct card the session queued,
+-- which is exactly what the app now stamps at completion time. Guarded on
+-- `cards_reviewed is null` so a re-apply never overwrites a stamped value.
+-- ---------------------------------------------------------------------------
+
+do $$
+begin
+  alter table study_sessions add column if not exists cards_reviewed smallint;
+
+  update study_sessions s
+  set cards_reviewed = (
+    select count(*) from session_cards sc where sc.session_id = s.id
+  )
+  where s.status = 'completed' and s.cards_reviewed is null;
 end $$;

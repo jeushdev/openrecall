@@ -86,13 +86,18 @@ class SupabaseStudyRepository implements StudyRepository {
   }
 
   @override
-  Future<void> completeSession(String sessionId, {int? masteryDelta}) async {
+  Future<void> completeSession(
+    String sessionId, {
+    int? masteryDelta,
+    int? cardsReviewed,
+  }) async {
     await _client
         .from('study_sessions')
         .update({
           'status': 'completed',
           'completed_at': DateTime.now().toUtc().toIso8601String(),
           'mastery_delta': ?masteryDelta,
+          'cards_reviewed': ?cardsReviewed,
         })
         .eq('id', sessionId);
   }

@@ -149,8 +149,13 @@ class FakeStudyRepository implements StudyRepository {
   }
 
   @override
-  Future<void> completeSession(String sessionId, {int? masteryDelta}) async {
-    calls.add('completeSession($sessionId, masteryDelta=$masteryDelta)');
+  Future<void> completeSession(
+    String sessionId, {
+    int? masteryDelta,
+    int? cardsReviewed,
+  }) async {
+    calls.add('completeSession($sessionId, masteryDelta=$masteryDelta, '
+        'cardsReviewed=$cardsReviewed)');
     await _maybeThrow();
     final i = _sessions.indexWhere((s) => s.id == sessionId);
     if (i == -1) return;

@@ -33,6 +33,13 @@ void main() {
     );
   });
 
+  test('a long unbroken run counts every day', () {
+    expect(
+      currentStreak([for (var d = 0; d < 10; d++) daysAgo(d)], now: now),
+      10,
+    );
+  });
+
   test('a gap breaks the streak at the gap', () {
     expect(
       currentStreak([daysAgo(0), daysAgo(1), daysAgo(3), daysAgo(4)], now: now),

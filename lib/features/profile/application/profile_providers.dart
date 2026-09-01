@@ -26,11 +26,10 @@ final userIdentityProvider = Provider<UserIdentity>((ref) {
 /// The Profile tab's "current streak" — consecutive calendar days ending today
 /// or yesterday with at least one `completed` session (ui-spec-v1 §6.4).
 ///
-/// Derived on read from `study_sessions.started_at` via the same cache-first
-/// stats repository the Mastery tab uses; never a stored counter (see
-/// [currentStreak]).
+/// Derived on read from the completed-session history via
+/// [completedSessionsProvider] — the same fetch the Study habits metrics use, so
+/// the Profile tab loads it once. Never a stored counter (see [currentStreak]).
 final currentStreakProvider = FutureProvider<int>((ref) async {
-  final starts =
-      await ref.watch(statsRepositoryProvider).fetchCompletedSessionStarts();
-  return currentStreak(starts);
+  final sessions = await ref.watch(completedSessionsProvider.future);
+  return currentStreak(sessions.map((s) => s.startedAt));
 });

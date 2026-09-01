@@ -1,6 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../domain/activity_feed.dart';
+import '../domain/completed_session.dart';
 import '../domain/completed_session_activity.dart';
 import '../domain/stats_repository.dart';
 
@@ -51,18 +52,24 @@ class SupabaseStatsRepository implements StatsRepository {
   }
 
   @override
-  Future<List<DateTime>> fetchCompletedSessionStarts() async {
-    // Only `started_at` is needed — the streak is a pure calendar-day fold over
-    // these. Capped at 500 rows: well over a year of daily study, and the fold
-    // never needs more than the current unbroken run anyway.
+  Future<List<CompletedSession>> fetchCompletedSessions({
+    int limit = completedSessionsLimit,
+  }) async {
     final rows = await _client
         .from('study_sessions')
-        .select('started_at')
+        .select('started_at, completed_at, cards_reviewed')
         .eq('status', 'completed')
         .order('started_at', ascending: false)
-        .limit(500);
+        .limit(limit);
     return [
-      for (final row in rows) DateTime.parse(row['started_at'] as String),
+      for (final row in rows)
+        CompletedSession(
+          startedAt: DateTime.parse(row['started_at'] as String),
+          completedAt: row['completed_at'] == null
+              ? null
+              : DateTime.parse(row['completed_at'] as String),
+          cardsReviewed: row['cards_reviewed'] as int?,
+        ),
     ];
   }
 }

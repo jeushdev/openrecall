@@ -60,6 +60,10 @@ void main() {
       (tester) async {
     await _pump(tester, pendingWrites: false);
 
+    await tester.scrollUntilVisible(
+      find.widgetWithText(OutlinedButton, 'Sign out'),
+      200,
+    );
     await tester.tap(find.widgetWithText(OutlinedButton, 'Sign out'));
     await tester.pumpAndSettle();
 
@@ -72,6 +76,10 @@ void main() {
       (tester) async {
     await _pump(tester, pendingWrites: true);
 
+    await tester.scrollUntilVisible(
+      find.widgetWithText(OutlinedButton, 'Sign out'),
+      200,
+    );
     await tester.tap(find.widgetWithText(OutlinedButton, 'Sign out'));
     await tester.pumpAndSettle();
 
@@ -82,6 +90,10 @@ void main() {
       (tester) async {
     final auth = await _pump(tester);
 
+    await tester.scrollUntilVisible(
+      find.widgetWithText(OutlinedButton, 'Sign out'),
+      200,
+    );
     await tester.tap(find.widgetWithText(OutlinedButton, 'Sign out'));
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(FilledButton, 'Sign out'));
@@ -93,6 +105,10 @@ void main() {
   testWidgets('cancelling the dialog does not sign out', (tester) async {
     final auth = await _pump(tester);
 
+    await tester.scrollUntilVisible(
+      find.widgetWithText(OutlinedButton, 'Sign out'),
+      200,
+    );
     await tester.tap(find.widgetWithText(OutlinedButton, 'Sign out'));
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(TextButton, 'Cancel'));

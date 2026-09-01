@@ -425,6 +425,7 @@ class SessionController extends Notifier<AsyncValue<StudySessionState?>> {
       await _study.completeSession(
         current.session.id,
         masteryDelta: current.outcome?.masteryDelta,
+        cardsReviewed: current.outcome?.cardsStudied,
       );
     } catch (_) {
       // Non-fatal: the Session Summary is driven by in-memory state, not this

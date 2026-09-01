@@ -374,6 +374,22 @@ void main() {
       expect(study.sessions.single.completedAt, isNotNull);
     });
 
+    test('completing a session records how many cards it reviewed', () async {
+      await start();
+
+      controller().rate(FlipRating.mastered);
+      await pumpEventQueue();
+
+      expect(
+        study.calls,
+        contains(startsWith('completeSession(session-1, masteryDelta=')),
+      );
+      expect(
+        study.calls.singleWhere((c) => c.startsWith('completeSession')),
+        endsWith('cardsReviewed=1)'),
+      );
+    });
+
     test('exit leaves the session active and keeps the state for resume',
         () async {
       await start();

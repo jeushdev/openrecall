@@ -1,4 +1,5 @@
 import '../domain/activity_feed.dart';
+import '../domain/completed_session.dart';
 import '../domain/completed_session_activity.dart';
 import '../domain/stats_repository.dart';
 import 'local_stats_store.dart';
@@ -41,12 +42,14 @@ class CacheFirstStatsRepository implements StatsRepository {
   }
 
   @override
-  Future<List<DateTime>> fetchCompletedSessionStarts() async {
+  Future<List<CompletedSession>> fetchCompletedSessions({
+    int limit = completedSessionsLimit,
+  }) async {
     try {
-      return await _remote.fetchCompletedSessionStarts();
+      return await _remote.fetchCompletedSessions(limit: limit);
     } catch (_) {
       if (_local.isNoop) rethrow;
-      return _local.completedSessionStarts();
+      return _local.completedSessions(limit);
     }
   }
 }

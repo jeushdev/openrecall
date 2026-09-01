@@ -8,10 +8,12 @@ import '../data/cache_first_stats_repository.dart';
 import '../data/supabase_stats_repository.dart';
 import '../../courses/domain/course.dart';
 import '../domain/activity_feed.dart';
+import '../domain/completed_session.dart';
 import '../domain/completed_session_activity.dart';
 import '../domain/course_summary.dart';
 import '../domain/overall_mastery.dart';
 import '../domain/stats_repository.dart';
+import '../domain/study_metrics.dart';
 
 /// The APIs behind the future Mastery / Stats screen (engine-v2-spec §6).
 /// Providers + repository methods only — no widgets in Engine V2.
@@ -63,6 +65,23 @@ final recentActivityProvider = FutureProvider<List<ActivityItem>>((ref) async {
 /// "Times fully cleared" per deck (engine-v2-spec §4.3), keyed by deck id.
 final deckRunThroughsProvider = FutureProvider<Map<String, int>>((ref) {
   return ref.watch(statsRepositoryProvider).fetchDeckRunThroughs();
+});
+
+/// Every completed study session (newest first, capped) — the shared history
+/// access point for the Profile tab's streaks and study-volume metrics
+/// (milestone D). The current-streak provider reads it too, so a Profile load
+/// makes one session fetch, not two.
+final completedSessionsProvider =
+    FutureProvider<List<CompletedSession>>((ref) {
+  return ref.watch(statsRepositoryProvider).fetchCompletedSessions();
+});
+
+/// The Profile tab's "Study habits" block (milestone D): current + longest
+/// streak, lifetime session/card/time totals and this-week rollups, folded from
+/// [completedSessionsProvider]. Pure derivation — see [buildStudyMetrics].
+final studyMetricsProvider = FutureProvider<StudyMetrics>((ref) async {
+  final sessions = await ref.watch(completedSessionsProvider.future);
+  return buildStudyMetrics(sessions: sessions);
 });
 
 /// Per-course rollups. Pure derivation of [coursesProvider] + [decksProvider],

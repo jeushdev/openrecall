@@ -42,6 +42,12 @@ abstract interface class StudyRepository {
     bool? isParked,
   });
 
-  /// Marks a session `completed` with `completed_at = now()`.
-  Future<void> completeSession(String sessionId, {int? masteryDelta});
+  /// Marks a session `completed` with `completed_at = now()`. [cardsReviewed] is
+  /// the distinct cards the session covered, stored for the profile metrics
+  /// (milestone D).
+  Future<void> completeSession(
+    String sessionId, {
+    int? masteryDelta,
+    int? cardsReviewed,
+  });
 }

@@ -20,5 +20,9 @@ void main() {
     test('runThroughsByDeck returns empty', () async {
       expect(await store.runThroughsByDeck(), isEmpty);
     });
+
+    test('completedSessions returns empty', () async {
+      expect(await store.completedSessions(1000), isEmpty);
+    });
   });
 }
