@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/local_db/mirror_scope_guard.dart';
 import 'core/sync/sync_providers.dart';
 import 'core/ui/app_messenger.dart';
+import 'core/ui/web_app_frame.dart';
 import 'features/settings/application/settings_providers.dart';
 import 'routing/app_router.dart';
 import 'theme/app_theme.dart';
@@ -43,7 +44,7 @@ class OpenRecallApp extends ConsumerWidget {
         final isDark = Theme.of(context).brightness == Brightness.dark;
         return AnnotatedRegion<SystemUiOverlayStyle>(
           value: isDark ? AppTheme.darkOverlay : AppTheme.lightOverlay,
-          child: child ?? const SizedBox.shrink(),
+          child: WebAppFrame(child: child ?? const SizedBox.shrink()),
         );
       },
     );
