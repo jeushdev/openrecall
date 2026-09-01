@@ -1,9 +1,10 @@
 import 'package:flutter/foundation.dart'
-    show LicenseEntryWithLineBreaks, LicenseRegistry;
+    show LicenseEntryWithLineBreaks, LicenseRegistry, kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_web_plugins/url_strategy.dart' show usePathUrlStrategy;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'app.dart';
@@ -17,6 +18,12 @@ import 'features/settings/data/theme_mode_preference.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Clean URLs on web: `/decks/…` rather than `/#/decks/…` (spec-web-mvp §5.4).
+  // Paired with a host-side SPA fallback in Phase 2. No-op on Android.
+  if (kIsWeb) {
+    usePathUrlStrategy();
+  }
 
   // Attribute the bundled Fraunces / Inter faces (ui-spec-v3 §1) on the
   // in-app licenses page. Lazily read — the SIL OFL text is only loaded if the
@@ -47,14 +54,19 @@ Future<void> main() async {
   );
 
   // Reminders are a nice-to-have; a platform-channel failure here must never
-  // stop the app from starting.
+  // stop the app from starting. `flutter_local_notifications` has no web
+  // implementation, so the whole init is skipped on web (spec-web-mvp §5.1) —
+  // `notifications` is still constructed for the provider override below.
   final notifications = NotificationService();
-  try {
-    await notifications.init();
-    // Honor the user's saved reminders on/off choice (spec §9) from cold start.
-    await notifications.setEnabled(await NotificationPreferences().isEnabled());
-  } catch (_) {
-    // Reminders stay off for this launch.
+  if (!kIsWeb) {
+    try {
+      await notifications.init();
+      // Honor the user's saved reminders on/off choice (spec §9) from cold start.
+      await notifications
+          .setEnabled(await NotificationPreferences().isEnabled());
+    } catch (_) {
+      // Reminders stay off for this launch.
+    }
   }
 
   // Eagerly read the saved theme override so the first frame paints in the
@@ -67,12 +79,17 @@ Future<void> main() async {
   }
 
   // The device-local mirror for offline decks (spec §10). If it can't be
-  // opened the app still runs — just online-only.
+  // opened the app still runs — just online-only. Skipped entirely on web:
+  // `sqflite` has no web implementation and the web build is online-only by
+  // design (spec-web-mvp §4, §5.1). `database` stays null so
+  // `appDatabaseProvider` is not overridden.
   AppDatabase? database;
-  try {
-    database = await AppDatabase.open();
-  } catch (_) {
-    database = null;
+  if (!kIsWeb) {
+    try {
+      database = await AppDatabase.open();
+    } catch (_) {
+      database = null;
+    }
   }
 
   runApp(ProviderScope(
