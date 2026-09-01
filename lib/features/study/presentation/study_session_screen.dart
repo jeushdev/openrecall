@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../routing/app_routes.dart';
+import '../../../theme/app_haptics.dart';
 import '../../../theme/app_tokens.dart';
+import '../../../theme/app_type.dart';
 import '../../decks/application/deck_providers.dart';
 import '../../decks/domain/study_mode.dart';
 import '../../settings/application/settings_providers.dart';
@@ -376,7 +377,7 @@ class _Message extends StatelessWidget {
             Text(
               text,
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 15, color: tokens.textPrimary),
+              style: AppType.bodyLarge.copyWith(color: tokens.textPrimary),
             ),
             const SizedBox(height: 16),
             if (actionLabel != null && onAction != null) ...[
@@ -446,15 +447,25 @@ class _ActiveBodyState extends State<_ActiveBody> {
   /// direction, then advances the queue synchronously — the animation never
   /// gates it.
   void _rate(FlipRating rating) {
-    HapticFeedback.selectionClick();
+    _hapticFor(rating.level);
     setState(() => _exitOffset = _exitFor(rating.level));
     widget.onRate(rating);
+  }
+
+  /// Mastered (4) commits the card out of the queue for good — a firmer buzz;
+  /// every other verdict is a lighter rating tap (ui-spec-v3 §3, §5.2).
+  void _hapticFor(int level) {
+    if (level == 4) {
+      AppHaptics.commit();
+    } else {
+      AppHaptics.rating();
+    }
   }
 
   /// Cloze's auto-derived outcome, under the same non-blocking contract as
   /// [_rate].
   void _cloze(ClozeOutcome outcome) {
-    HapticFeedback.selectionClick();
+    _hapticFor(outcome.masteryLevel);
     setState(() => _exitOffset = _exitFor(outcome.masteryLevel));
     widget.onCloze(outcome);
   }
@@ -569,8 +580,11 @@ class _ActiveBodyState extends State<_ActiveBody> {
                     padding: const EdgeInsets.only(right: 16),
                     child: Text(
                       '${state.resolvedCount} / ${state.totalCards}',
-                      style:
-                          TextStyle(fontSize: 12, color: tokens.textSecondary),
+                      style: AppType.numeric.copyWith(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        color: tokens.textSecondary,
+                      ),
                     ),
                   ),
                 ],

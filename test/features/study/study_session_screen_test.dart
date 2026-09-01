@@ -260,7 +260,10 @@ void main() {
 
     expect(find.text('This session'), findsOneWidget);
 
-    await tester.tap(find.widgetWithText(TextButton, 'Done'));
+    final done = find.widgetWithText(TextButton, 'Done');
+    await tester.ensureVisible(done);
+    await tester.pumpAndSettle();
+    await tester.tap(done);
     await tester.pumpAndSettle();
     expect(find.text('Home'), findsOneWidget);
     expect(find.byType(StudySessionScreen), findsNothing);

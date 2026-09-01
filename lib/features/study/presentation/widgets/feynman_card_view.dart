@@ -1,9 +1,10 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
+import '../../../../theme/app_haptics.dart';
 import '../../../../theme/app_tokens.dart';
+import '../../../../theme/app_type.dart';
 import '../../../decks/domain/card.dart';
 import 'feynman_reference_dialog.dart';
 import 'stacked_deck.dart';
@@ -18,7 +19,7 @@ import 'stacked_deck.dart';
 ///   "Finished" button yet.
 /// - **Running**: prompt + a live countdown + a "Finished" button. Tapping
 ///   Finished *or* the timer reaching `0:00` both go to Finished, paired with
-///   [HapticFeedback.mediumImpact].
+///   `AppHaptics.commit()` — the card is done.
 /// - **Finished**: prompt + a "Reveal reference" chip ([FeynmanReferenceDialog]).
 ///   The 0–4 rating row is owned by the study screen and it gates on
 ///   [onFinished] having fired.
@@ -85,7 +86,7 @@ class _FeynmanCardViewState extends State<FeynmanCardView> {
   void _finish() {
     if (_phase == _Phase.finished) return;
     _timer?.cancel();
-    HapticFeedback.mediumImpact();
+    AppHaptics.commit();
     setState(() {
       _phase = _Phase.finished;
       _remaining = 0;
@@ -120,18 +121,12 @@ class _FeynmanCardViewState extends State<FeynmanCardView> {
                 children: [
                   Text(
                     'EXPLAIN THIS',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 0.8,
-                      color: tokens.textTertiary,
-                    ),
+                    style: AppType.overline.copyWith(color: tokens.textTertiary),
                   ),
                   Text(
                     _clock,
-                    style: TextStyle(
+                    style: AppType.numeric.copyWith(
                       fontSize: 13,
-                      fontWeight: FontWeight.w600,
                       color: _phase == _Phase.running
                           ? tokens.textPrimary
                           : tokens.textTertiary,
@@ -143,11 +138,7 @@ class _FeynmanCardViewState extends State<FeynmanCardView> {
               Text(
                 prompt,
                 textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 18,
-                  height: 1.4,
-                  color: tokens.textPrimary,
-                ),
+                style: AppType.cardBody.copyWith(color: tokens.textPrimary),
               ),
               const SizedBox(height: 22),
               _action(tokens),
@@ -166,7 +157,7 @@ class _FeynmanCardViewState extends State<FeynmanCardView> {
             Text(
               'Take a moment, then start the clock.',
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 12, color: tokens.textSecondary),
+              style: AppType.caption.copyWith(color: tokens.textSecondary),
             ),
             const SizedBox(height: 12),
             FilledButton(
@@ -181,7 +172,7 @@ class _FeynmanCardViewState extends State<FeynmanCardView> {
             Text(
               'Explain the prompt out loud in your own words.',
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 12, color: tokens.textSecondary),
+              style: AppType.caption.copyWith(color: tokens.textSecondary),
             ),
             const SizedBox(height: 12),
             OutlinedButton(

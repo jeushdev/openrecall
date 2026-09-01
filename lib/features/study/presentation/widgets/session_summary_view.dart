@@ -1,15 +1,29 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../../../../core/format/mastery_delta_label.dart';
+import '../../../../theme/app_geometry.dart';
+import '../../../../theme/app_haptics.dart';
+import '../../../../theme/app_motion.dart';
+import '../../../../theme/app_tokens.dart';
+import '../../../../theme/app_type.dart';
 import '../../../decks/domain/study_mode.dart';
 import '../../domain/session_outcome.dart';
 
-/// The Session Summary (spec §7), shown when a session reaches
-/// [SessionPhase.completed]: the deck's mastery % delta for the run, the
-/// lightweight recall metrics framed for the session's mode, a one-tap
-/// "Drill parked cards now" when the run left cards parked, and "Done" back to
-/// the Deck Overview.
-class SessionSummaryView extends StatelessWidget {
+/// The Session Summary (spec §7 / ui-spec-v3 §5.4), shown when a session reaches
+/// [SessionPhase.completed].
+///
+/// Rebuilt for v3 as a designed moment rather than the earlier stock-Material
+/// screen: a token background (no `AppBar`, no `primaryContainer`), a centred
+/// **mastery arc** whose fill sweeps and whose percentage counts up from the
+/// deck's before-value to its after-value on first build, and a "This session"
+/// block whose metric values count up from zero. One two-beat haptic on entry.
+///
+/// This is celebration of craft, not a reward economy — there are no points,
+/// badges, levels or streak mechanics here, by standing product decision
+/// (`docs/spec.md`).
+class SessionSummaryView extends StatefulWidget {
   const SessionSummaryView({
     super.key,
     required this.mode,
@@ -30,140 +44,281 @@ class SessionSummaryView extends StatelessWidget {
   final VoidCallback onDrillParked;
   final VoidCallback onDone;
 
-  /// The mode-specific phrasing for the "recalled on the first try" metric
-  /// (spec §7 — recall metrics for the session's own mode).
-  String get _firstTryLabel => switch (mode) {
-        StudyMode.flip => 'recalled on the first flip',
-        StudyMode.cloze => 'typed right on the first try',
-        StudyMode.feynman => 'recalled on the first pass',
+  @override
+  State<SessionSummaryView> createState() => _SessionSummaryViewState();
+}
+
+class _SessionSummaryViewState extends State<SessionSummaryView>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: AppMotion.slow,
+  );
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      AppHaptics.sessionComplete();
+      _controller.forward();
+    });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  /// The mode-specific phrasing for the "recalled on the first try" metric.
+  String get _firstTryLabel => switch (widget.mode) {
+        StudyMode.flip => 'Recalled on the first flip',
+        StudyMode.cloze => 'Typed right on the first try',
+        StudyMode.feynman => 'Recalled on the first pass',
       };
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    final delta = outcome.masteryDelta;
+    final tokens = Theme.of(context).extension<AppTokens>()!;
+    final outcome = widget.outcome;
+    final before = outcome.masteryPercentBefore;
+    final after = outcome.masteryPercentAfter;
 
     return PopScope<Object?>(
       canPop: false,
       onPopInvokedWithResult: (didPop, _) {
-        if (!didPop) onDone();
+        if (!didPop) widget.onDone();
       },
       child: Scaffold(
-        appBar: AppBar(title: Text(deckName ?? 'Session complete')),
-        body: ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            Card(
-              color: scheme.primaryContainer,
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
+        backgroundColor: tokens.background,
+        body: SafeArea(
+          child: AnimatedBuilder(
+            animation: _controller,
+            builder: (context, _) {
+              final t = Curves.easeOut.transform(_controller.value);
+              return ListView(
+                padding: const EdgeInsets.fromLTRB(24, 24, 24, 24),
+                children: [
+                  if (widget.deckName != null) ...[
                     Text(
-                      'Deck mastery',
-                      style: theme.textTheme.labelMedium
-                          ?.copyWith(color: scheme.onPrimaryContainer),
+                      widget.deckName!.toUpperCase(),
+                      textAlign: TextAlign.center,
+                      style: AppType.overline.copyWith(
+                        color: tokens.textTertiary,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+                  Center(
+                    child: _MasteryArc(
+                      fraction: (before + (after - before) * t) / 100,
+                      percent: (before + (after - before) * t).round(),
+                      trackColor: tokens.borderHairline,
+                      fillColor: tokens.accent('blue').fill,
+                      labelColor: tokens.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  Text(
+                    masteryDeltaLabel(outcome.masteryDelta),
+                    textAlign: TextAlign.center,
+                    style: AppType.title.copyWith(color: tokens.textSecondary),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '$before% → $after%',
+                    textAlign: TextAlign.center,
+                    style: AppType.caption.copyWith(color: tokens.textTertiary),
+                  ),
+                  const SizedBox(height: 24),
+                  _SessionBlock(
+                    tokens: tokens,
+                    rows: [
+                      _Metric('Cards studied', outcome.cardsStudied),
+                      _Metric('Mastered', outcome.mastered),
+                      _Metric('Parked', outcome.parked),
+                      _Metric(_firstTryLabel, outcome.firstTryMastered),
+                      _Metric(
+                        outcome.requeues == 1 ? 'Miss' : 'Misses',
+                        outcome.requeues,
+                      ),
+                    ],
+                    t: t,
+                  ),
+                  const SizedBox(height: 24),
+                  if (widget.hasParked) ...[
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton.icon(
+                        onPressed: widget.onDrillParked,
+                        icon: const Icon(Icons.bolt, size: 20),
+                        label: const Text('Drill parked cards now'),
+                      ),
                     ),
                     const SizedBox(height: 8),
-                    Text(
-                      masteryDeltaLabel(delta),
-                      style: theme.textTheme.displaySmall
-                          ?.copyWith(color: scheme.onPrimaryContainer),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '${outcome.masteryPercentBefore}% → '
-                      '${outcome.masteryPercentAfter}%',
-                      style: theme.textTheme.bodyMedium
-                          ?.copyWith(color: scheme.onPrimaryContainer),
-                    ),
                   ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'This session',
-                      style: theme.textTheme.labelMedium
-                          ?.copyWith(color: scheme.outline),
+                  Center(
+                    child: TextButton(
+                      onPressed: widget.onDone,
+                      child: const Text('Done'),
                     ),
-                    const SizedBox(height: 12),
-                    _MetricLine(
-                      label: 'Cards studied',
-                      value: '${outcome.cardsStudied}',
-                    ),
-                    _MetricLine(
-                      label: 'Mastered',
-                      value: '${outcome.mastered}',
-                    ),
-                    _MetricLine(
-                      label: 'Parked',
-                      value: '${outcome.parked}',
-                    ),
-                    _MetricLine(
-                      label: _capitalize(_firstTryLabel),
-                      value: '${outcome.firstTryMastered}',
-                    ),
-                    _MetricLine(
-                      label: outcome.requeues == 1 ? 'Miss' : 'Misses',
-                      value: '${outcome.requeues}',
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 24),
-            if (hasParked) ...[
-              FilledButton.icon(
-                onPressed: onDrillParked,
-                icon: const Icon(Icons.bolt),
-                label: const Text('Drill parked cards now'),
-              ),
-              const SizedBox(height: 8),
-            ],
-            TextButton(onPressed: onDone, child: const Text('Done')),
-          ],
+                  ),
+                ],
+              );
+            },
+          ),
         ),
       ),
     );
   }
 }
 
-String _capitalize(String s) =>
-    s.isEmpty ? s : '${s[0].toUpperCase()}${s.substring(1)}';
+/// A 270° arc gauge. Hairline track, accent fill, rounded cap, with the
+/// percentage in the centre. No shadow (app-wide ban) — the depth is the stroke
+/// contrast alone.
+class _MasteryArc extends StatelessWidget {
+  const _MasteryArc({
+    required this.fraction,
+    required this.percent,
+    required this.trackColor,
+    required this.fillColor,
+    required this.labelColor,
+  });
 
-class _MetricLine extends StatelessWidget {
-  const _MetricLine({required this.label, required this.value});
+  final double fraction;
+  final int percent;
+  final Color trackColor;
+  final Color fillColor;
+  final Color labelColor;
 
-  final String label;
-  final String value;
+  static const double _size = 148;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    return SizedBox(
+      width: _size,
+      height: _size,
+      child: CustomPaint(
+        painter: _ArcPainter(
+          fraction: fraction.clamp(0.0, 1.0),
+          trackColor: trackColor,
+          fillColor: fillColor,
+        ),
+        child: Center(
+          child: Text(
+            '$percent%',
+            style: AppType.display.copyWith(color: labelColor),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ArcPainter extends CustomPainter {
+  _ArcPainter({
+    required this.fraction,
+    required this.trackColor,
+    required this.fillColor,
+  });
+
+  final double fraction;
+  final Color trackColor;
+  final Color fillColor;
+
+  // 270° sweep, opening centred at the bottom.
+  static const double _start = math.pi * 0.75;
+  static const double _sweep = math.pi * 1.5;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    const stroke = 10.0;
+    final rect = Offset.zero & size;
+    final arcRect = rect.deflate(stroke / 2);
+
+    final track = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = stroke
+      ..strokeCap = StrokeCap.round
+      ..color = trackColor;
+    canvas.drawArc(arcRect, _start, _sweep, false, track);
+
+    if (fraction > 0) {
+      final fill = Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = stroke
+        ..strokeCap = StrokeCap.round
+        ..color = fillColor;
+      canvas.drawArc(arcRect, _start, _sweep * fraction, false, fill);
+    }
+  }
+
+  @override
+  bool shouldRepaint(_ArcPainter old) =>
+      old.fraction != fraction ||
+      old.trackColor != trackColor ||
+      old.fillColor != fillColor;
+}
+
+class _Metric {
+  const _Metric(this.label, this.value);
+  final String label;
+  final int value;
+}
+
+class _SessionBlock extends StatelessWidget {
+  const _SessionBlock({
+    required this.tokens,
+    required this.rows,
+    required this.t,
+  });
+
+  final AppTokens tokens;
+  final List<_Metric> rows;
+  final double t;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: tokens.cardFill,
+        borderRadius: AppRadii.gridTileRadius,
+        border: Border.all(
+          color: tokens.borderHairline,
+          width: AppBorders.hairline,
+        ),
+      ),
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            child: Text(label, style: theme.textTheme.bodyLarge),
-          ),
-          const SizedBox(width: 16),
           Text(
-            value,
-            style: theme.textTheme.titleMedium
-                ?.copyWith(fontWeight: FontWeight.w600),
+            'This session',
+            style: AppType.overline.copyWith(color: tokens.textSecondary),
           ),
+          const SizedBox(height: 14),
+          for (final row in rows)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 5),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      row.label,
+                      style: AppType.bodyLarge
+                          .copyWith(color: tokens.textPrimary),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Text(
+                    '${(row.value * t).round()}',
+                    style: AppType.numericLarge
+                        .copyWith(color: tokens.textPrimary),
+                  ),
+                ],
+              ),
+            ),
         ],
       ),
     );

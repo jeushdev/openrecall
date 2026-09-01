@@ -3,7 +3,9 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../theme/app_haptics.dart';
 import '../../../../theme/app_tokens.dart';
+import '../../../../theme/app_type.dart';
 import '../../../decks/domain/card.dart';
 import '../../../settings/application/settings_providers.dart';
 import '../../../settings/data/study_appearance_preferences.dart';
@@ -62,6 +64,7 @@ class _FlipCardState extends ConsumerState<FlipCard>
   }
 
   void _toggle() {
+    AppHaptics.tap();
     setState(() => _flipped = !_flipped);
     // Fire synchronously — the screen enables the rating row off this, and that
     // must never wait on the animation.
@@ -112,30 +115,18 @@ class _FlipCardState extends ConsumerState<FlipCard>
       children: [
         Text(
           back ? 'ANSWER' : 'PROMPT',
-          style: TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.w600,
-            letterSpacing: 0.8,
-            color: tokens.textTertiary,
-          ),
+          style: AppType.overline.copyWith(color: tokens.textTertiary),
         ),
         const SizedBox(height: 14),
         Text(
           back ? widget.card.back : widget.card.front,
           textAlign: TextAlign.center,
-          style: TextStyle(
-            fontSize: 18,
-            height: 1.4,
-            color: tokens.textPrimary,
-          ),
+          style: AppType.cardBody.copyWith(color: tokens.textPrimary),
         ),
         const SizedBox(height: 14),
         Text(
           back ? 'Rate your recall below' : 'Tap to reveal',
-          style: TextStyle(
-            fontSize: 12,
-            color: tokens.textSecondary,
-          ),
+          style: AppType.caption.copyWith(color: tokens.textSecondary),
         ),
       ],
     );
@@ -164,11 +155,16 @@ class _Flip3d extends StatelessWidget {
       builder: (context, _) {
         final angle = controller.value * math.pi;
         final showBack = angle > math.pi / 2;
+        // Weight: the card scales down to ~0.96 at the mid-turn and eases back
+        // to 1.0, so the flip settles physically instead of reading flat
+        // (ui-spec-v3 §5.1).
+        final scale = 1 - 0.04 * math.sin(angle);
         return Transform(
           alignment: Alignment.center,
           transform: Matrix4.identity()
             ..setEntry(3, 2, 0.001)
-            ..rotateY(angle),
+            ..rotateY(angle)
+            ..scaleByDouble(scale, scale, scale, 1),
           child: showBack
               ? Transform(
                   alignment: Alignment.center,

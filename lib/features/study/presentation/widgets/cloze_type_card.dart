@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../theme/app_geometry.dart';
 import '../../../../theme/app_tokens.dart';
+import '../../../../theme/app_type.dart';
 import '../../../decks/domain/card.dart';
 import '../../domain/cloze_blank.dart';
 import '../../domain/cloze_outcome.dart';
@@ -196,16 +197,11 @@ class _ClozeTypeCardState extends State<ClozeTypeCard> {
 
   Widget _label(String text, AppTokens tokens) => Text(
         text,
-        style: TextStyle(
-          fontSize: 11,
-          fontWeight: FontWeight.w600,
-          letterSpacing: 0.8,
-          color: tokens.textTertiary,
-        ),
+        style: AppType.overline.copyWith(color: tokens.textTertiary),
       );
 
   Widget _side(List<ClozeSegment> segments, AppTokens tokens) {
-    final baseStyle = TextStyle(
+    final baseStyle = AppType.cardBody.copyWith(
       fontSize: 16,
       height: 1.6,
       color: tokens.textPrimary,
@@ -253,7 +249,7 @@ class _ClozeTypeCardState extends State<ClozeTypeCard> {
       children: [
         Text(
           'Blank ${_active + 1} of ${_answers.length}',
-          style: TextStyle(fontSize: 12, color: tokens.textSecondary),
+          style: AppType.caption.copyWith(color: tokens.textSecondary),
         ),
         const SizedBox(height: 8),
         TextField(
@@ -359,7 +355,7 @@ class _MissReview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final base = TextStyle(fontSize: 16, color: tokens.textPrimary);
+    final base = AppType.body.copyWith(fontSize: 16, color: tokens.textPrimary);
     final red = tokens.accent('red').text;
 
     return Column(
@@ -367,33 +363,19 @@ class _MissReview extends StatelessWidget {
       children: [
         Text(
           'Not quite',
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
-            color: red,
-          ),
+          style: AppType.label.copyWith(color: red),
         ),
         const SizedBox(height: 10),
         Text(
           'ANSWER',
-          style: TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.w600,
-            letterSpacing: 0.8,
-            color: tokens.textTertiary,
-          ),
+          style: AppType.overline.copyWith(color: tokens.textTertiary),
         ),
         const SizedBox(height: 4),
         Text(answer, style: base.copyWith(fontWeight: FontWeight.w600)),
         const SizedBox(height: 10),
         Text(
           'YOUR ANSWER',
-          style: TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.w600,
-            letterSpacing: 0.8,
-            color: tokens.textTertiary,
-          ),
+          style: AppType.overline.copyWith(color: tokens.textTertiary),
         ),
         const SizedBox(height: 4),
         Text.rich(
@@ -423,7 +405,7 @@ class _MissReview extends StatelessWidget {
         const SizedBox(height: 6),
         Text(
           'Underlined = missing · struck-through / red = wrong or extra',
-          style: TextStyle(fontSize: 12, color: tokens.textTertiary),
+          style: AppType.caption.copyWith(color: tokens.textTertiary),
         ),
         const SizedBox(height: 16),
         Row(

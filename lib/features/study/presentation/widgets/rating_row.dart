@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../../../../theme/app_geometry.dart';
+import '../../../../theme/app_motion.dart';
 import '../../../../theme/app_tokens.dart';
+import '../../../../theme/app_type.dart';
 import '../../domain/flip_rating.dart';
 
 /// The rating row shared by every study mode (ui-spec-v1 §6.2).
@@ -52,7 +54,7 @@ class RatingRow extends StatelessWidget {
   }
 }
 
-class _RatingButton extends StatelessWidget {
+class _RatingButton extends StatefulWidget {
   const _RatingButton({
     required this.label,
     required this.onTap,
@@ -68,37 +70,61 @@ class _RatingButton extends StatelessWidget {
   final Color borderColor;
 
   @override
+  State<_RatingButton> createState() => _RatingButtonState();
+}
+
+class _RatingButtonState extends State<_RatingButton> {
+  bool _pressed = false;
+
+  void _setPressed(bool value) {
+    if (_pressed == value) return;
+    setState(() => _pressed = value);
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final disabled = onTap == null;
+    final disabled = widget.onTap == null;
 
     return Opacity(
       opacity: disabled ? 0.4 : 1,
-      child: Material(
-        color: fill,
-        borderRadius: BorderRadius.circular(16),
-        child: InkWell(
-          onTap: onTap,
+      // Press-in weight: a small scale dip while held, releasing on an
+      // emphasized curve (ui-spec-v3 §5.2).
+      child: AnimatedScale(
+        scale: _pressed ? 0.96 : 1,
+        duration: AppMotion.instant,
+        curve: _pressed ? AppMotion.decelerate : AppMotion.emphasized,
+        child: Material(
+          color: Color.alphaBlend(
+            _pressed
+                ? Colors.black.withValues(alpha: 0.08)
+                : Colors.transparent,
+            widget.fill,
+          ),
           borderRadius: BorderRadius.circular(16),
-          child: Container(
-            height: 60,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: borderColor,
-                width: AppBorders.hairline,
+          child: InkWell(
+            onTap: widget.onTap,
+            onHighlightChanged: _setPressed,
+            borderRadius: BorderRadius.circular(16),
+            child: Container(
+              height: 60,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: widget.borderColor,
+                  width: AppBorders.hairline,
+                ),
               ),
-            ),
-            padding: const EdgeInsets.symmetric(horizontal: 2),
-            child: Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w600,
-                color: labelColor,
+              padding: const EdgeInsets.symmetric(horizontal: 2),
+              child: Text(
+                widget.label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: AppType.label.copyWith(
+                  fontSize: 15,
+                  color: widget.labelColor,
+                ),
               ),
             ),
           ),
