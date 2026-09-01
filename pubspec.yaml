@@ -35,3 +35,20 @@ flutter:
   uses-material-design: true
   assets:
     - .env
+    - assets/fonts/Fraunces-OFL.txt
+    - assets/fonts/Inter-OFL.txt
+  fonts:
+    # Bundled, not fetched at runtime (ui-spec-v3 §1): the app reads its theme
+    # before runApp to avoid a flash, and is offline-first — a network font
+    # fetch would undo both. Both faces are variable TTFs; Flutter maps
+    # FontWeight onto the `wght` axis automatically.
+    - family: Fraunces
+      fonts:
+        - asset: assets/fonts/Fraunces.ttf
+        - asset: assets/fonts/Fraunces-Italic.ttf
+          style: italic
+    - family: Inter
+      fonts:
+        - asset: assets/fonts/Inter.ttf
+        - asset: assets/fonts/Inter-Italic.ttf
+          style: italic

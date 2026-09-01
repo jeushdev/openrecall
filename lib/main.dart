@@ -1,4 +1,7 @@
+import 'package:flutter/foundation.dart'
+    show LicenseEntryWithLineBreaks, LicenseRegistry;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -14,6 +17,20 @@ import 'features/settings/data/theme_mode_preference.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Attribute the bundled Fraunces / Inter faces (ui-spec-v3 §1) on the
+  // in-app licenses page. Lazily read — the SIL OFL text is only loaded if the
+  // user opens that page.
+  LicenseRegistry.addLicense(() async* {
+    yield LicenseEntryWithLineBreaks(
+      const ['Fraunces'],
+      await rootBundle.loadString('assets/fonts/Fraunces-OFL.txt'),
+    );
+    yield LicenseEntryWithLineBreaks(
+      const ['Inter'],
+      await rootBundle.loadString('assets/fonts/Inter-OFL.txt'),
+    );
+  });
 
   // Both awaits below are local-only — dotenv reads a bundled asset and
   // `Supabase.initialize` only awaits restoring the persisted session (its
