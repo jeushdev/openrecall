@@ -137,7 +137,7 @@ void main() {
     expect(find.textContaining('all caught up'), findsNothing);
   });
 
-  testWidgets('troublemaker cards list high-fail cards, hidden otherwise',
+  testWidgets('the deck overview no longer renders a troublemaker section',
       (tester) async {
     _useTallSurface(tester);
     await tester.pumpWidget(_host(FakeDeckRepository(cards: [
@@ -146,16 +146,6 @@ void main() {
     ])));
     await tester.pumpAndSettle();
 
-    expect(find.text('Troublemaker cards'), findsOneWidget);
-    expect(find.text('Sticky one'), findsOneWidget);
-    expect(find.textContaining('Failed 4 times'), findsOneWidget);
-  });
-
-  testWidgets('no troublemaker section when nothing has failed', (tester) async {
-    await tester.pumpWidget(_host(FakeDeckRepository(cards: [_card()])));
-    await tester.pumpAndSettle();
-
     expect(find.text('Troublemaker cards'), findsNothing);
   });
-
 }

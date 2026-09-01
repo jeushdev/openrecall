@@ -2,23 +2,21 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../theme/app_tokens.dart';
+import '../../../ui/mastery/activity_feed_section.dart';
 import '../../../ui/mastery/course_rollup_strip.dart';
 import '../../../ui/mastery/deck_completions_section.dart';
 import '../../../ui/mastery/overall_mastery_card.dart';
-import '../../../ui/mastery/troublemaker_section.dart';
 import '../../decks/application/deck_providers.dart';
 import '../application/stats_providers.dart';
 import '../domain/deck_completion.dart';
-import '../domain/troublemaker_severity.dart';
 
 /// The Mastery tab (`/mastery`, ui-spec-v1 §6.3).
 ///
-/// Four stacked sections, coarsest grouping to finest: the app-wide mastery
-/// card, a horizontal strip of per-course rollups, the per-deck "completions"
-/// list, and the cross-deck "troublemaker cards" list. Every value comes from
-/// Engine V2's local aggregation providers — no query is written here, and the
-/// two "by deck" lists just join a provider's deck-id-keyed data against
-/// `decksProvider` for display names.
+/// Stacked sections, coarsest grouping to finest: the app-wide mastery card, a
+/// horizontal strip of per-course rollups, the per-deck "completions" list, and
+/// the recent-activity feed (milestone C). Every value comes from the local
+/// aggregation providers — no query is written here; the sections just join a
+/// provider's deck-id-keyed data against `decksProvider` for display names.
 class MasteryTabScreen extends ConsumerWidget {
   const MasteryTabScreen({super.key});
 
@@ -30,7 +28,7 @@ class MasteryTabScreen extends ConsumerWidget {
     final courses = ref.watch(courseSummariesProvider);
     final decks = ref.watch(decksProvider);
     final runThroughs = ref.watch(deckRunThroughsProvider);
-    final troublemakers = ref.watch(troublemakersProvider);
+    final activity = ref.watch(recentActivityProvider);
 
     return Scaffold(
       backgroundColor: tokens.background,
@@ -79,30 +77,12 @@ class MasteryTabScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 24),
 
-            // Troublemaker cards — fail_count-ordered query joined to deck names.
-            _AsyncSection2(
-              a: troublemakers,
-              b: decks,
-              onRetry: () {
-                ref.invalidate(troublemakersProvider);
-                ref.invalidate(decksProvider);
-              },
-              builder: (cards, deckList) {
-                final nameById = {
-                  for (final deck in deckList) deck.id: deck.name,
-                };
-                return TroublemakerSection(
-                  entries: [
-                    for (final card in cards)
-                      (
-                        frontExcerpt: card.front,
-                        deckName: nameById[card.deckId] ?? 'Unknown deck',
-                        failCount: card.failCount,
-                        severity: severityFor(card.failCount),
-                      ),
-                  ],
-                );
-              },
+            // Recent activity — completed sessions + created decks / courses,
+            // merged from data the app already holds.
+            _AsyncSection(
+              value: activity,
+              onRetry: () => ref.invalidate(recentActivityProvider),
+              builder: (items) => ActivityFeedSection(items: items),
             ),
           ],
         ),
@@ -113,7 +93,7 @@ class MasteryTabScreen extends ConsumerWidget {
 
 /// Renders [builder] once [value] has data; a compact spinner while it loads and
 /// a one-line retry affordance if it errors. Keeps each section independent so a
-/// slow troublemaker query never blanks the whole screen.
+/// slow query never blanks the whole screen.
 class _AsyncSection<T> extends StatelessWidget {
   const _AsyncSection({
     super.key,

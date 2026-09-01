@@ -59,6 +59,7 @@ class DeckSummary {
     this.courseId,
     this.masteryLevelSum = 0,
     this.position = 0,
+    this.createdAt,
   });
 
   /// Builds from a `decks` row with an embedded `cards(mastery_level)` list,
@@ -78,6 +79,7 @@ class DeckSummary {
       masteryPercent: masteryPercentFromLevels(levels),
       masteryLevelSum: levels.fold(0, (a, b) => a + b),
       position: json['position'] as int? ?? 0,
+      createdAt: _parseNullableDate(json['created_at']),
     );
   }
 
@@ -99,6 +101,11 @@ class DeckSummary {
 
   /// See [Deck.position].
   final int position;
+
+  /// When the deck row was created (`decks.created_at`). Nullable because the
+  /// offline mirror's older rows may predate the column; the Mastery tab's
+  /// activity feed (milestone C) skips a deck that has no known creation time.
+  final DateTime? createdAt;
 }
 
 DateTime? _parseNullableDate(Object? value) =>

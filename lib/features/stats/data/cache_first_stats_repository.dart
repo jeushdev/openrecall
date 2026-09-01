@@ -1,5 +1,6 @@
+import '../domain/activity_feed.dart';
+import '../domain/completed_session_activity.dart';
 import '../domain/stats_repository.dart';
-import '../domain/troublemaker_card.dart';
 import 'local_stats_store.dart';
 import 'supabase_stats_repository.dart';
 
@@ -18,14 +19,14 @@ class CacheFirstStatsRepository implements StatsRepository {
   final LocalStatsStore _local;
 
   @override
-  Future<List<TroublemakerCard>> fetchTroublemakers({
-    int limit = appWideTroublemakerLimit,
+  Future<List<CompletedSessionActivity>> fetchRecentCompletedSessions({
+    int limit = activityFeedLimit,
   }) async {
     try {
-      return await _remote.fetchTroublemakers(limit: limit);
+      return await _remote.fetchRecentCompletedSessions(limit: limit);
     } catch (_) {
       if (_local.isNoop) rethrow;
-      return _local.troublemakers(limit);
+      return _local.recentCompletedSessions(limit);
     }
   }
 

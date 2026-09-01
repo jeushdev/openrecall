@@ -6,10 +6,12 @@ import '../../courses/application/course_providers.dart';
 import '../../decks/application/deck_providers.dart';
 import '../data/cache_first_stats_repository.dart';
 import '../data/supabase_stats_repository.dart';
+import '../../courses/domain/course.dart';
+import '../domain/activity_feed.dart';
+import '../domain/completed_session_activity.dart';
 import '../domain/course_summary.dart';
 import '../domain/overall_mastery.dart';
 import '../domain/stats_repository.dart';
-import '../domain/troublemaker_card.dart';
 
 /// The APIs behind the future Mastery / Stats screen (engine-v2-spec §6).
 /// Providers + repository methods only — no widgets in Engine V2.
@@ -33,9 +35,29 @@ final overallMasteryProvider = FutureProvider<int>((ref) async {
   return overallMasteryPercent(decks);
 });
 
-/// The user's most-failed cards across every deck, most-failed first.
-final troublemakersProvider = FutureProvider<List<TroublemakerCard>>((ref) {
-  return ref.watch(statsRepositoryProvider).fetchTroublemakers();
+/// The most recently completed study sessions, newest first. The shared
+/// completed-session data-access point: the Mastery tab's activity feed reads it
+/// through [recentActivityProvider], and Milestone D's session metrics will read
+/// it directly.
+final recentCompletedSessionsProvider =
+    FutureProvider<List<CompletedSessionActivity>>((ref) {
+  return ref.watch(statsRepositoryProvider).fetchRecentCompletedSessions();
+});
+
+/// The Mastery tab's recent-activity feed (milestone C): completed sessions,
+/// created decks and created courses, merged newest-first and capped at
+/// [activityFeedLimit]. A pure fold over data the app already holds —
+/// [recentCompletedSessionsProvider], [decksProvider] and [coursesProvider],
+/// each of which already degrades cleanly when offline.
+final recentActivityProvider = FutureProvider<List<ActivityItem>>((ref) async {
+  final sessions = await ref.watch(recentCompletedSessionsProvider.future);
+  final decks = await ref.watch(decksProvider.future);
+  final List<Course> courses = await ref.watch(coursesProvider.future);
+  return buildActivityFeed(
+    sessions: sessions,
+    decks: decks,
+    courses: courses,
+  );
 });
 
 /// "Times fully cleared" per deck (engine-v2-spec §4.3), keyed by deck id.

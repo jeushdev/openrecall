@@ -13,8 +13,8 @@ void main() {
       expect(store.isNoop, isTrue);
     });
 
-    test('troublemakers returns empty', () async {
-      expect(await store.troublemakers(20), isEmpty);
+    test('recentCompletedSessions returns empty', () async {
+      expect(await store.recentCompletedSessions(20), isEmpty);
     });
 
     test('runThroughsByDeck returns empty', () async {

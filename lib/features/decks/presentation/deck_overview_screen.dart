@@ -12,11 +12,10 @@ import 'widgets/mastery_bar.dart';
 import 'widgets/mode_selector.dart';
 import 'widgets/offline_toggle.dart';
 import 'widgets/session_length_selector.dart';
-import 'widgets/troublemaker_list.dart';
 
 /// The Deck Overview (spec §4): a deck's stats, the mode selector, the
-/// session-length toggle, Troublemaker cards, and the way back into the Deck
-/// Creator to add more cards.
+/// session-length toggle, and the way back into the Deck Creator to add more
+/// cards.
 ///
 /// Reached by tapping a deck in the Library. Every mode the deck supports
 /// starts a session (spec §5A–§5D). A "Resume session" button appears while a
@@ -217,8 +216,6 @@ class _Body extends StatelessWidget {
           ),
           const SizedBox(height: 24),
           OfflineToggle(deckId: deckId, deckName: deckName),
-          const SizedBox(height: 24),
-          TroublemakerList(cards: stats.troublemakers),
           const SizedBox(height: 24),
         ],
         OutlinedButton.icon(

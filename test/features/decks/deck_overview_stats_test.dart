@@ -75,34 +75,5 @@ void main() {
       expect(stats.isEmpty, isFalse);
       expect(stats.allCaughtUp, isTrue);
     });
-
-    group('troublemakers', () {
-      test('excludes cards that have never failed', () {
-        final stats = DeckOverviewStats.fromCards([_card(fails: 0)]);
-        expect(stats.troublemakers, isEmpty);
-      });
-
-      test('sorted by fail_count descending', () {
-        final stats = DeckOverviewStats.fromCards([
-          _card(id: 'a', fails: 2),
-          _card(id: 'b', fails: 9),
-          _card(id: 'c', fails: 5),
-        ]);
-
-        expect(
-          stats.troublemakers.map((c) => c.id),
-          ['b', 'c', 'a'],
-        );
-      });
-
-      test('capped at five', () {
-        final stats = DeckOverviewStats.fromCards([
-          for (var i = 0; i < 8; i++) _card(id: 'c$i', fails: i + 1),
-        ]);
-
-        expect(stats.troublemakers, hasLength(5));
-        expect(stats.troublemakers.first.failCount, 8);
-      });
-    });
   });
 }

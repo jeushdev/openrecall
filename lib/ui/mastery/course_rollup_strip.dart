@@ -6,7 +6,7 @@ import '../../theme/app_tokens.dart';
 
 /// The horizontally scrolling row of course chips on the Mastery tab
 /// (ui-spec-v1 §6.3), sitting between the overall card and "Deck completions"
-/// (coarsest-to-finest grouping: overall → course → deck → troublemakers).
+/// (coarsest-to-finest grouping: overall → course → deck → recent activity).
 ///
 /// [courses] is `courseSummariesProvider`'s value. Renders nothing when there
 /// are no courses.

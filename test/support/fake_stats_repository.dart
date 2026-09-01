@@ -1,18 +1,19 @@
+import 'package:open_recall/features/stats/domain/activity_feed.dart';
+import 'package:open_recall/features/stats/domain/completed_session_activity.dart';
 import 'package:open_recall/features/stats/domain/stats_repository.dart';
-import 'package:open_recall/features/stats/domain/troublemaker_card.dart';
 
 /// In-memory [StatsRepository] for provider tests, in the style of
 /// [FakeDeckRepository]: a fixed dataset, a [calls] log, and an armed throw.
 class FakeStatsRepository implements StatsRepository {
   FakeStatsRepository({
-    List<TroublemakerCard>? troublemakers,
+    List<CompletedSessionActivity>? recentCompletedSessions,
     Map<String, int>? runThroughs,
     List<DateTime>? completedSessionStarts,
-  })  : _troublemakers = [...?troublemakers],
+  })  : _recentCompletedSessions = [...?recentCompletedSessions],
         _runThroughs = {...?runThroughs},
         _completedSessionStarts = [...?completedSessionStarts];
 
-  final List<TroublemakerCard> _troublemakers;
+  final List<CompletedSessionActivity> _recentCompletedSessions;
   final Map<String, int> _runThroughs;
   final List<DateTime> _completedSessionStarts;
 
@@ -30,12 +31,12 @@ class FakeStatsRepository implements StatsRepository {
   }
 
   @override
-  Future<List<TroublemakerCard>> fetchTroublemakers({
-    int limit = appWideTroublemakerLimit,
+  Future<List<CompletedSessionActivity>> fetchRecentCompletedSessions({
+    int limit = activityFeedLimit,
   }) async {
-    calls.add('fetchTroublemakers(limit=$limit)');
+    calls.add('fetchRecentCompletedSessions(limit=$limit)');
     _maybeThrow();
-    return List.unmodifiable(_troublemakers.take(limit));
+    return List.unmodifiable(_recentCompletedSessions.take(limit));
   }
 
   @override

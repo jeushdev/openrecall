@@ -5,7 +5,7 @@ import 'package:open_recall/features/courses/application/course_providers.dart';
 import 'package:open_recall/features/decks/application/deck_providers.dart';
 import 'package:open_recall/features/decks/domain/deck.dart';
 import 'package:open_recall/features/stats/application/stats_providers.dart';
-import 'package:open_recall/features/stats/domain/troublemaker_card.dart';
+import 'package:open_recall/features/stats/domain/completed_session_activity.dart';
 import 'package:open_recall/features/stats/presentation/mastery_tab_screen.dart';
 import 'package:open_recall/theme/app_theme.dart';
 import 'package:open_recall/ui/mastery/course_rollup_strip.dart';
@@ -21,6 +21,7 @@ DeckSummary _deck({
   String courseId = 'c1',
   int totalCards = 4,
   int masteryLevelSum = 8,
+  DateTime? createdAt,
 }) =>
     DeckSummary(
       id: id,
@@ -31,15 +32,7 @@ DeckSummary _deck({
       masteryPercent: 0,
       courseId: courseId,
       masteryLevelSum: masteryLevelSum,
-    );
-
-TroublemakerCard _troublemaker(String id, String deckId, int failCount) =>
-    TroublemakerCard(
-      id: id,
-      deckId: deckId,
-      front: 'front $id',
-      back: 'back $id',
-      failCount: failCount,
+      createdAt: createdAt,
     );
 
 Future<void> _pump(
@@ -65,21 +58,30 @@ Future<void> _pump(
 }
 
 void main() {
-  testWidgets('renders all four sections from the real aggregation providers',
+  testWidgets('renders every section, ending with the recent-activity feed',
       (tester) async {
     await _pump(
       tester,
       decks: FakeDeckRepository(decks: [
-        _deck(id: 'd1', name: 'Anatomy', masteryLevelSum: 8, totalCards: 4),
+        _deck(
+          id: 'd1',
+          name: 'Anatomy',
+          masteryLevelSum: 8,
+          totalCards: 4,
+          createdAt: DateTime(2026, 8, 1),
+        ),
         _deck(id: 'd2', name: 'Biochem', masteryLevelSum: 0, totalCards: 4),
       ]),
       courses: FakeCourseRepository(courses: [
         fakeCourse(id: 'c1', name: 'Medicine', accentColor: 'green'),
       ]),
       stats: FakeStatsRepository(
-        troublemakers: [
-          _troublemaker('a', 'd1', 7),
-          _troublemaker('b', 'd2', 3),
+        recentCompletedSessions: [
+          CompletedSessionActivity(
+            deckId: 'd1',
+            completedAt: DateTime(2026, 8, 25),
+            masteryDelta: 7,
+          ),
         ],
         runThroughs: {'d1': 3, 'd2': 1},
       ),
@@ -92,19 +94,19 @@ void main() {
     // Course rollup chip.
     expect(find.byType(CourseRollupStrip), findsOneWidget);
     expect(find.text('Medicine'), findsOneWidget);
-    expect(find.text('25% · 2 decks'), findsOneWidget);
 
-    // Deck completions — most cleared first, with count badges.
+    // Deck completions — still present.
     expect(find.text('Deck completions'), findsOneWidget);
     expect(find.text('×3'), findsOneWidget);
-    expect(find.text('×1'), findsOneWidget);
 
-    // Troublemakers — excerpt, deck name + miss count, severity badge.
-    expect(find.text('Troublemaker cards'), findsOneWidget);
-    expect(find.text('front a'), findsOneWidget);
-    expect(find.text('Anatomy · missed 7 times'), findsOneWidget);
-    expect(find.text('High'), findsOneWidget); // fail_count 7 >= 5
-    expect(find.text('Watch'), findsOneWidget); // fail_count 3
+    // Recent activity — the new final section.
+    expect(find.text('Recent activity'), findsOneWidget);
+    expect(find.text('Completed Anatomy'), findsOneWidget);
+    expect(find.text('+7%'), findsOneWidget);
+    expect(find.text('Created deck Anatomy'), findsOneWidget);
+
+    // Troublemakers are gone.
+    expect(find.text('Troublemaker cards'), findsNothing);
   });
 
   testWidgets('shows non-discouraging empty states when there is no data',
@@ -113,7 +115,7 @@ void main() {
       tester,
       decks: FakeDeckRepository(decks: []),
       courses: FakeCourseRepository(courses: []),
-      stats: FakeStatsRepository(troublemakers: [], runThroughs: {}),
+      stats: FakeStatsRepository(recentCompletedSessions: [], runThroughs: {}),
     );
 
     expect(find.text('0%'), findsOneWidget);
@@ -123,7 +125,7 @@ void main() {
       findsOneWidget,
     );
     expect(
-      find.textContaining("Nothing's giving you much trouble"),
+      find.text('Your recent study activity will show up here.'),
       findsOneWidget,
     );
   });

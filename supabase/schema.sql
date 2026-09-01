@@ -88,7 +88,7 @@ create table cards (
   keywords text[] not null default '{}',
   is_concept boolean not null default false,
   mastery_level smallint not null default 0,  -- 0 Unfamiliar .. 4 Mastered
-  fail_count integer not null default 0,      -- lifetime, feeds Troublemaker Cards
+  fail_count integer not null default 0,      -- lifetime per-card fail counter (see index note below)
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -425,8 +425,10 @@ create index on decks (course_id);
 -- The Decks tab lists a course's decks in manual order.
 create index on decks (course_id, position);
 create index on cards (deck_id);
--- Headroom for the app-wide Troublemakers query (engine-v2-spec §6):
--- `order by fail_count desc limit N` across every card the user owns.
+-- `cards.fail_count` is still maintained as a lifetime per-card counter on
+-- every sub-Mastered rating; this index kept it cheap to sort on. The UI that
+-- read it (the "Troublemaker cards" lists) was removed in the milestone-C
+-- activity-feed change; the column and index are retained for future use.
 create index on cards (fail_count desc);
 create index on study_sessions (user_id);
 create index on study_sessions (deck_id);

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/format/mastery_delta_label.dart';
 import '../../../decks/domain/study_mode.dart';
 import '../../domain/session_outcome.dart';
 
@@ -42,7 +43,6 @@ class SessionSummaryView extends StatelessWidget {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final delta = outcome.masteryDelta;
-    final sign = delta > 0 ? '+' : '';
 
     return PopScope<Object?>(
       canPop: false,
@@ -68,7 +68,7 @@ class SessionSummaryView extends StatelessWidget {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      '$sign$delta%',
+                      masteryDeltaLabel(delta),
                       style: theme.textTheme.displaySmall
                           ?.copyWith(color: scheme.onPrimaryContainer),
                     ),

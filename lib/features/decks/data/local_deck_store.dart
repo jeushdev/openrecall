@@ -307,6 +307,7 @@ class LocalDeckStore {
           dueCards: levels.where((l) => l < masteredLevel).length,
           masteryPercent: masteryPercentFromLevels(levels),
           masteryLevelSum: levels.fold(0, (a, b) => a + b),
+          createdAt: _parseNullable(d['created_at']),
         ));
       } else {
         final total = (d['total_cards'] as int?) ?? 0;
@@ -320,6 +321,7 @@ class LocalDeckStore {
           dueCards: total, // level-per-card unknown; treated as all due
           masteryPercent: masteryPercentFromLevelSum(sum, total),
           masteryLevelSum: sum,
+          createdAt: _parseNullable(d['created_at']),
         ));
       }
     }

@@ -1,6 +1,6 @@
 import 'package:sqflite/sqflite.dart';
 
-import '../domain/troublemaker_card.dart';
+import '../domain/completed_session_activity.dart';
 
 /// Read-only DAO for the cross-deck stat aggregations (engine-v2-spec §6),
 /// computed straight from the local mirror when the app is offline.
@@ -20,25 +20,29 @@ class LocalStatsStore {
 
   bool get isNoop => _db == null;
 
-  /// Downloaded cards with the highest `fail_count`, most-failed first, capped at
-  /// [limit]. No `fail_count` threshold — matches the remote query.
-  Future<List<TroublemakerCard>> troublemakers(int limit) async {
+  /// The most recently `completed` sessions recorded on this device, newest
+  /// first, capped at [limit] — the offline fallback for the Mastery tab's
+  /// activity feed (milestone C). Partial by nature: only sessions that ran on
+  /// this device are mirrored.
+  Future<List<CompletedSessionActivity>> recentCompletedSessions(
+    int limit,
+  ) async {
     final db = _db;
     if (db == null) return const [];
     final rows = await db.query(
-      'offline_cards',
-      columns: ['id', 'deck_id', 'front', 'back', 'fail_count'],
-      orderBy: 'fail_count DESC',
+      'offline_study_sessions',
+      columns: ['deck_id', 'completed_at', 'mastery_delta'],
+      where: 'status = ? AND completed_at IS NOT NULL',
+      whereArgs: ['completed'],
+      orderBy: 'completed_at DESC',
       limit: limit,
     );
     return [
       for (final r in rows)
-        TroublemakerCard(
-          id: r['id'] as String,
+        CompletedSessionActivity(
           deckId: r['deck_id'] as String,
-          front: r['front'] as String,
-          back: r['back'] as String,
-          failCount: r['fail_count'] as int,
+          completedAt: DateTime.parse(r['completed_at'] as String),
+          masteryDelta: r['mastery_delta'] as int?,
         ),
     ];
   }

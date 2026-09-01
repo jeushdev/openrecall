@@ -4,7 +4,8 @@ import 'package:open_recall/features/courses/application/course_providers.dart';
 import 'package:open_recall/features/decks/application/deck_providers.dart';
 import 'package:open_recall/features/decks/domain/deck.dart';
 import 'package:open_recall/features/stats/application/stats_providers.dart';
-import 'package:open_recall/features/stats/domain/troublemaker_card.dart';
+import 'package:open_recall/features/stats/domain/activity_feed.dart';
+import 'package:open_recall/features/stats/domain/completed_session_activity.dart';
 
 import '../../support/fake_course_repository.dart';
 import '../../support/fake_deck_repository.dart';
@@ -15,6 +16,7 @@ DeckSummary _deck({
   String? courseId,
   required int totalCards,
   required int masteryLevelSum,
+  DateTime? createdAt,
 }) =>
     DeckSummary(
       id: id,
@@ -25,14 +27,7 @@ DeckSummary _deck({
       masteryPercent: 0,
       courseId: courseId,
       masteryLevelSum: masteryLevelSum,
-    );
-
-TroublemakerCard _troublemaker(String id, int failCount) => TroublemakerCard(
-      id: id,
-      deckId: 'deck-1',
-      front: 'front $id',
-      back: 'back $id',
-      failCount: failCount,
+      createdAt: createdAt,
     );
 
 void main() {
@@ -51,7 +46,13 @@ void main() {
 
   setUp(() {
     decks = FakeDeckRepository(decks: [
-      _deck(id: 'd1', courseId: 'c1', totalCards: 2, masteryLevelSum: 8),
+      _deck(
+        id: 'd1',
+        courseId: 'c1',
+        totalCards: 2,
+        masteryLevelSum: 8,
+        createdAt: DateTime(2026, 8, 1),
+      ),
       _deck(id: 'd2', courseId: 'c1', totalCards: 10, masteryLevelSum: 0),
       _deck(id: 'd3', courseId: 'c2', totalCards: 4, masteryLevelSum: 8),
     ]);
@@ -60,7 +61,13 @@ void main() {
       fakeCourse(id: 'c2', name: 'History'),
     ]);
     stats = FakeStatsRepository(
-      troublemakers: [_troublemaker('a', 9), _troublemaker('b', 4)],
+      recentCompletedSessions: [
+        CompletedSessionActivity(
+          deckId: 'd1',
+          completedAt: DateTime(2026, 8, 20),
+          masteryDelta: 9,
+        ),
+      ],
       runThroughs: {'d1': 3, 'd3': 1},
     );
     container = build();
@@ -92,11 +99,29 @@ void main() {
     expect(summaries.last.masteryPercent, 50); // 8 / 16 * 100
   });
 
-  test('troublemakersProvider passes the repository result through', () async {
-    final result = await container.read(troublemakersProvider.future);
+  test('recentCompletedSessionsProvider passes the repository result through',
+      () async {
+    final result =
+        await container.read(recentCompletedSessionsProvider.future);
 
-    expect(result.map((c) => c.id), ['a', 'b']);
-    expect(stats.calls, contains('fetchTroublemakers(limit=20)'));
+    expect(result.single.deckId, 'd1');
+    expect(stats.calls, contains('fetchRecentCompletedSessions(limit=20)'));
+  });
+
+  test('recentActivityProvider merges sessions, decks and courses, newest first',
+      () async {
+    final feed = await container.read(recentActivityProvider.future);
+
+    // Newest first: d1's session completed Aug 20, then d1 created Aug 1, then
+    // the two courses (fakeCourse stamps 2026-01-01). d2/d3 carry no createdAt
+    // and so contribute no "deck created" row.
+    expect(feed.first.kind, ActivityKind.sessionCompleted);
+    expect(feed.first.title, 'd1');
+    expect(feed.first.masteryDelta, 9);
+    expect(
+      feed.map((i) => i.kind),
+      contains(ActivityKind.deckCreated),
+    );
   });
 
   test('deckRunThroughsProvider passes the repository result through', () async {
