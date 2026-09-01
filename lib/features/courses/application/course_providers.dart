@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../core/cache/stale_first.dart' show kRevalidateTimeout;
 import '../../../core/local_db/local_db_providers.dart';
 import '../../../core/sync/sync_providers.dart';
 import '../../../core/ui/app_messenger.dart';
@@ -28,8 +29,21 @@ final courseRepositoryProvider = Provider<CourseRepository>((ref) {
 
 /// The signed-in user's courses. The pickers and per-course theming that
 /// consume it arrive with the UI revamp; the write path (U10) invalidates it.
-final coursesProvider = FutureProvider<List<Course>>((ref) {
-  return ref.watch(courseRepositoryProvider).fetchCourses();
+///
+/// Bounded so an unreachable host can't leave a course picker or the Decks-tab
+/// grouping spinning (milestone E1): the remote call is capped and, on a
+/// timeout, the local `offline_courses` mirror stands in. A fresh install
+/// offline has an empty mirror, so the error surfaces with a Retry.
+final coursesProvider = FutureProvider<List<Course>>((ref) async {
+  final repository = ref.watch(courseRepositoryProvider);
+  final local = ref.watch(localCourseStoreProvider);
+  try {
+    return await repository.fetchCourses().timeout(kRevalidateTimeout);
+  } catch (_) {
+    final cached = await local.cachedCourses();
+    if (cached.isNotEmpty) return cached;
+    rethrow;
+  }
 });
 
 /// Drives the create / update / delete course actions (ui-spec-v2 §3.2):

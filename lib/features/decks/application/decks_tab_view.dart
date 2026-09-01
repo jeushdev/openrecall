@@ -2,11 +2,15 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../core/cache/stale_first.dart' show kRevalidateTimeout;
+import '../../../core/connectivity/connectivity_service.dart';
+import '../../../core/local_db/local_db_providers.dart';
 import '../../../core/ui/app_messenger.dart';
 import '../../courses/application/course_providers.dart';
 import '../../courses/domain/course.dart';
 import '../domain/deck.dart';
 import 'deck_providers.dart';
+import 'offline_providers.dart';
 import 'pending_deletions.dart';
 
 /// One deck as the Decks-tab accordion needs it (ui-spec-v2 §5): the deck's
@@ -19,6 +23,7 @@ class DeckTileView {
     required this.name,
     required this.cardCount,
     required this.accentKey,
+    this.isLockedOffline = false,
   });
 
   /// The real `decks.id` — handed straight to `/study/:deckId`.
@@ -31,6 +36,11 @@ class DeckTileView {
   /// One of the eight `courses.accent_color` keys, resolved through the deck's
   /// parent course. Falls back to `slate` when the course is unknown.
   final String accentKey;
+
+  /// True when the app is offline and this deck's cards are not mirrored
+  /// locally, so it cannot be opened or studied (design spec §E.1). The tile
+  /// renders greyed with a "Download to use offline" affordance.
+  final bool isLockedOffline;
 }
 
 /// One course and the decks under it, as the Decks-tab accordion renders them
@@ -44,32 +54,67 @@ class CourseDeckGroup {
   final List<DeckTileView> decks;
 }
 
-/// How long the Decks tab waits on the deck-list fetch before giving up. The tab
-/// is the app's home screen — it must not sit on a spinner forever because
-/// Supabase is slow or asleep (same reasoning as the study screen's bound,
-/// ui-spec-v1 §2). Overridden short in tests.
+/// How long the Decks tab waits on the deck-list fetch before falling back to
+/// the local mirror. The tab is the app's home screen — it must not sit on a
+/// spinner because Supabase is slow, asleep or unreachable (same reasoning as
+/// the study screen's bound, ui-spec-v1 §2). Overridden short in tests.
 final decksLoadTimeoutProvider =
-    Provider<Duration>((ref) => const Duration(seconds: 6));
+    Provider<Duration>((ref) => kRevalidateTimeout);
+
+/// The decks already in the local SQLite mirror — served immediately on the
+/// Decks tab while [tabDecksProvider] revalidates against Supabase (milestone
+/// E1). A fast local query; empty on a fresh install. Never hits the network,
+/// so it can't hang offline.
+final cachedTabDecksProvider = FutureProvider<List<DeckSummary>>((ref) {
+  return ref.watch(localDeckStoreProvider).cachedDeckSummaries();
+});
 
 /// The deck list for the tab, bounded by [decksLoadTimeoutProvider]. Separate
 /// from the app-wide [decksProvider] (which the Mastery tab and stats layer also
-/// read) so the timeout only applies here.
+/// read) so the bound applies only here.
+///
+/// The bound wraps the **remote** call only; the local-mirror fallback that
+/// runs after a timeout is fast and unbounded. Previously the timeout wrapped
+/// `CacheFirstDeckRepository.fetchDecks` whole — cache fallback included — so an
+/// unreachable host burned the budget before the fallback ran and the tab
+/// showed an error over a perfectly good mirror. [decksTabViewProvider] serves
+/// [cachedTabDecksProvider] in the meantime so first paint is never a spinner
+/// behind a doomed network call.
 final tabDecksProvider = FutureProvider<List<DeckSummary>>((ref) async {
+  final repository = ref.watch(deckRepositoryProvider);
+  final local = ref.watch(localDeckStoreProvider);
   final timeout = ref.watch(decksLoadTimeoutProvider);
-  return ref.watch(deckRepositoryProvider).fetchDecks().timeout(timeout);
+  try {
+    return await repository.fetchDecks().timeout(timeout);
+  } catch (_) {
+    final cached = await local.cachedDeckSummaries();
+    if (cached.isNotEmpty) return cached;
+    rethrow;
+  }
 });
 
 /// The Decks-tab accordion model (ui-spec-v2 §5): the user's courses ordered by
 /// `created_at` ascending — so the default course sorts first — each with its
 /// decks.
 ///
-/// Driven by [tabDecksProvider] — its loading / error / empty state is the
-/// screen's state. [coursesProvider] is best-effort enrichment: while it loads
-/// or if it fails, every deck falls into a single synthetic group so the tab
-/// still renders rather than blocking.
+/// Driven by [tabDecksProvider] — its error / empty state is the screen's
+/// state. While it is still loading, the decks already in the local mirror
+/// ([cachedTabDecksProvider]) stand in, so an offline launch paints real
+/// content instead of a spinner behind a doomed network call (milestone E1).
+/// [coursesProvider] is best-effort enrichment: while it loads or if it fails,
+/// every deck falls into a single synthetic group so the tab still renders
+/// rather than blocking.
 final decksTabViewProvider =
     Provider<AsyncValue<List<CourseDeckGroup>>>((ref) {
-  final decksAsync = ref.watch(tabDecksProvider);
+  final live = ref.watch(tabDecksProvider);
+  final cached =
+      ref.watch(cachedTabDecksProvider).asData?.value ?? const <DeckSummary>[];
+  // Stale-first: while the Supabase refresh is in flight, show whatever the
+  // mirror holds. Once it resolves (or errors with an empty mirror) the live
+  // state takes over.
+  final decksAsync = live.isLoading && cached.isNotEmpty
+      ? AsyncData<List<DeckSummary>>(cached)
+      : live;
   final courses =
       ref.watch(coursesProvider).asData?.value ?? const <Course>[];
 
@@ -83,6 +128,12 @@ final decksTabViewProvider =
   // server `position` order until the persisted refetch catches up.
   final order = ref.watch(tabOrderProvider);
 
+  // A deck the app can't open offline (design spec §E.1). Assume online until
+  // connectivity resolves, so tiles never flash locked on a cold start.
+  final online = ref.watch(onlineStatusProvider).asData?.value ?? true;
+  final studiable = ref.watch(studiableOfflineDeckIdsProvider).asData?.value ??
+      const <String>{};
+
   return decksAsync.whenData((decks) {
     final visibleDecks = pending.deckIds.isEmpty
         ? decks
@@ -90,7 +141,8 @@ final decksTabViewProvider =
     final visibleCourses = pending.courseIds.isEmpty
         ? courses
         : courses.where((c) => !pending.courseIds.contains(c.id)).toList();
-    return _group(visibleDecks, visibleCourses, order);
+    return _group(visibleDecks, visibleCourses, order,
+        online: online, studiable: studiable);
   });
 });
 
@@ -110,13 +162,16 @@ final _syntheticDefaultCourse = Course(
 List<CourseDeckGroup> _group(
   List<DeckSummary> decks,
   List<Course> courses,
-  TabOrder order,
-) {
+  TabOrder order, {
+  required bool online,
+  required Set<String> studiable,
+}) {
   DeckTileView tile(DeckSummary d, String accentKey) => DeckTileView(
         id: d.id,
         name: d.name,
         cardCount: d.totalCards,
         accentKey: accentKey,
+        isLockedOffline: !online && !studiable.contains(d.id),
       );
 
   if (courses.isEmpty) {
@@ -210,6 +265,7 @@ List<T> _applyOverride<T>(
 /// Re-runs the deck-list and course fetches (Retry on the error state).
 void refreshDecksTab(WidgetRef ref) {
   ref.invalidate(tabDecksProvider);
+  ref.invalidate(cachedTabDecksProvider);
   ref.invalidate(decksProvider);
   ref.invalidate(coursesProvider);
 }

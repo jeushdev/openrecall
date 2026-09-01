@@ -1,10 +1,14 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:open_recall/core/connectivity/connectivity_service.dart';
+import 'package:open_recall/core/local_db/local_db_providers.dart';
 import 'package:open_recall/features/courses/application/course_providers.dart';
 import 'package:open_recall/features/courses/domain/course.dart';
 import 'package:open_recall/features/decks/application/deck_providers.dart';
 import 'package:open_recall/features/decks/application/decks_tab_view.dart';
+import 'package:open_recall/features/decks/application/offline_providers.dart';
 import 'package:open_recall/features/decks/application/pending_deletions.dart';
+import 'package:open_recall/features/decks/data/local_deck_store.dart';
 import 'package:open_recall/features/decks/domain/deck.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -37,6 +41,37 @@ Course _course(
       createdAt: createdAt ?? DateTime.utc(2026),
       updatedAt: DateTime.utc(2026),
     );
+
+/// Two cached deck headers; only `cached-1` has its cards mirrored.
+class _SeededLocalDeckStore extends LocalDeckStore {
+  _SeededLocalDeckStore() : super(null);
+
+  @override
+  bool get isNoop => false;
+
+  @override
+  Future<List<DeckSummary>> cachedDeckSummaries() async => const [
+        DeckSummary(
+          id: 'cached-1',
+          name: 'Cached deck',
+          lastStudiedAt: null,
+          totalCards: 3,
+          dueCards: 3,
+          masteryPercent: 0,
+        ),
+        DeckSummary(
+          id: 'cached-2',
+          name: 'Locked deck',
+          lastStudiedAt: null,
+          totalCards: 0,
+          dueCards: 0,
+          masteryPercent: 0,
+        ),
+      ];
+
+  @override
+  Future<Set<String>> mirroredCardDeckIds() async => {'cached-1'};
+}
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -191,6 +226,70 @@ void main() {
             .map((d) => d.id),
         ['d-chem'],
       );
+    });
+  });
+
+  group('decksTabViewProvider — offline (milestone E1)', () {
+    test('serves cached decks while the Supabase refresh is still in flight',
+        () async {
+      final container = ProviderContainer(overrides: [
+        deckRepositoryProvider
+            .overrideWithValue(FakeDeckRepository()..hangForever = true),
+        courseRepositoryProvider
+            .overrideWithValue(FakeCourseRepository(courses: const [])),
+        localDeckStoreProvider.overrideWithValue(_SeededLocalDeckStore()),
+      ]);
+      addTearDown(container.dispose);
+
+      await container.read(cachedTabDecksProvider.future);
+      final groups = container.read(decksTabViewProvider).requireValue;
+
+      expect(groups.single.decks.map((d) => d.name), ['Cached deck', 'Locked deck']);
+    });
+
+    test('offline, a deck with no mirrored cards is flagged locked', () async {
+      final container = ProviderContainer(overrides: [
+        deckRepositoryProvider
+            .overrideWithValue(FakeDeckRepository()..hangForever = true),
+        courseRepositoryProvider
+            .overrideWithValue(FakeCourseRepository(courses: const [])),
+        localDeckStoreProvider.overrideWithValue(_SeededLocalDeckStore()),
+        onlineStatusProvider.overrideWith((ref) => Stream.value(false)),
+        studiableOfflineDeckIdsProvider
+            .overrideWith((ref) async => const <String>{'cached-1'}),
+      ]);
+      addTearDown(container.dispose);
+      container.listen(onlineStatusProvider, (_, _) {}, fireImmediately: true);
+
+      await container.read(cachedTabDecksProvider.future);
+      await container.read(onlineStatusProvider.future);
+      await container.read(studiableOfflineDeckIdsProvider.future);
+      final decks = container.read(decksTabViewProvider).requireValue.single.decks;
+
+      expect(decks.firstWhere((d) => d.id == 'cached-1').isLockedOffline, isFalse);
+      expect(decks.firstWhere((d) => d.id == 'cached-2').isLockedOffline, isTrue);
+    });
+
+    test('online, no deck is ever locked whatever is mirrored', () async {
+      final container = ProviderContainer(overrides: [
+        deckRepositoryProvider
+            .overrideWithValue(FakeDeckRepository()..hangForever = true),
+        courseRepositoryProvider
+            .overrideWithValue(FakeCourseRepository(courses: const [])),
+        localDeckStoreProvider.overrideWithValue(_SeededLocalDeckStore()),
+        onlineStatusProvider.overrideWith((ref) => Stream.value(true)),
+        studiableOfflineDeckIdsProvider
+            .overrideWith((ref) async => const <String>{}),
+      ]);
+      addTearDown(container.dispose);
+      container.listen(onlineStatusProvider, (_, _) {}, fireImmediately: true);
+
+      await container.read(cachedTabDecksProvider.future);
+      await container.read(onlineStatusProvider.future);
+      await container.read(studiableOfflineDeckIdsProvider.future);
+      final decks = container.read(decksTabViewProvider).requireValue.single.decks;
+
+      expect(decks.every((d) => !d.isLockedOffline), isTrue);
     });
   });
 

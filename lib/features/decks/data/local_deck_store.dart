@@ -90,6 +90,30 @@ class LocalDeckStore {
     return rows.isNotEmpty;
   }
 
+  /// The ids of decks whose **cards** are mirrored locally — the decks that can
+  /// actually be studied offline.
+  ///
+  /// Distinct from [downloadedDeckIds], which since spec-v4 returns every deck
+  /// the user has: `refreshDeckMeta` writes an `offline_decks` header row for
+  /// each one so the Library is browsable offline, long before any card set is
+  /// mirrored. Row existence means "listed"; a row here means "studiable".
+  Future<Set<String>> mirroredCardDeckIds() async {
+    final db = _db;
+    if (db == null) return <String>{};
+    final rows =
+        await db.rawQuery('SELECT DISTINCT deck_id FROM offline_cards');
+    return {for (final r in rows) r['deck_id'] as String};
+  }
+
+  /// Whether [deckId]'s cards are mirrored locally. See [mirroredCardDeckIds].
+  Future<bool> hasMirroredCards(String deckId) async {
+    final db = _db;
+    if (db == null) return false;
+    final rows = await db.query('offline_cards',
+        columns: ['id'], where: 'deck_id = ?', whereArgs: [deckId], limit: 1);
+    return rows.isNotEmpty;
+  }
+
   // ---- download / remove --------------------------------------------------
 
   /// Pins a deck "available offline": writes/refreshes the deck header, sets

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:open_recall/features/courses/application/course_providers.dart';
@@ -152,5 +154,25 @@ void main() {
     expect(metrics.totalCardsReviewed, 10);
     expect(metrics.totalStudyTime, const Duration(minutes: 50));
     expect(stats.calls, contains('fetchCompletedSessions(limit=1000)'));
+  });
+
+  test('a stats read that never returns lands in error, not a forever spinner',
+      () async {
+    stats.hangForever = true;
+    final bounded = ProviderContainer(overrides: [
+      deckRepositoryProvider.overrideWithValue(decks),
+      courseRepositoryProvider.overrideWithValue(courses),
+      statsRepositoryProvider.overrideWithValue(stats),
+      statsLoadTimeoutProvider
+          .overrideWithValue(const Duration(milliseconds: 20)),
+    ]);
+    addTearDown(bounded.dispose);
+    bounded.listen(completedSessionsProvider, (_, _) {});
+
+    await Future<void>.delayed(const Duration(milliseconds: 100));
+
+    final state = bounded.read(completedSessionsProvider);
+    expect(state.hasError, isTrue);
+    expect(state.error, isA<TimeoutException>());
   });
 }

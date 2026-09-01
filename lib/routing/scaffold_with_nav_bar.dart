@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../core/ui/offline_banner.dart';
 import '../features/settings/application/settings_sections_expansion.dart';
 import 'glass_bottom_nav_bar.dart';
 
@@ -137,19 +138,38 @@ class _ScaffoldWithNavBarState extends ConsumerState<ScaffoldWithNavBar>
 
   @override
   Widget build(BuildContext context) {
+    final tabs = Stack(
+      children: [
+        for (var i = 0; i < widget.children.length; i++)
+          Offstage(
+            offstage: i != _currentIndex && i != _outgoingIndex,
+            child: SlideTransition(
+              position: _slideFor(i),
+              child: widget.children[i],
+            ),
+          ),
+      ],
+    );
+
     return Scaffold(
       extendBody: true,
-      body: Stack(
-        children: [
-          for (var i = 0; i < widget.children.length; i++)
-            Offstage(
-              offstage: i != _currentIndex && i != _outgoingIndex,
-              child: SlideTransition(
-                position: _slideFor(i),
-                child: widget.children[i],
+      // The offline strip (design spec §E.1) sits above every tab. The top
+      // inset is consumed once here so the per-tab `SafeArea`s below become
+      // top no-ops and the strip is never tucked under the status bar.
+      body: SafeArea(
+        bottom: false,
+        child: Column(
+          children: [
+            const OfflineBanner(),
+            Expanded(
+              child: MediaQuery.removePadding(
+                context: context,
+                removeTop: true,
+                child: tabs,
               ),
             ),
-        ],
+          ],
+        ),
       ),
       bottomNavigationBar: GlassBottomNavBar(
         currentIndex: widget.navigationShell.currentIndex,

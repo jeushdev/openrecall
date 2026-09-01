@@ -3,13 +3,19 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../core/connectivity/connectivity_service.dart';
 import '../data/supabase_auth_repository.dart';
 import '../domain/auth_repository.dart';
 
 /// The live repository is backed by the initialized Supabase singleton. Tests
 /// override this with a fake, so nothing else in the app imports `Supabase`.
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
-  return SupabaseAuthRepository(Supabase.instance.client.auth);
+  final repo = SupabaseAuthRepository(
+    Supabase.instance.client.auth,
+    connectivity: ref.watch(connectivityServiceProvider),
+  );
+  ref.onDispose(repo.dispose);
+  return repo;
 });
 
 /// Emits `true`/`false` as the session appears or clears. The router listens to

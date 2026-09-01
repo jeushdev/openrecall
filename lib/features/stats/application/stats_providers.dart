@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../core/cache/stale_first.dart' show kRevalidateTimeout;
 import '../../../core/local_db/local_db_providers.dart';
 import '../../courses/application/course_providers.dart';
 import '../../decks/application/deck_providers.dart';
@@ -28,6 +29,14 @@ final statsRepositoryProvider = Provider<StatsRepository>((ref) {
   );
 });
 
+/// The bound on every stats read (milestone E1). These are read-only and never
+/// on the study path, but an unreachable host must not leave the Mastery or
+/// Profile tab spinning — `CacheFirstStatsRepository` has already served
+/// whatever the local mirror holds by the time this expires. Overridden short
+/// in tests.
+final statsLoadTimeoutProvider =
+    Provider<Duration>((ref) => kRevalidateTimeout);
+
 /// The single app-wide, card-weighted mastery % (0–100). Pure derivation of
 /// [decksProvider] — which already falls back to the local mirror (or an empty
 /// list) when there is no connectivity and no database, so this degrades
@@ -43,7 +52,10 @@ final overallMasteryProvider = FutureProvider<int>((ref) async {
 /// it directly.
 final recentCompletedSessionsProvider =
     FutureProvider<List<CompletedSessionActivity>>((ref) {
-  return ref.watch(statsRepositoryProvider).fetchRecentCompletedSessions();
+  return ref
+      .watch(statsRepositoryProvider)
+      .fetchRecentCompletedSessions()
+      .timeout(ref.watch(statsLoadTimeoutProvider));
 });
 
 /// The Mastery tab's recent-activity feed (milestone C): completed sessions,
@@ -64,7 +76,10 @@ final recentActivityProvider = FutureProvider<List<ActivityItem>>((ref) async {
 
 /// "Times fully cleared" per deck (engine-v2-spec §4.3), keyed by deck id.
 final deckRunThroughsProvider = FutureProvider<Map<String, int>>((ref) {
-  return ref.watch(statsRepositoryProvider).fetchDeckRunThroughs();
+  return ref
+      .watch(statsRepositoryProvider)
+      .fetchDeckRunThroughs()
+      .timeout(ref.watch(statsLoadTimeoutProvider));
 });
 
 /// Every completed study session (newest first, capped) — the shared history
@@ -73,7 +88,10 @@ final deckRunThroughsProvider = FutureProvider<Map<String, int>>((ref) {
 /// makes one session fetch, not two.
 final completedSessionsProvider =
     FutureProvider<List<CompletedSession>>((ref) {
-  return ref.watch(statsRepositoryProvider).fetchCompletedSessions();
+  return ref
+      .watch(statsRepositoryProvider)
+      .fetchCompletedSessions()
+      .timeout(ref.watch(statsLoadTimeoutProvider));
 });
 
 /// The Profile tab's "Study habits" block (milestone D): current + longest

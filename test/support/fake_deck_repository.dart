@@ -26,6 +26,11 @@ class FakeDeckRepository implements DeckRepository {
   /// When set, the next repository call throws this and then clears it.
   Object? throwOnNextCall;
 
+  /// When true, [fetchDecks] and [fetchCards] return a future that never
+  /// completes — an unreachable host rather than a refused connection, the
+  /// case the Decks-tab timeout used to mishandle.
+  bool hangForever = false;
+
   /// When set, [updateCardMasteryGuarded] awaits this before applying — lets a
   /// test hold a background write open while another rating happens.
   Completer<void>? guardGate;
@@ -84,6 +89,7 @@ class FakeDeckRepository implements DeckRepository {
   Future<List<DeckSummary>> fetchDecks() async {
     calls.add('fetchDecks()');
     _maybeThrow();
+    if (hangForever) return Completer<List<DeckSummary>>().future;
     return List.unmodifiable(_decks);
   }
 
@@ -159,6 +165,7 @@ class FakeDeckRepository implements DeckRepository {
   Future<List<FlashCard>> fetchCards(String deckId) async {
     calls.add('fetchCards($deckId)');
     _maybeThrow();
+    if (hangForever) return Completer<List<FlashCard>>().future;
     return _cards.where((c) => c.deckId == deckId).toList();
   }
 

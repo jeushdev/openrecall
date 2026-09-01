@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:open_recall/features/stats/domain/activity_feed.dart';
 import 'package:open_recall/features/stats/domain/completed_session.dart';
 import 'package:open_recall/features/stats/domain/completed_session_activity.dart';
@@ -23,6 +25,10 @@ class FakeStatsRepository implements StatsRepository {
   /// When set, the next call throws this and then clears it.
   Object? throwOnNextCall;
 
+  /// When true, every fetch returns a future that never completes — an
+  /// unreachable host, the case [statsLoadTimeoutProvider] bounds.
+  bool hangForever = false;
+
   void _maybeThrow() {
     final error = throwOnNextCall;
     if (error != null) {
@@ -31,12 +37,15 @@ class FakeStatsRepository implements StatsRepository {
     }
   }
 
+  Future<T> _hang<T>() => Completer<T>().future;
+
   @override
   Future<List<CompletedSessionActivity>> fetchRecentCompletedSessions({
     int limit = activityFeedLimit,
   }) async {
     calls.add('fetchRecentCompletedSessions(limit=$limit)');
     _maybeThrow();
+    if (hangForever) return _hang();
     return List.unmodifiable(_recentCompletedSessions.take(limit));
   }
 
@@ -44,6 +53,7 @@ class FakeStatsRepository implements StatsRepository {
   Future<Map<String, int>> fetchDeckRunThroughs() async {
     calls.add('fetchDeckRunThroughs()');
     _maybeThrow();
+    if (hangForever) return _hang();
     return Map.unmodifiable(_runThroughs);
   }
 
@@ -53,6 +63,7 @@ class FakeStatsRepository implements StatsRepository {
   }) async {
     calls.add('fetchCompletedSessions(limit=$limit)');
     _maybeThrow();
+    if (hangForever) return _hang();
     return List.unmodifiable(_completedSessions.take(limit));
   }
 }

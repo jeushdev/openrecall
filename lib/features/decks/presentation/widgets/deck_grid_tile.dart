@@ -65,33 +65,77 @@ class DeckGridTile extends StatelessWidget {
             child: Material(
               type: MaterialType.transparency,
               child: InkWell(
-                onTap: () => context.pushNamed(
-                  AppRoutes.deckDetailName,
-                  pathParameters: {'deckId': deck.id},
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        deck.name,
-                        textAlign: TextAlign.center,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                          color: tokens.textPrimary,
+                onTap: deck.isLockedOffline
+                    ? () => ScaffoldMessenger.maybeOf(context)
+                      ?..hideCurrentSnackBar()
+                      ..showSnackBar(SnackBar(
+                        content: Text(
+                          '“${deck.name}” isn\'t available offline — connect '
+                          'to download it.',
                         ),
-                      ),
-                      const SizedBox(height: 8),
-                      DeckBadge(deck: deck, accent: accent),
-                    ],
+                      ))
+                    : () => context.pushNamed(
+                          AppRoutes.deckDetailName,
+                          pathParameters: {'deckId': deck.id},
+                        ),
+                child: Opacity(
+                  // Greyed while locked offline (design spec §E.1).
+                  opacity: deck.isLockedOffline ? 0.45 : 1.0,
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          deck.name,
+                          textAlign: TextAlign.center,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                            color: tokens.textPrimary,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        if (deck.isLockedOffline)
+                          _OfflineLockAffordance(color: tokens.textSecondary)
+                        else
+                          DeckBadge(deck: deck, accent: accent),
+                      ],
+                    ),
                   ),
                 ),
               ),
             ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// The badge replacement on a deck that can't be opened offline (design spec
+/// §E.1): a small download hint in place of the card count.
+class _OfflineLockAffordance extends StatelessWidget {
+  const _OfflineLockAffordance({required this.color});
+
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(Icons.cloud_download_outlined, size: 12, color: color),
+        const SizedBox(width: 4),
+        Flexible(
+          child: Text(
+            'Download to use offline',
+            textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(fontSize: 10, color: color),
           ),
         ),
       ],

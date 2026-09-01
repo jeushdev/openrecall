@@ -15,6 +15,12 @@ import 'features/settings/data/theme_mode_preference.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // Both awaits below are local-only — dotenv reads a bundled asset and
+  // `Supabase.initialize` only awaits restoring the persisted session (its
+  // network `recoverSession` is fire-and-forget inside the package). Without
+  // either the app genuinely cannot run, so these stay unguarded; everything
+  // else on the startup path degrades instead of blocking first paint (design
+  // spec §E.1).
   await dotenv.load(fileName: '.env');
   await Supabase.initialize(
     url: dotenv.env['SUPABASE_URL']!,
@@ -23,10 +29,16 @@ Future<void> main() async {
     publishableKey: dotenv.env['SUPABASE_ANON_KEY']!,
   );
 
+  // Reminders are a nice-to-have; a platform-channel failure here must never
+  // stop the app from starting.
   final notifications = NotificationService();
-  await notifications.init();
-  // Honor the user's saved reminders on/off choice (spec §9) from cold start.
-  await notifications.setEnabled(await NotificationPreferences().isEnabled());
+  try {
+    await notifications.init();
+    // Honor the user's saved reminders on/off choice (spec §9) from cold start.
+    await notifications.setEnabled(await NotificationPreferences().isEnabled());
+  } catch (_) {
+    // Reminders stay off for this launch.
+  }
 
   // Eagerly read the saved theme override so the first frame paints in the
   // right theme with no flash (`docs/spec-v5-dark-mode.md` §4.1).

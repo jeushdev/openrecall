@@ -64,7 +64,11 @@ class CacheFirstDeckRepository implements DeckRepository {
       }
       return cards;
     } catch (_) {
-      if (await _local.isDownloaded(deckId)) return _local.cards(deckId);
+      // "Downloaded" is header-row existence, which since spec-v4 is true for
+      // every listed deck. Only a mirrored card set makes a deck usable
+      // offline — otherwise this returned an empty deck rather than the
+      // "unavailable offline" state (spec.md §10).
+      if (await _local.hasMirroredCards(deckId)) return _local.cards(deckId);
       if (_local.isNoop) rethrow;
       throw DeckUnavailableOfflineException(deckId);
     }

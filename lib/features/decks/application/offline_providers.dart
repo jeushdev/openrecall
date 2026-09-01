@@ -7,11 +7,22 @@ import '../../../core/local_db/local_db_providers.dart';
 import '../data/supabase_deck_repository.dart';
 import 'deck_providers.dart';
 
-/// The ids of the decks the user has toggled "available offline" on this device
-/// (spec §10 — a device-local preference, not synced app data). Empty when
-/// there is no local database.
+/// The ids of the decks the user has pinned "keep available offline" on this
+/// device (spec §10 — a device-local preference, not synced app data).
+///
+/// Reads `is_pinned`, not row existence: since spec-v4 `refreshDeckMeta` writes
+/// a header row for *every* deck, so `downloadedDeckIds()` would show the Deck
+/// Overview switch as on for every deck the user has ever seen listed. Empty
+/// when there is no local database.
 final offlineDeckIdsProvider = FutureProvider<Set<String>>((ref) {
-  return ref.watch(localDeckStoreProvider).downloadedDeckIds();
+  return ref.watch(localDeckStoreProvider).pinnedDeckIds();
+});
+
+/// The ids of decks whose cards are mirrored locally — the ones actually
+/// studiable with no connection (milestone E1). Everything else renders locked
+/// while offline.
+final studiableOfflineDeckIdsProvider = FutureProvider<Set<String>>((ref) {
+  return ref.watch(localDeckStoreProvider).mirroredCardDeckIds();
 });
 
 /// Whether deck [deckId] holds local work not yet synced to Supabase. The
