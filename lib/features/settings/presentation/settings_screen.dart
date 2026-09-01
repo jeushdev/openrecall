@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -47,21 +48,25 @@ class SettingsScreen extends ConsumerWidget {
           ),
           const Divider(),
 
-          const _SectionHeader('Notifications'),
-          SwitchListTile(
-            secondary: const Icon(Icons.notifications_outlined),
-            title: const Text('Study reminders'),
-            subtitle: const Text(
-              'Nudge me a few hours after I leave cards unfinished or parked.',
+          // Local notifications cannot fire from a hosted web page
+          // (spec-web-mvp §5.3), so the whole section is absent on web.
+          if (!kIsWeb) ...[
+            const _SectionHeader('Notifications'),
+            SwitchListTile(
+              secondary: const Icon(Icons.notifications_outlined),
+              title: const Text('Study reminders'),
+              subtitle: const Text(
+                'Nudge me a few hours after I leave cards unfinished or parked.',
+              ),
+              value: remindersEnabled.asData?.value ?? true,
+              onChanged: remindersEnabled.isLoading
+                  ? null
+                  : (value) => ref
+                      .read(notificationsEnabledProvider.notifier)
+                      .setEnabled(value),
             ),
-            value: remindersEnabled.asData?.value ?? true,
-            onChanged: remindersEnabled.isLoading
-                ? null
-                : (value) => ref
-                    .read(notificationsEnabledProvider.notifier)
-                    .setEnabled(value),
-          ),
-          const Divider(),
+            const Divider(),
+          ],
 
           const _SectionHeader('About'),
           ListTile(

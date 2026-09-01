@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -49,7 +50,10 @@ class _DeckOverviewScreenState extends ConsumerState<DeckOverviewScreen> {
     final pinned =
         ref.watch(offlineDeckIdsProvider).asData?.value ?? const <String>{};
     final online = ref.watch(onlineStatusProvider).asData?.value ?? true;
-    final canUpdateOffline = pinned.contains(widget.deckId) && online;
+    // Updating a local mirror copy is meaningless with no mirror (web,
+    // spec-web-mvp §5.3).
+    final canUpdateOffline =
+        !kIsWeb && pinned.contains(widget.deckId) && online;
 
     ref.listen(decksControllerProvider, (_, next) {
       if (next case AsyncError(:final error)) {

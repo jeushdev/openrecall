@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -24,8 +25,11 @@ class DeckLibraryScreen extends ConsumerWidget {
     });
 
     final decks = ref.watch(decksProvider);
-    final offlineIds =
-        ref.watch(offlineDeckIdsProvider).asData?.value ?? const <String>{};
+    // No local mirror on web, so no deck is ever "downloaded"
+    // (spec-web-mvp §5.3).
+    final offlineIds = kIsWeb
+        ? const <String>{}
+        : ref.watch(offlineDeckIdsProvider).asData?.value ?? const <String>{};
 
     return Scaffold(
       appBar: AppBar(

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -19,6 +20,10 @@ class OfflineToggle extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // The "keep available offline" pin needs a local mirror, which the web
+    // build never has (spec-web-mvp §5.3).
+    if (kIsWeb) return const SizedBox.shrink();
+
     final ids =
         ref.watch(offlineDeckIdsProvider).asData?.value ?? const <String>{};
     final downloaded = ids.contains(deckId);

@@ -171,7 +171,11 @@ List<CourseDeckGroup> _group(
         name: d.name,
         cardCount: d.totalCards,
         accentKey: accentKey,
-        isLockedOffline: !online && !studiable.contains(d.id),
+        // On web there is no local mirror and nothing is ever "studiable
+        // offline", so an offline browser would otherwise lock every tile with
+        // copy about downloading (spec-web-mvp §5.3). The web build is
+        // online-only by design; leave tiles unlocked.
+        isLockedOffline: !kIsWeb && !online && !studiable.contains(d.id),
       );
 
   if (courses.isEmpty) {
