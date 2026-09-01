@@ -2,10 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/connectivity/connectivity_service.dart';
 import '../../../routing/app_routes.dart';
 import '../../study/application/session_controller.dart';
 import '../../study/presentation/study_session_args.dart';
 import '../application/deck_providers.dart';
+import '../application/offline_providers.dart';
+import '../data/cache_first_deck_repository.dart';
 import '../domain/deck_overview_stats.dart';
 import '../domain/study_mode.dart';
 import 'widgets/mastery_bar.dart';
@@ -43,6 +46,11 @@ class _DeckOverviewScreenState extends ConsumerState<DeckOverviewScreen> {
         !session.isComplete;
     final hasCards = cards.value?.isNotEmpty ?? false;
 
+    final pinned =
+        ref.watch(offlineDeckIdsProvider).asData?.value ?? const <String>{};
+    final online = ref.watch(onlineStatusProvider).asData?.value ?? true;
+    final canUpdateOffline = pinned.contains(widget.deckId) && online;
+
     ref.listen(decksControllerProvider, (_, next) {
       if (next case AsyncError(:final error)) {
         ScaffoldMessenger.of(context)
@@ -59,18 +67,34 @@ class _DeckOverviewScreenState extends ConsumerState<DeckOverviewScreen> {
         actions: [
           if (hasCards)
             PopupMenuButton<String>(
-              onSelected: (_) => _resetMastery(),
-              itemBuilder: (_) => const [
-                PopupMenuItem(value: 'reset', child: Text('Reset mastery')),
+              onSelected: (value) {
+                switch (value) {
+                  case 'reset':
+                    _resetMastery();
+                  case 'update-offline':
+                    _updateOfflineCopy();
+                }
+              },
+              itemBuilder: (_) => [
+                const PopupMenuItem(
+                    value: 'reset', child: Text('Reset mastery')),
+                if (canUpdateOffline)
+                  const PopupMenuItem(
+                    value: 'update-offline',
+                    child: Text('Update offline copy'),
+                  ),
               ],
             ),
         ],
       ),
       body: cards.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (_, _) => _LoadError(
-          onRetry: () => ref.invalidate(deckCardsProvider(widget.deckId)),
-        ),
+        error: (err, _) => err is DeckUnavailableOfflineException
+            ? const _UnavailableOffline()
+            : _LoadError(
+                onRetry: () =>
+                    ref.invalidate(deckCardsProvider(widget.deckId)),
+              ),
         data: (list) => _Body(
           deckId: widget.deckId,
           deckName: widget.deckName,
@@ -125,6 +149,21 @@ class _DeckOverviewScreenState extends ConsumerState<DeckOverviewScreen> {
       pathParameters: {'deckId': widget.deckId},
       extra: widget.deckName,
     );
+  }
+
+  Future<void> _updateOfflineCopy() async {
+    await ref
+        .read(offlineControllerProvider.notifier)
+        .updateOfflineCopy(widget.deckId);
+    if (!mounted) return;
+    if (!ref.read(offlineControllerProvider).hasError) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(content: Text('Offline copy updated')),
+        );
+    }
+    // The error path surfaces via the OfflineToggle's own ref.listen.
   }
 
   Future<void> _resetMastery() async {
@@ -314,6 +353,39 @@ class _EmptyDeck extends StatelessWidget {
       child: Text(
         'This deck has no cards yet. Add some to start studying.',
         textAlign: TextAlign.center,
+      ),
+    );
+  }
+}
+
+class _UnavailableOffline extends StatelessWidget {
+  const _UnavailableOffline();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.cloud_off_outlined,
+                size: 40, color: theme.colorScheme.outline),
+            const SizedBox(height: 12),
+            Text(
+              "This deck isn't available offline.",
+              style: theme.textTheme.titleMedium,
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Connect to the internet to open it or pin it for offline study.',
+              style: theme.textTheme.bodySmall,
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
       ),
     );
   }

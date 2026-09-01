@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:open_recall/core/connectivity/connectivity_service.dart';
 import 'package:open_recall/features/decks/application/deck_providers.dart';
+import 'package:open_recall/features/decks/application/offline_providers.dart';
+import 'package:open_recall/features/decks/data/cache_first_deck_repository.dart';
 import 'package:open_recall/features/decks/domain/card.dart';
 import 'package:open_recall/features/decks/presentation/deck_overview_screen.dart';
 
@@ -31,6 +34,22 @@ FlashCard _card({
 
 Widget _host(FakeDeckRepository fake) => ProviderScope(
       overrides: [deckRepositoryProvider.overrideWithValue(fake)],
+      child: const MaterialApp(
+        home: DeckOverviewScreen(deckId: 'deck-1', deckName: 'Biology'),
+      ),
+    );
+
+Widget _offlineHost(
+  FakeDeckRepository fake, {
+  required Set<String> pinned,
+  required bool online,
+}) =>
+    ProviderScope(
+      overrides: [
+        deckRepositoryProvider.overrideWithValue(fake),
+        offlineDeckIdsProvider.overrideWith((ref) async => pinned),
+        onlineStatusProvider.overrideWith((ref) => Stream.value(online)),
+      ],
       child: const MaterialApp(
         home: DeckOverviewScreen(deckId: 'deck-1', deckName: 'Biology'),
       ),
@@ -148,4 +167,63 @@ void main() {
 
     expect(find.text('Troublemaker cards'), findsNothing);
   });
+
+  testWidgets('pinned + online: the menu offers "Update offline copy"',
+      (tester) async {
+    await tester.pumpWidget(_offlineHost(
+      FakeDeckRepository(cards: [_card()]),
+      pinned: const {'deck-1'},
+      online: true,
+    ));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.more_vert));
+    await tester.pumpAndSettle();
+    expect(find.text('Update offline copy'), findsOneWidget);
+  });
+
+  testWidgets('not pinned: no "Update offline copy" item', (tester) async {
+    await tester.pumpWidget(_offlineHost(
+      FakeDeckRepository(cards: [_card()]),
+      pinned: const {},
+      online: true,
+    ));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.more_vert));
+    await tester.pumpAndSettle();
+    expect(find.text('Update offline copy'), findsNothing);
+  });
+
+  testWidgets('pinned but offline: no "Update offline copy" item',
+      (tester) async {
+    await tester.pumpWidget(_offlineHost(
+      FakeDeckRepository(cards: [_card()]),
+      pinned: const {'deck-1'},
+      online: false,
+    ));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.more_vert));
+    await tester.pumpAndSettle();
+    expect(find.text('Update offline copy'), findsNothing);
+  });
+
+  testWidgets('a deck with no offline copy shows the unavailable state, not '
+      'the generic error', (tester) async {
+    await tester.pumpWidget(_host(_AlwaysUnavailableRepo()));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining("isn't available offline"), findsOneWidget);
+    expect(find.text("Couldn't load this deck."), findsNothing);
+    expect(find.widgetWithText(FilledButton, 'Retry'), findsNothing);
+  });
+}
+
+/// Always fails `fetchCards` with the offline-unavailable exception — the state
+/// a never-downloaded deck's Overview hits with no connection.
+class _AlwaysUnavailableRepo extends FakeDeckRepository {
+  @override
+  Future<List<FlashCard>> fetchCards(String deckId) async =>
+      throw const DeckUnavailableOfflineException('deck-1');
 }

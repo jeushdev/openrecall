@@ -24,6 +24,7 @@ class OfflineToggle extends ConsumerWidget {
     final downloaded = ids.contains(deckId);
     final online = ref.watch(onlineStatusProvider).asData?.value ?? true;
     final busy = ref.watch(offlineControllerProvider).isLoading;
+    final progress = ref.watch(downloadProgressProvider);
 
     ref.listen(offlineControllerProvider, (_, next) {
       if (next case AsyncError(:final error)) {
@@ -35,26 +36,53 @@ class OfflineToggle extends ConsumerWidget {
       }
     });
 
-    // Can't start a download with no connection; can always remove one.
-    final canToggle = !busy && (downloaded || online);
+    // Can't start a download with no connection; can always remove one. Never
+    // while a download is mid-flight.
+    final canToggle = !busy && progress == null && (downloaded || online);
 
     return Card(
-      child: SwitchListTile(
-        secondary: Icon(
-          downloaded ? Icons.download_done : Icons.download_outlined,
-        ),
-        title: const Text('Keep available offline'),
-        subtitle: Text(_subtitle(downloaded: downloaded, online: online)),
-        value: downloaded,
-        onChanged: canToggle
-            ? (want) {
-                if (want) {
-                  _download(context, ref);
-                } else {
-                  _confirmRemove(context, ref);
-                }
-              }
-            : null,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SwitchListTile(
+            secondary: Icon(
+              downloaded ? Icons.download_done : Icons.download_outlined,
+            ),
+            title: const Text('Keep available offline'),
+            subtitle: Text(_subtitle(downloaded: downloaded, online: online)),
+            value: downloaded,
+            onChanged: canToggle
+                ? (want) {
+                    if (want) {
+                      _download(context, ref);
+                    } else {
+                      _confirmRemove(context, ref);
+                    }
+                  }
+                : null,
+          ),
+          if (progress != null)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(4),
+                    child: LinearProgressIndicator(
+                      value: progress.total > 0 ? progress.fraction : null,
+                      minHeight: 4,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Downloading ${progress.done} of ${progress.total} cards…',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ],
+              ),
+            ),
+        ],
       ),
     );
   }

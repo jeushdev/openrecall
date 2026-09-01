@@ -116,38 +116,37 @@ class LocalDeckStore {
 
   // ---- download / remove --------------------------------------------------
 
-  /// Pins a deck "available offline": writes/refreshes the deck header, sets
-  /// `is_pinned = 1`, and replaces its card mirror with a freshly-fetched set.
-  Future<void> downloadDeck({
+  /// Marks [deckId] pinned "available offline" and refreshes its cached header.
+  /// **Does not touch the card mirror** — the caller mirrors cards separately via
+  /// [mirrorCards], which skips `is_synced = 0` rows, so an unsynced offline card
+  /// edit is never clobbered. (The old `downloadDeck` replaced the whole card
+  /// set, silently discarding local edits.)
+  Future<void> pinDeck({
     required String deckId,
     required String name,
     String? courseId,
-    DateTime? lastStudiedAt,
-    required List<FlashCard> cards,
   }) async {
     final db = _db;
     if (db == null) return;
-    await db.transaction((txn) async {
-      final exists = (await txn.query('offline_decks',
-              columns: ['id'], where: 'id = ?', whereArgs: [deckId], limit: 1))
-          .isNotEmpty;
-      final header = {
+    final exists = (await db.query('offline_decks',
+            columns: ['id'], where: 'id = ?', whereArgs: [deckId], limit: 1))
+        .isNotEmpty;
+    if (exists) {
+      await db.update(
+        'offline_decks',
+        {'name': name, 'course_id': ?courseId, 'is_pinned': 1},
+        where: 'id = ?',
+        whereArgs: [deckId],
+      );
+    } else {
+      await db.insert('offline_decks', {
+        'id': deckId,
         'name': name,
-        'course_id': courseId,
-        'last_studied_at': lastStudiedAt?.toUtc().toIso8601String(),
+        'course_id': ?courseId,
         'is_pinned': 1,
-      };
-      if (exists) {
-        await txn
-            .update('offline_decks', header, where: 'id = ?', whereArgs: [deckId]);
-      } else {
-        await txn.insert('offline_decks', {'id': deckId, ...header});
-      }
-      await txn.delete('offline_cards', where: 'deck_id = ?', whereArgs: [deckId]);
-      for (final c in cards) {
-        await txn.insert('offline_cards', _cardValues(c));
-      }
-    });
+        'is_synced': 1,
+      });
+    }
   }
 
   /// Unpins a deck. If it still holds unsynced local work its row and cards are

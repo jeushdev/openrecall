@@ -94,3 +94,22 @@ abstract interface class DeckRepository {
   /// reorder; that arrives with the milestone E write queue).
   Future<void> reorderDecks(List<String> orderedIds);
 }
+
+/// The read side a per-deck offline download needs (design spec §E.2): a card
+/// count for the progress denominator and paged fetches for the numerator.
+///
+/// Separate from [DeckRepository] on purpose — these are download plumbing, not
+/// part of the contract every fake repository implements.
+/// [SupabaseDeckRepository] implements both; tests override
+/// `offlineDownloadSourceProvider` with a fake that implements only this.
+abstract interface class OfflineDownloadSource {
+  /// The number of cards in [deckId] — a `HEAD` request, no rows transferred.
+  Future<int> countCards(String deckId);
+
+  /// [limit] cards from [deckId] in creation order, starting at [offset].
+  Future<List<FlashCard>> fetchCardsPage(
+    String deckId, {
+    required int offset,
+    required int limit,
+  });
+}

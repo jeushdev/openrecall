@@ -9,7 +9,8 @@ import '../domain/deck_repository.dart';
 /// The only class in the decks feature that talks to Supabase Postgres
 /// directly. RLS scopes every query to the signed-in user, so no `user_id`
 /// filter is needed on reads.
-class SupabaseDeckRepository implements DeckRepository {
+class SupabaseDeckRepository
+    implements DeckRepository, OfflineDownloadSource {
   SupabaseDeckRepository(this._client);
 
   final SupabaseClient _client;
@@ -90,6 +91,33 @@ class SupabaseDeckRepository implements DeckRepository {
         .select()
         .eq('deck_id', deckId)
         .order('created_at');
+    return rows.map(FlashCard.fromJson).toList();
+  }
+
+  @override
+  Future<int> countCards(String deckId) async {
+    // A count-only request (no rows returned). RLS (cards_owner_via_deck) scopes
+    // it to the signed-in user's deck.
+    final res = await _client
+        .from('cards')
+        .select('id')
+        .eq('deck_id', deckId)
+        .count(CountOption.exact);
+    return res.count;
+  }
+
+  @override
+  Future<List<FlashCard>> fetchCardsPage(
+    String deckId, {
+    required int offset,
+    required int limit,
+  }) async {
+    final rows = await _client
+        .from('cards')
+        .select()
+        .eq('deck_id', deckId)
+        .order('created_at')
+        .range(offset, offset + limit - 1);
     return rows.map(FlashCard.fromJson).toList();
   }
 

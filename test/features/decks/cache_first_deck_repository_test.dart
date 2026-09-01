@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:open_recall/features/courses/data/local_course_store.dart';
 import 'package:open_recall/features/decks/data/cache_first_deck_repository.dart';
 import 'package:open_recall/features/decks/data/local_deck_store.dart';
+import 'package:open_recall/features/decks/domain/card.dart';
 
 import '../../support/fake_deck_repository.dart';
 
@@ -49,6 +50,27 @@ class _MetaOnlyLocalDeckStore extends LocalDeckStore {
 
   @override
   Future<bool> hasMirroredCards(String deckId) async => false;
+}
+
+/// Records the card sets handed to [mirrorCards]. `isDownloaded` is true for
+/// every deck — since spec-v4 `refreshDeckMeta` writes a header row for each
+/// listed deck, which is what makes the read-through mirror-on-open behave as
+/// the spec's "opportunistic refresh".
+class _MirrorRecordingLocalDeckStore extends LocalDeckStore {
+  _MirrorRecordingLocalDeckStore() : super(null);
+
+  final Map<String, List<String>> mirrored = {};
+
+  @override
+  bool get isNoop => false;
+
+  @override
+  Future<bool> isDownloaded(String deckId) async => true;
+
+  @override
+  Future<void> mirrorCards(String deckId, List<FlashCard> remote) async {
+    mirrored[deckId] = [for (final c in remote) c.id];
+  }
 }
 
 void main() {
@@ -111,6 +133,34 @@ void main() {
         repo.fetchCards('deck-1'),
         throwsA(isA<DeckUnavailableOfflineException>()),
       );
+    });
+  });
+
+  group('CacheFirstDeckRepository.fetchCards online', () {
+    test('opening a listed deck refreshes its card mirror in place '
+        '(the spec\'s "opportunistic refresh" — no separate code needed)',
+        () async {
+      final remote = FakeDeckRepository(cards: [
+        FlashCard(
+          id: 'k1', deckId: 'deck-1', front: 'Q', back: 'A',
+          keywords: const [], isConcept: false, masteryLevel: 0, failCount: 0,
+          createdAt: DateTime.utc(2026), updatedAt: DateTime.utc(2026),
+        ),
+        FlashCard(
+          id: 'k2', deckId: 'deck-1', front: 'Q2', back: 'A2',
+          keywords: const [], isConcept: false, masteryLevel: 0, failCount: 0,
+          createdAt: DateTime.utc(2026), updatedAt: DateTime.utc(2026),
+        ),
+      ]);
+      final local = _MirrorRecordingLocalDeckStore();
+      final repo = CacheFirstDeckRepository(
+        remote, local, _FakeLocalCourseStore(null));
+
+      final cards = await repo.fetchCards('deck-1');
+
+      expect(cards.map((c) => c.id), ['k1', 'k2']);
+      expect(local.mirrored['deck-1'], ['k1', 'k2'],
+          reason: 'the fresh set was written to the local mirror on success');
     });
   });
 
