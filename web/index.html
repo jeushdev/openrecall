@@ -18,7 +18,33 @@
 
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <meta name="description" content="OpenRecall — a multi-modal active-recall study app.">
+
+  <script>
+    // The Flutter web engine injects its OWN <meta name="viewport" ...
+    // maximum-scale=5.0> at startup and deletes any we declare here. On iOS
+    // Safari that lets the browser auto-zoom into the sub-16px login inputs
+    // and never zoom back out, and Flutter's gesture layer then swallows the
+    // pinch that would recover (docs/web-known-issues.md, issue 7). Re-pin the
+    // viewport to a non-zooming value whenever the engine changes it.
+    (function () {
+      var DESIRED = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, ' +
+        'user-scalable=no, viewport-fit=cover';
+      function pin() {
+        var m = document.querySelector('meta[name="viewport"]');
+        if (!m) {
+          m = document.createElement('meta');
+          m.name = 'viewport';
+          document.head.appendChild(m);
+        }
+        if (m.content !== DESIRED) m.content = DESIRED;
+      }
+      pin();
+      new MutationObserver(pin).observe(
+        document.head, { childList: true, subtree: true, attributes: true });
+    })();
+  </script>
 
   <!-- iOS meta tags & icons -->
   <meta name="mobile-web-app-capable" content="yes">

@@ -14,7 +14,7 @@ Android APK — a second delivery channel, not a separate product. It is
 | Brave (desktop, Chromium) | ✅ Verified | Full smoke checklist (`docs/spec-web-mvp.md` §8) passed. |
 | Chrome / Edge (desktop, Chromium) | ✅ Assumed good | Same engine as Brave; not separately re-run. |
 | Firefox (desktop) | ⚠️ Not tested | No blocker expected; run before relying on it. |
-| Safari / iOS (iPhone) | ❌ Known defect | Page renders zoomed in and cannot be pinched back out — see issue 7 below. |
+| Safari / iOS (iPhone) | ⚠️ Fix applied, unverified | Zoom-lock defect (issue 7) — a viewport fix is in `web/index.html`; needs re-testing on an iPhone. |
 
 ## Limitations carried by this release
 
@@ -44,17 +44,21 @@ Android APK — a second delivery channel, not a separate product. It is
    gutters, not a reflowed desktop UI. This is intentional
    (`docs/spec-web-mvp.md` §1).
 
-7. **Safari / iOS renders zoomed in.** On iPhone Safari the app loads
-   magnified and the user cannot pinch-zoom back out to a usable size.
-   Root cause: the Flutter web engine injects its own
-   `<meta name="viewport" … maximum-scale=5.0>` at startup (and removes any
-   we set in `web/index.html`), and iOS Safari auto-zooms into the
-   sub-16 px login inputs without zooming back out; Flutter's gesture layer
-   then swallows the pinch gesture that would recover. Safari/iOS is
-   best-effort for this release (`docs/spec-web-mvp.md` §10 item 6) and iOS
-   users currently have no other way in, since the APK is Android-only.
-   Tracked for a follow-up fix (a viewport `MutationObserver` in
-   `web/index.html`).
+7. **Safari / iOS zoom-lock (fix applied, needs iPhone verification).**
+   Symptom: after signing in, when the deck list loads, the page is zoomed
+   in and cannot be pinched back out. Root cause: the Flutter web engine
+   injects its own `<meta name="viewport" … maximum-scale=5.0>` at startup
+   (and deletes any we declare in `web/index.html`); iOS Safari then
+   auto-zooms into the sub-16 px login inputs on focus and never restores,
+   and Flutter's gesture layer swallows the pinch that would recover.
+   **Fix:** `web/index.html` installs a `MutationObserver` that re-pins the
+   viewport to `maximum-scale=1.0, user-scalable=no` every time the engine
+   rewrites it, so Safari never auto-zooms. Trade-off: deliberate
+   pinch-zoom is disabled on all browsers (iOS's system-level accessibility
+   Zoom is unaffected). This is acceptable for an app port and matches
+   native-app behaviour. Verify on a real iPhone before closing this out —
+   there is no Safari on the dev machine. Safari/iOS remains best-effort and
+   not a release gate (`docs/spec-web-mvp.md` §10 item 6).
 
 ## Not a limitation, just noted
 
