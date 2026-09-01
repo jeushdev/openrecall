@@ -314,6 +314,7 @@ class TabOrderController extends Notifier<TabOrder> {
       ref.invalidate(coursesProvider);
       ref.invalidate(decksProvider);
       ref.invalidate(tabDecksProvider);
+      ref.invalidate(cachedTabDecksProvider);
       return ref.read(coursesProvider.future);
     });
     state = TabOrder(courseOrder: null, deckOrders: state.deckOrders);
@@ -335,6 +336,7 @@ class TabOrderController extends Notifier<TabOrder> {
     await _settleAfter(() {
       ref.invalidate(decksProvider);
       ref.invalidate(tabDecksProvider);
+      ref.invalidate(cachedTabDecksProvider);
       return ref.read(tabDecksProvider.future);
     });
     state = TabOrder(

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'core/local_db/mirror_scope_guard.dart';
 import 'core/sync/sync_providers.dart';
 import 'core/ui/app_messenger.dart';
 import 'features/settings/application/settings_providers.dart';
@@ -18,6 +19,8 @@ class OpenRecallApp extends ConsumerWidget {
     // Keeps the sync-on-reconnect subscription alive for the app's lifetime
     // (spec §10).
     ref.watch(syncCoordinatorProvider);
+    // Drops the local mirror if the signed-in account changes (design spec §E.3).
+    ref.watch(mirrorScopeGuardProvider);
 
     // System / Light / Dark override (`docs/spec-v5-dark-mode.md` §4). Falls
     // back to System until the preference read resolves — with the cold-start

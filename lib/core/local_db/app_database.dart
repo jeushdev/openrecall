@@ -33,7 +33,7 @@ class AppDatabase {
 
   /// Bump this and add a step to [_onUpgrade] whenever [schemaStatements]
   /// changes.
-  static const _version = 5;
+  static const _version = 6;
 
   /// Opens (creating on first run) the database. [path] overrides the platform
   /// default and is only passed by tests.
@@ -77,7 +77,9 @@ class AppDatabase {
     // available offline" toggle (row existence alone just means "cached" — a
     // deck is mirrored the moment it is opened online). `mastery_level_sum` /
     // `total_cards` let the Library render counts for a deck that was listed
-    // online but never opened, without mirroring its cards.
+    // online but never opened, without mirroring its cards. `position` is the
+    // manual order within the parent course (milestone B), stamped by an offline
+    // drag and pushed via `set_deck_positions` on reconnect (milestone E3).
     '''
     CREATE TABLE offline_decks (
       id                TEXT PRIMARY KEY,
@@ -90,12 +92,15 @@ class AppDatabase {
       is_synced         INTEGER NOT NULL DEFAULT 1,
       is_pinned         INTEGER NOT NULL DEFAULT 0,
       mastery_level_sum INTEGER NOT NULL DEFAULT 0,
-      total_cards       INTEGER NOT NULL DEFAULT 0
+      total_cards       INTEGER NOT NULL DEFAULT 0,
+      position          INTEGER NOT NULL DEFAULT 0
     )
     ''',
     // Courses are now editable offline (spec-v4), so this carries the same
     // dirty-flag columns as the other sync-surface tables. `user_id` is held so
-    // the row can be upserted under RLS on reconnect.
+    // the row can be upserted under RLS on reconnect. `position` is the manual
+    // order within the user's course list (milestone B), stamped by an offline
+    // drag and pushed via `set_course_positions` on reconnect (milestone E3).
     '''
     CREATE TABLE offline_courses (
       id              TEXT PRIMARY KEY,
@@ -106,7 +111,8 @@ class AppDatabase {
       created_at      TEXT,
       updated_at      TEXT,
       base_updated_at TEXT,
-      is_synced       INTEGER NOT NULL DEFAULT 1
+      is_synced       INTEGER NOT NULL DEFAULT 1,
+      position        INTEGER NOT NULL DEFAULT 0
     )
     ''',
     // Content mirror. `mastery_level` / `fail_count` are written locally during
@@ -119,7 +125,10 @@ class AppDatabase {
     // `keywords text[]`, but SQLite `ALTER TABLE` here only ever adds columns
     // (and the schema-parity test can't parse a table rebuild), so the old
     // column stays, unread and unwritten. `keywords` is a JSON-encoded string
-    // array; `is_concept` is 0/1.
+    // array; `is_concept` is 0/1. `created_locally = 1` marks a card authored
+    // offline that has never reached Supabase, so a later offline delete skips
+    // the remote DELETE — `base_updated_at` is NOT NULL here, so the null-probe
+    // the deck/course tables use cannot serve (milestone E3).
     '''
     CREATE TABLE offline_cards (
       id              TEXT PRIMARY KEY,
@@ -135,7 +144,8 @@ class AppDatabase {
       updated_at      TEXT NOT NULL,
       base_updated_at TEXT NOT NULL,
       is_synced       INTEGER NOT NULL DEFAULT 1,
-      content_dirty   INTEGER NOT NULL DEFAULT 0
+      content_dirty   INTEGER NOT NULL DEFAULT 0,
+      created_locally INTEGER NOT NULL DEFAULT 0
     )
     ''',
     'CREATE INDEX idx_offline_cards_deck ON offline_cards(deck_id)',
@@ -191,6 +201,16 @@ class AppDatabase {
     ''',
     'CREATE UNIQUE INDEX idx_offline_deletions_entity '
         'ON offline_deletions(entity_type, entity_id)',
+    // A tiny key/value table for device-local sync bookkeeping (milestone E3).
+    // Currently one row: `last_user_id`, so the whole mirror can be wiped when
+    // the signed-in user changes (design spec §E.3 — the mirror is a private
+    // file, not RLS-protected).
+    '''
+    CREATE TABLE offline_meta (
+      key   TEXT PRIMARY KEY,
+      value TEXT
+    )
+    ''',
   ];
 
   /// The delta from schema version 1 to version 2 (engine-v2-spec §5): the new
@@ -262,6 +282,27 @@ class AppDatabase {
     'ALTER TABLE offline_study_sessions ADD COLUMN cards_reviewed INTEGER',
   ];
 
+  /// The delta from schema version 5 to version 6 (offline-and-ux milestone E3):
+  /// `position` on the two mirror tables that carry a manual order, a
+  /// `created_locally` flag on `offline_cards` (so an offline-authored card's
+  /// delete can skip the remote DELETE — `base_updated_at` is NOT NULL here so
+  /// the old null-probe cannot serve), and a small `offline_meta` key/value
+  /// table for the account-switch mirror wipe. All added columns have constant
+  /// defaults, as `ALTER TABLE ADD COLUMN` requires.
+  @visibleForTesting
+  static const List<String> upgradeToV6Statements = <String>[
+    'ALTER TABLE offline_decks ADD COLUMN position INTEGER NOT NULL DEFAULT 0',
+    'ALTER TABLE offline_courses ADD COLUMN position INTEGER NOT NULL DEFAULT 0',
+    'ALTER TABLE offline_cards '
+        'ADD COLUMN created_locally INTEGER NOT NULL DEFAULT 0',
+    '''
+    CREATE TABLE offline_meta (
+      key   TEXT PRIMARY KEY,
+      value TEXT
+    )
+    ''',
+  ];
+
   static Future<void> _createSchema(Database db, int version) async {
     final batch = db.batch();
     for (final statement in schemaStatements) {
@@ -293,6 +334,11 @@ class AppDatabase {
     }
     if (oldVersion < 5) {
       for (final statement in upgradeToV5Statements) {
+        batch.execute(statement);
+      }
+    }
+    if (oldVersion < 6) {
+      for (final statement in upgradeToV6Statements) {
         batch.execute(statement);
       }
     }

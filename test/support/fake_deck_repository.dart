@@ -26,6 +26,10 @@ class FakeDeckRepository implements DeckRepository {
   /// When set, the next repository call throws this and then clears it.
   Object? throwOnNextCall;
 
+  /// When set, every repository call throws this (models a sustained outage —
+  /// the offline case the cache-first layer must absorb).
+  Object? alwaysThrow;
+
   /// When true, [fetchDecks] and [fetchCards] return a future that never
   /// completes — an unreachable host rather than a refused connection, the
   /// case the Decks-tab timeout used to mishandle.
@@ -43,6 +47,7 @@ class FakeDeckRepository implements DeckRepository {
   String _nextId(String prefix) => '$prefix-${++_idSeq}';
 
   void _maybeThrow() {
+    if (alwaysThrow != null) throw alwaysThrow!;
     final error = throwOnNextCall;
     if (error != null) {
       throwOnNextCall = null;

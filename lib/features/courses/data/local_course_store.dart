@@ -15,6 +15,7 @@ class DirtyCourse {
     required this.isDefault,
     required this.updatedAt,
     required this.baseUpdatedAt,
+    required this.position,
   });
 
   final String id;
@@ -24,6 +25,10 @@ class DirtyCourse {
   final bool isDefault;
   final DateTime updatedAt;
   final DateTime? baseUpdatedAt;
+
+  /// The row's `position` — client-authoritative after an offline drag, pushed
+  /// via `set_course_positions` on reconnect (milestone E3).
+  final int position;
 
   /// True when this row has never reached Supabase — created offline, not yet
   /// pushed. Its sync push is an insert, and a delete before that push needs no
@@ -82,8 +87,28 @@ class LocalCourseStore {
   Future<List<Course>> cachedCourses() async {
     final db = _db;
     if (db == null) return const [];
-    final rows = await db.query('offline_courses', orderBy: 'name');
+    final rows =
+        await db.query('offline_courses', orderBy: 'position, name');
     return rows.map(_fromRow).toList();
+  }
+
+  /// Applies a manual course reorder made offline: stamps each id's list index
+  /// as its `position` and marks the row `is_synced = 0` so [SyncService]
+  /// pushes the new order via `set_course_positions` on reconnect (milestone
+  /// E3). Ids not in the mirror are skipped.
+  Future<void> reorderCourses(List<String> orderedIds) async {
+    final db = _db;
+    if (db == null) return;
+    await db.transaction((txn) async {
+      for (final (i, id) in orderedIds.indexed) {
+        await txn.update(
+          'offline_courses',
+          {'position': i, 'is_synced': 0},
+          where: 'id = ?',
+          whereArgs: [id],
+        );
+      }
+    });
   }
 
   /// The id of the user's default course, or `null` when the mirror has none —
@@ -259,6 +284,7 @@ class LocalCourseStore {
         isDefault: (r['is_default'] as int) == 1,
         createdAt: _parseOrEpoch(r['created_at']),
         updatedAt: _parseOrEpoch(r['updated_at']),
+        position: (r['position'] as int?) ?? 0,
       );
 
   DirtyCourse _dirtyFromRow(Map<String, Object?> r) => DirtyCourse(
@@ -271,6 +297,7 @@ class LocalCourseStore {
         baseUpdatedAt: (r['base_updated_at'] as String?) == null
             ? null
             : DateTime.parse(r['base_updated_at'] as String),
+        position: (r['position'] as int?) ?? 0,
       );
 
   LocalDeletion _deletionFromRow(Map<String, Object?> r) => LocalDeletion(

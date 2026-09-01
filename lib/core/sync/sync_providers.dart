@@ -15,13 +15,34 @@ final syncServiceProvider = Provider<SyncService?>((ref) {
   } catch (_) {
     return null;
   }
-  return SyncService(
+  final service = SyncService(
     client,
     ref.watch(localDeckStoreProvider),
     ref.watch(localCourseStoreProvider),
     ref.watch(localStudyStoreProvider),
     ref.watch(connectivityServiceProvider),
   );
+  ref.onDispose(service.dispose);
+  return service;
+});
+
+/// The last reconnect-sync outcome (milestone E3), for the retry affordance on
+/// `SyncStatusChip`. An empty stream when Supabase is not initialized (tests).
+final syncOutcomeProvider = StreamProvider<SyncOutcome>((ref) {
+  final service = ref.watch(syncServiceProvider);
+  if (service == null) return const Stream<SyncOutcome>.empty();
+  return service.outcomes;
+});
+
+/// A one-shot manual sync that bypasses the reconnect backoff — the tap target
+/// on [SyncStatusChip] when writes are queued (milestone E3). Refreshes the
+/// pending-count providers once it settles so the chip updates.
+final manualSyncProvider = Provider<Future<void> Function()>((ref) {
+  return () async {
+    await ref.read(syncServiceProvider)?.syncPending(force: true);
+    ref.invalidate(pendingSyncProvider);
+    ref.invalidate(pendingSyncCountProvider);
+  };
 });
 
 /// Keeps a sync-on-reconnect subscription alive for the life of the app: every

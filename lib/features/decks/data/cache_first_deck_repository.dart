@@ -308,12 +308,20 @@ class CacheFirstDeckRepository implements DeckRepository {
   Future<void> resetDeckMastery(String deckId) =>
       _remote.resetDeckMastery(deckId);
 
-  /// Straight passthrough to Supabase — reorder has no local-queue fallback yet
-  /// (milestone B). A failure (offline) propagates so the caller reverts its
-  /// optimistic order; milestone E routes this through the write queue instead.
+  /// Cache-first: Supabase `set_deck_positions` first; offline, stamp the new
+  /// order into the local mirror and let [SyncService] push it on reconnect
+  /// (milestone E3 — closes the milestone-B "offline drag reverts" gap). With no
+  /// local database the error propagates, as everywhere else in this class, so
+  /// `TabOrderController` still reverts its optimistic order.
   @override
-  Future<void> reorderDecks(List<String> orderedIds) =>
-      _remote.reorderDecks(orderedIds);
+  Future<void> reorderDecks(List<String> orderedIds) async {
+    try {
+      await _remote.reorderDecks(orderedIds);
+    } catch (_) {
+      if (_local.isNoop) rethrow;
+      await _local.reorderDecks(orderedIds);
+    }
+  }
 
   /// A card authored offline: client-generated id, zeroed mastery, now-stamped.
   FlashCard _offlineCard(

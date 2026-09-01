@@ -10,6 +10,7 @@ class _FakeLocalCourseStore extends LocalCourseStore {
   _FakeLocalCourseStore(this._cached) : super(null);
 
   final List<Course> _cached;
+  final List<List<String>> reorderCourseCalls = [];
 
   @override
   bool get isNoop => false;
@@ -19,6 +20,11 @@ class _FakeLocalCourseStore extends LocalCourseStore {
 
   @override
   Future<List<Course>> cachedCourses() async => _cached;
+
+  @override
+  Future<void> reorderCourses(List<String> orderedIds) async {
+    reorderCourseCalls.add(orderedIds);
+  }
 }
 
 void main() {
@@ -83,12 +89,24 @@ void main() {
       expect(remote.calls, contains('reorderCourses([c, a, b])'));
     });
 
-    test('propagates a remote failure (offline) without a local queue', () async {
+    test('offline, queues the new order into the local mirror instead of '
+        'throwing', () async {
+      final remote = FakeCourseRepository(courses: [fakeCourse(id: 'a')])
+        ..throwOnNextCall = StateError('offline');
+      final local = _FakeLocalCourseStore(const []);
+      final repo = CacheFirstCourseRepository(remote, local, () => 'u1');
+
+      await repo.reorderCourses(['b', 'a']); // must not throw
+
+      expect(local.reorderCourseCalls.single, ['b', 'a']);
+    });
+
+    test('with no local database the offline error still propagates', () async {
       final remote = FakeCourseRepository(courses: [fakeCourse(id: 'a')])
         ..throwOnNextCall = StateError('offline');
       final repo = CacheFirstCourseRepository(
         remote,
-        _FakeLocalCourseStore(const []),
+        LocalCourseStore(null), // isNoop == true
         () => 'u1',
       );
 

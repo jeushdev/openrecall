@@ -31,12 +31,17 @@ class DirtyDeck {
     required this.name,
     required this.courseId,
     required this.baseUpdatedAt,
+    required this.position,
   });
 
   final String id;
   final String name;
   final String? courseId;
   final DateTime? baseUpdatedAt;
+
+  /// The row's `position` — client-authoritative after an offline drag, pushed
+  /// via `set_deck_positions` on reconnect (milestone E3).
+  final int position;
 
   /// True when this row has never reached Supabase — created offline, not yet
   /// pushed.
@@ -311,7 +316,7 @@ class LocalDeckStore {
   Future<List<DeckSummary>> cachedDeckSummaries() async {
     final db = _db;
     if (db == null) return const [];
-    final decks = await db.query('offline_decks', orderBy: 'name');
+    final decks = await db.query('offline_decks', orderBy: 'position, name');
     final result = <DeckSummary>[];
     for (final d in decks) {
       final id = d['id'] as String;
@@ -330,6 +335,7 @@ class LocalDeckStore {
           dueCards: levels.where((l) => l < masteredLevel).length,
           masteryPercent: masteryPercentFromLevels(levels),
           masteryLevelSum: levels.fold(0, (a, b) => a + b),
+          position: (d['position'] as int?) ?? 0,
           createdAt: _parseNullable(d['created_at']),
         ));
       } else {
@@ -344,6 +350,7 @@ class LocalDeckStore {
           dueCards: total, // level-per-card unknown; treated as all due
           masteryPercent: masteryPercentFromLevelSum(sum, total),
           masteryLevelSum: sum,
+          position: (d['position'] as int?) ?? 0,
           createdAt: _parseNullable(d['created_at']),
         ));
       }
@@ -411,6 +418,25 @@ class LocalDeckStore {
     );
   }
 
+  /// Applies a manual deck reorder made offline: stamps each id's list index as
+  /// its `position` and marks the row `is_synced = 0` so [SyncService] pushes
+  /// the new order via `set_deck_positions` on reconnect (milestone E3). Ids not
+  /// in the mirror are skipped.
+  Future<void> reorderDecks(List<String> orderedIds) async {
+    final db = _db;
+    if (db == null) return;
+    await db.transaction((txn) async {
+      for (final (i, id) in orderedIds.indexed) {
+        await txn.update(
+          'offline_decks',
+          {'position': i, 'is_synced': 0},
+          where: 'id = ?',
+          whereArgs: [id],
+        );
+      }
+    });
+  }
+
   /// Removes a deck offline: writes a tombstone and drops the deck, its cards
   /// and its local sessions. Individual card tombstones are not written — the
   /// deck-level delete cascades server-side.
@@ -455,7 +481,13 @@ class LocalDeckStore {
   }
 
   /// Inserts cards added / imported offline. The caller builds each [FlashCard]
-  /// with a client-generated id; every row lands unsynced and content-dirty.
+  /// with a client-generated id; every row lands unsynced, content-dirty and
+  /// `created_locally = 1`.
+  ///
+  /// `base_updated_at` keeps the non-null value [_cardValues] stamps: the column
+  /// is `NOT NULL`, so nulling it here threw `SqliteException(1299)` on a real
+  /// device (never caught before the milestone-E real-DB harness). "Never
+  /// reached Supabase" is tracked by `created_locally` instead (milestone E3).
   Future<void> insertCards(List<FlashCard> cards) async {
     final db = _db;
     if (db == null) return;
@@ -463,9 +495,9 @@ class LocalDeckStore {
     for (final c in cards) {
       batch.insert('offline_cards', {
         ..._cardValues(c),
-        'base_updated_at': null,
         'is_synced': 0,
         'content_dirty': 1,
+        'created_locally': 1,
       });
     }
     await batch.commit(noResult: true);
@@ -505,12 +537,12 @@ class LocalDeckStore {
     if (db == null) return;
     await db.transaction((txn) async {
       final row = await txn.query('offline_cards',
-          columns: ['deck_id', 'base_updated_at'],
+          columns: ['deck_id', 'created_locally'],
           where: 'id = ?',
           whereArgs: [id],
           limit: 1);
       if (row.isEmpty) return;
-      final createdLocally = row.first['base_updated_at'] == null;
+      final createdLocally = (row.first['created_locally'] as int? ?? 0) == 1;
       await _writeTombstone(txn, 'card', id,
           deckId: row.first['deck_id'] as String?,
           createdLocally: createdLocally);
@@ -646,6 +678,9 @@ class LocalDeckStore {
         'base_updated_at': iso,
         'is_synced': 1,
         'content_dirty': 0,
+        // The row has now reached Supabase, so a later offline delete must do
+        // the remote DELETE (milestone E3).
+        'created_locally': 0,
       },
       where: 'id = ?',
       whereArgs: [id],
@@ -665,6 +700,7 @@ class LocalDeckStore {
           baseUpdatedAt: (r['base_updated_at'] as String?) == null
               ? null
               : DateTime.parse(r['base_updated_at'] as String),
+          position: (r['position'] as int?) ?? 0,
         ),
     ];
   }

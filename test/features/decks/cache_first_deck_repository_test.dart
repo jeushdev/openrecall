@@ -11,6 +11,7 @@ class _FakeLocalDeckStore extends LocalDeckStore {
   _FakeLocalDeckStore() : super(null);
 
   final List<String> createDeckCalls = [];
+  final List<List<String>> reorderDeckCalls = [];
 
   @override
   bool get isNoop => false;
@@ -22,6 +23,11 @@ class _FakeLocalDeckStore extends LocalDeckStore {
     String? courseId,
   }) async {
     createDeckCalls.add('id=$id name=$name course=$courseId');
+  }
+
+  @override
+  Future<void> reorderDecks(List<String> orderedIds) async {
+    reorderDeckCalls.add(orderedIds);
   }
 }
 
@@ -178,10 +184,24 @@ void main() {
       expect(remote.calls, contains('reorderDecks([d3, d1, d2])'));
     });
 
-    test('propagates a remote failure (offline) without a local queue', () async {
+    test('offline, queues the new order into the local mirror instead of '
+        'throwing', () async {
+      final local = _FakeLocalDeckStore();
       final repo = CacheFirstDeckRepository(
         FakeDeckRepository()..throwOnNextCall = StateError('offline'),
-        _FakeLocalDeckStore(),
+        local,
+        _FakeLocalCourseStore(null),
+      );
+
+      await repo.reorderDecks(['d2', 'd1']); // must not throw
+
+      expect(local.reorderDeckCalls.single, ['d2', 'd1']);
+    });
+
+    test('with no local database the offline error still propagates', () async {
+      final repo = CacheFirstDeckRepository(
+        FakeDeckRepository()..throwOnNextCall = StateError('offline'),
+        LocalDeckStore(null), // isNoop == true
         _FakeLocalCourseStore(null),
       );
 

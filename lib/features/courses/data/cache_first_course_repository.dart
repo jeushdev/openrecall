@@ -92,10 +92,17 @@ class CacheFirstCourseRepository implements CourseRepository {
     }
   }
 
-  /// Straight passthrough to Supabase — reorder has no local-queue fallback yet
-  /// (milestone B). A failure (offline) propagates so the caller reverts its
-  /// optimistic order; milestone E routes this through the write queue instead.
+  /// Cache-first: Supabase `set_course_positions` first; offline, stamp the new
+  /// order into the local mirror and let [SyncService] push it on reconnect
+  /// (milestone E3 — closes the milestone-B "offline drag reverts" gap). With no
+  /// local database the error propagates, as everywhere else in this class.
   @override
-  Future<void> reorderCourses(List<String> orderedIds) =>
-      _remote.reorderCourses(orderedIds);
+  Future<void> reorderCourses(List<String> orderedIds) async {
+    try {
+      await _remote.reorderCourses(orderedIds);
+    } catch (_) {
+      if (_local.isNoop) rethrow;
+      await _local.reorderCourses(orderedIds);
+    }
+  }
 }

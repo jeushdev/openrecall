@@ -301,6 +301,103 @@ const List<String> _v4Schema = <String>[
       'ON offline_deletions(entity_type, entity_id)',
 ];
 
+/// The frozen schema version 5 — the SQLite mirror as it was after the
+/// milestone-D profile metrics (`offline_study_sessions.cards_reviewed`) and
+/// before the milestone-E3 offline-reorder / account-switch work. A v5 database
+/// that runs `onUpgrade` must reach the same schema a fresh v6 install creates.
+/// Like the earlier snapshots, this list is history and must never change.
+const List<String> _v5Schema = <String>[
+  '''
+  CREATE TABLE offline_decks (
+    id                TEXT PRIMARY KEY,
+    name              TEXT NOT NULL,
+    course_id         TEXT,
+    last_studied_at   TEXT,
+    created_at        TEXT,
+    updated_at        TEXT,
+    base_updated_at   TEXT,
+    is_synced         INTEGER NOT NULL DEFAULT 1,
+    is_pinned         INTEGER NOT NULL DEFAULT 0,
+    mastery_level_sum INTEGER NOT NULL DEFAULT 0,
+    total_cards       INTEGER NOT NULL DEFAULT 0
+  )
+  ''',
+  '''
+  CREATE TABLE offline_courses (
+    id              TEXT PRIMARY KEY,
+    name            TEXT NOT NULL,
+    accent_color    TEXT NOT NULL,
+    is_default      INTEGER NOT NULL DEFAULT 0,
+    user_id         TEXT,
+    created_at      TEXT,
+    updated_at      TEXT,
+    base_updated_at TEXT,
+    is_synced       INTEGER NOT NULL DEFAULT 1
+  )
+  ''',
+  '''
+  CREATE TABLE offline_cards (
+    id              TEXT PRIMARY KEY,
+    deck_id         TEXT NOT NULL,
+    front           TEXT NOT NULL,
+    back            TEXT NOT NULL,
+    keyword         TEXT,
+    keywords        TEXT NOT NULL DEFAULT '[]',
+    is_concept      INTEGER NOT NULL DEFAULT 0,
+    mastery_level   INTEGER NOT NULL,
+    fail_count      INTEGER NOT NULL,
+    created_at      TEXT NOT NULL,
+    updated_at      TEXT NOT NULL,
+    base_updated_at TEXT NOT NULL,
+    is_synced       INTEGER NOT NULL DEFAULT 1,
+    content_dirty   INTEGER NOT NULL DEFAULT 0
+  )
+  ''',
+  'CREATE INDEX idx_offline_cards_deck ON offline_cards(deck_id)',
+  '''
+  CREATE TABLE offline_study_sessions (
+    id             TEXT PRIMARY KEY,
+    deck_id        TEXT NOT NULL,
+    user_id        TEXT,
+    status         TEXT NOT NULL,
+    study_mode     TEXT NOT NULL,
+    length_mode    TEXT NOT NULL,
+    capped_length  INTEGER,
+    card_scope     TEXT NOT NULL DEFAULT 'due',
+    mastery_delta  INTEGER,
+    cards_reviewed INTEGER,
+    started_at     TEXT NOT NULL,
+    completed_at   TEXT,
+    is_synced      INTEGER NOT NULL DEFAULT 1
+  )
+  ''',
+  'CREATE INDEX idx_offline_sessions_deck ON offline_study_sessions(deck_id)',
+  '''
+  CREATE TABLE offline_session_cards (
+    id                TEXT PRIMARY KEY,
+    session_id        TEXT NOT NULL,
+    card_id           TEXT NOT NULL,
+    position          INTEGER NOT NULL,
+    consecutive_fails INTEGER NOT NULL DEFAULT 0,
+    is_parked         INTEGER NOT NULL DEFAULT 0,
+    is_synced         INTEGER NOT NULL DEFAULT 1
+  )
+  ''',
+  'CREATE INDEX idx_offline_session_cards_session '
+      'ON offline_session_cards(session_id)',
+  '''
+  CREATE TABLE offline_deletions (
+    entity_type     TEXT NOT NULL,
+    entity_id       TEXT NOT NULL,
+    deck_id         TEXT,
+    created_locally INTEGER NOT NULL DEFAULT 0,
+    created_at      TEXT NOT NULL
+  )
+  ''',
+  'CREATE UNIQUE INDEX idx_offline_deletions_entity '
+      'ON offline_deletions(entity_type, entity_id)',
+];
+
 /// A normalized view of a schema: table -> (column -> definition), plus indexes.
 class _Schema {
   final Map<String, Map<String, String>> tables = {};
@@ -372,20 +469,28 @@ void main() {
       ...AppDatabase.upgradeToV3Statements,
       ...AppDatabase.upgradeToV4Statements,
       ...AppDatabase.upgradeToV5Statements,
+      ...AppDatabase.upgradeToV6Statements,
     ]);
     final upgradedFromV2 = _build([
       ..._v2Schema,
       ...AppDatabase.upgradeToV3Statements,
       ...AppDatabase.upgradeToV4Statements,
       ...AppDatabase.upgradeToV5Statements,
+      ...AppDatabase.upgradeToV6Statements,
     ]);
     final upgradedFromV3 = _build([
       ..._v3Schema,
       ...AppDatabase.upgradeToV4Statements,
       ...AppDatabase.upgradeToV5Statements,
+      ...AppDatabase.upgradeToV6Statements,
     ]);
-    final upgradedFromV4 =
-        _build([..._v4Schema, ...AppDatabase.upgradeToV5Statements]);
+    final upgradedFromV4 = _build([
+      ..._v4Schema,
+      ...AppDatabase.upgradeToV5Statements,
+      ...AppDatabase.upgradeToV6Statements,
+    ]);
+    final upgradedFromV5 =
+        _build([..._v5Schema, ...AppDatabase.upgradeToV6Statements]);
 
     test('a v1 database upgraded to the current version matches a fresh install '
         '— tables', () {
@@ -409,9 +514,26 @@ void main() {
       expect(upgradedFromV3.indexes, equals(fresh.indexes));
     });
 
-    test('a v4 database upgraded to v5 matches a fresh v5 install', () {
+    test('a v4 database upgraded to the current version matches a fresh install',
+        () {
       expect(upgradedFromV4.tables, equals(fresh.tables));
       expect(upgradedFromV4.indexes, equals(fresh.indexes));
+    });
+
+    test('a v5 database upgraded to v6 matches a fresh v6 install', () {
+      expect(upgradedFromV5.tables, equals(fresh.tables));
+      expect(upgradedFromV5.indexes, equals(fresh.indexes));
+    });
+
+    test('the fresh schema carries the milestone-E3 reorder + meta additions',
+        () {
+      expect(fresh.tables['offline_decks']!['position'],
+          'integer not null default 0');
+      expect(fresh.tables['offline_courses']!['position'],
+          'integer not null default 0');
+      expect(fresh.tables['offline_cards']!['created_locally'],
+          'integer not null default 0');
+      expect(fresh.tables.containsKey('offline_meta'), isTrue);
     });
 
     test('the fresh schema carries the milestone-D cards_reviewed column', () {

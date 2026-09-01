@@ -9,8 +9,12 @@ import '../../../../theme/app_tokens.dart';
 /// status, not an alert:
 ///
 /// - offline               → `☁ offline` (with `· N` when writes are queued)
-/// - online, N queued (>0) → `⟳ N`
+/// - online, N queued (>0) → `⟳ N`, or `⚠ N` if the last push stalled
 /// - online, nothing queued → nothing at all
+///
+/// When anything is queued the chip is tappable and runs a forced sync
+/// ([manualSyncProvider], milestone E3) — the reconnect pass backs off after a
+/// failure, and this is how the user asks for an immediate retry.
 class SyncStatusChip extends ConsumerWidget {
   const SyncStatusChip({super.key});
 
@@ -19,9 +23,12 @@ class SyncStatusChip extends ConsumerWidget {
     final tokens = Theme.of(context).extension<AppTokens>()!;
     final online = ref.watch(onlineStatusProvider).asData?.value ?? true;
     final count = ref.watch(pendingSyncCountProvider).asData?.value ?? 0;
+    final lastSyncFailed = ref.watch(syncOutcomeProvider).asData?.value.isFailure
+        ?? false;
 
     if (online && count == 0) return const SizedBox.shrink();
 
+    final canRetry = count > 0;
     final IconData icon;
     final String label;
     final String tooltip;
@@ -32,33 +39,36 @@ class SyncStatusChip extends ConsumerWidget {
           ? "You're offline — $count change${count == 1 ? '' : 's'} waiting to sync"
           : "You're offline";
     } else {
-      icon = Icons.sync;
+      icon = lastSyncFailed ? Icons.sync_problem : Icons.sync;
       label = '$count';
       tooltip = '$count change${count == 1 ? '' : 's'} waiting to sync';
     }
 
-    return Tooltip(
-      message: tooltip,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-        decoration: BoxDecoration(
-          color: tokens.mutedFill,
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 14, color: tokens.textSecondary),
-            const SizedBox(width: 4),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: tokens.textSecondary,
+    return GestureDetector(
+      onTap: canRetry ? () => ref.read(manualSyncProvider)() : null,
+      child: Tooltip(
+        message: canRetry ? '$tooltip — tap to retry now' : tooltip,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+          decoration: BoxDecoration(
+            color: tokens.mutedFill,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 14, color: tokens.textSecondary),
+              const SizedBox(width: 4),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: tokens.textSecondary,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
