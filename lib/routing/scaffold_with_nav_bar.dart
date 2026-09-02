@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../core/ui/offline_banner.dart';
-import 'glass_bottom_nav_bar.dart';
+import 'ios_tab_bar.dart';
 
 /// The shell chrome wrapped around the four tab branches
 /// (`/home`, `/decks`, `/history`, `/more`).
@@ -13,9 +13,9 @@ import 'glass_bottom_nav_bar.dart';
 /// widget tree for the top-level routes (`/study/:deckId`, `/deck-creator`) —
 /// not hidden via opacity/visibility (ui-spec-v1 §4).
 ///
-/// The bar itself is [GlassBottomNavBar] (§5.1). The scaffold runs
-/// `extendBody: true` so each branch renders full-height behind the floating
-/// pill and its [BackdropFilter] has live content to blur.
+/// The bar itself is [IosTabBar] (ui-spec-v5 §5.1). The scaffold runs
+/// `extendBody: true` so each branch renders full-height behind the full-width
+/// tab bar and its [BackdropFilter] has live content to blur.
 ///
 /// ## Branch transition (milestone UX4)
 ///
@@ -163,7 +163,7 @@ class _ScaffoldWithNavBarState extends ConsumerState<ScaffoldWithNavBar>
           ],
         ),
       ),
-      bottomNavigationBar: GlassBottomNavBar(
+      bottomNavigationBar: IosTabBar(
         currentIndex: widget.navigationShell.currentIndex,
         onSelectTab: _goBranch,
       ),

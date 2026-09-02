@@ -5,8 +5,7 @@ import 'package:open_recall/app.dart';
 import 'package:open_recall/features/auth/application/auth_providers.dart';
 import 'package:open_recall/features/decks/application/deck_providers.dart';
 import 'package:open_recall/features/stats/presentation/history_tab_screen.dart';
-import 'package:open_recall/routing/glass_bottom_nav_bar.dart';
-import 'package:open_recall/routing/placeholders/deck_creator_screen.dart';
+import 'package:open_recall/routing/ios_tab_bar.dart';
 import 'package:open_recall/theme/app_tokens.dart';
 
 import '../support/fake_auth_repository.dart';
@@ -39,15 +38,13 @@ Color _iconColor(WidgetTester tester, String key) {
 }
 
 void main() {
-  testWidgets('renders the four tab targets plus the Create button',
-      (tester) async {
+  testWidgets('renders the four tab targets', (tester) async {
     await _pumpSignedIn(tester);
 
-    expect(find.byType(GlassBottomNavBar), findsOneWidget);
+    expect(find.byType(IosTabBar), findsOneWidget);
     for (final key in const [
       'nav-home',
       'nav-decks',
-      'nav-create',
       'nav-history',
       'nav-more',
     ]) {
@@ -60,10 +57,10 @@ void main() {
     await _pumpSignedIn(tester);
 
     // Launch lands on the Home tab (branch 0).
-    expect(_iconColor(tester, 'nav-home'), AppTokens.light.textPrimary);
-    expect(_iconColor(tester, 'nav-decks'), AppTokens.light.textTertiary);
-    expect(_iconColor(tester, 'nav-history'), AppTokens.light.textTertiary);
-    expect(_iconColor(tester, 'nav-more'), AppTokens.light.textTertiary);
+    expect(_iconColor(tester, 'nav-home'), AppTokens.light.tint);
+    expect(_iconColor(tester, 'nav-decks'), AppTokens.light.textSecondary);
+    expect(_iconColor(tester, 'nav-history'), AppTokens.light.textSecondary);
+    expect(_iconColor(tester, 'nav-more'), AppTokens.light.textSecondary);
   });
 
   testWidgets('tapping a tab switches the shell branch', (tester) async {
@@ -73,28 +70,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(HistoryTabScreen), findsOneWidget);
-    expect(_iconColor(tester, 'nav-history'), AppTokens.light.textPrimary);
-    expect(_iconColor(tester, 'nav-home'), AppTokens.light.textTertiary);
-  });
-
-  testWidgets(
-      'tapping Create opens the Create menu; Create deck leaves the shell',
-      (tester) async {
-    await _pumpSignedIn(tester);
-
-    await tester.tap(find.byKey(const ValueKey('nav-create')));
-    await tester.pumpAndSettle();
-
-    // The sheet is up, the shell still mounted underneath it.
-    expect(find.text('Create course'), findsOneWidget);
-    expect(find.text('Create deck'), findsOneWidget);
-    expect(find.text('Import card'), findsOneWidget);
-    expect(find.byType(GlassBottomNavBar), findsOneWidget);
-
-    await tester.tap(find.text('Create deck'));
-    await tester.pumpAndSettle();
-
-    expect(find.byType(DeckCreatorScreen), findsOneWidget);
-    expect(find.byType(GlassBottomNavBar), findsNothing);
+    expect(_iconColor(tester, 'nav-history'), AppTokens.light.tint);
+    expect(_iconColor(tester, 'nav-home'), AppTokens.light.textSecondary);
   });
 }

@@ -14,7 +14,7 @@ import 'package:open_recall/features/settings/presentation/more_tab_screen.dart'
 import 'package:open_recall/features/stats/presentation/history_tab_screen.dart';
 import 'package:open_recall/features/study/application/session_controller.dart';
 import 'package:open_recall/features/study/presentation/study_session_screen.dart';
-import 'package:open_recall/routing/glass_bottom_nav_bar.dart';
+import 'package:open_recall/routing/ios_tab_bar.dart';
 import 'package:open_recall/routing/placeholders/deck_creator_screen.dart';
 import 'package:open_recall/ui/settings/settings_tab_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -77,7 +77,7 @@ void main() {
 
     expect(find.byType(HomeTabScreen), findsOneWidget);
     expect(find.byType(LoginScreen), findsNothing);
-    expect(find.byType(GlassBottomNavBar), findsOneWidget);
+    expect(find.byType(IosTabBar), findsOneWidget);
   });
 
   testWidgets('the shell has four branches in order: Home, Decks, History, More',
@@ -94,7 +94,7 @@ void main() {
       router.go(path);
       await tester.pumpAndSettle();
       expect(find.byType(matcher), findsOneWidget, reason: path);
-      expect(find.byType(GlassBottomNavBar), findsOneWidget, reason: path);
+      expect(find.byType(IosTabBar), findsOneWidget, reason: path);
     }
   });
 
@@ -106,7 +106,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(SettingsTabScreen), findsOneWidget);
-    expect(find.byType(GlassBottomNavBar), findsNothing);
+    expect(find.byType(IosTabBar), findsNothing);
   });
 
   testWidgets('switching tabs preserves the inactive branch in the IndexedStack',
@@ -134,7 +134,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(StudySessionScreen), findsOneWidget);
-    expect(find.byType(GlassBottomNavBar), findsNothing);
+    expect(find.byType(IosTabBar), findsNothing);
   });
 
   testWidgets('a session always runs the whole deck — no scope param needed',
@@ -148,7 +148,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(StudySessionScreen), findsOneWidget);
-    expect(find.byType(GlassBottomNavBar), findsNothing);
+    expect(find.byType(IosTabBar), findsNothing);
     expect(find.text('front-a'), findsOneWidget);
   });
 
@@ -160,7 +160,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(DeckDetailScreen), findsOneWidget);
-    expect(find.byType(GlassBottomNavBar), findsNothing);
+    expect(find.byType(IosTabBar), findsNothing);
   });
 
   testWidgets('pushing /deck-creator leaves the shell and pops back to its tab',
@@ -175,13 +175,13 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(DeckCreatorScreen), findsOneWidget);
-    expect(find.byType(GlassBottomNavBar), findsNothing);
+    expect(find.byType(IosTabBar), findsNothing);
 
     router.pop();
     await tester.pumpAndSettle();
 
     expect(find.byType(DeckCreatorScreen), findsNothing);
-    expect(find.byType(GlassBottomNavBar), findsOneWidget);
+    expect(find.byType(IosTabBar), findsOneWidget);
     expect(find.byType(HistoryTabScreen), findsOneWidget);
   });
 }
