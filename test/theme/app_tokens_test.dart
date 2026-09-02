@@ -107,13 +107,22 @@ void main() {
     });
   });
 
-  group('Geometry constants (spec §3.3)', () {
-    test('radii and border widths match the spec', () {
-      expect(AppRadii.card, 28.0);
+  group('Geometry constants (ui-spec-v5 §3)', () {
+    test('radii and border widths match ui-spec-v5', () {
+      expect(AppRadii.card, 20.0);
       expect(AppRadii.gridTile, 16.0);
-      expect(AppBorders.hairline, 0.5);
-      expect(AppRadii.cardRadius, BorderRadius.circular(28.0));
+      expect(AppRadii.section, 12.0);
+      expect(AppRadii.control, 12.0);
+      expect(AppRadii.button, 14.0);
+      expect(AppBorders.hairline, 1.0);
+      expect(AppRadii.cardRadius, BorderRadius.circular(20.0));
       expect(AppRadii.gridTileRadius, BorderRadius.circular(16.0));
+    });
+
+    test('AppShadows: soft card shadow in light, none in dark', () {
+      expect(AppShadows.card(Brightness.light), isNotEmpty);
+      expect(AppShadows.card(Brightness.dark), isEmpty);
+      expect(AppShadows.raised(Brightness.light), isNotEmpty);
     });
   });
 }
