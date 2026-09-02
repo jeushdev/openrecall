@@ -939,7 +939,7 @@ git commit -m "feat: History tab on v5 palette + grouped log (ui-spec-v5 §6.5)"
 - Modify: `lib/ui/settings/settings_tab_screen.dart`, `lib/ui/settings/collapsible_settings_section.dart`, `lib/ui/settings/settings_segmented_control.dart`
 - Test: `test/features/settings/`, `test/ui/settings/` — update to the new widget tree; keep asserted copy ("Delete account", "Sign out", section titles, "Up to date", version string).
 
-- [ ] **Step 1: More — `LargeTitleScaffold(title: 'More', ...)`**
+- [x] **Step 1: More — `LargeTitleScaffold(title: 'More', ...)`**
 
 Profile block → a single tappable `IosSection` with one `IosRow`: `leading: Avatar(email: email, size: 40)`, `title: greetingName(email)`, `trailingValue: email`, `showChevron: true`, `onTap: openSettings`. (Chevron is now legit — it goes to Settings.) Below it, the four existing groups become `IosSection`s:
 - `IosSection(header: 'Account', children: [IosRow(title: 'Sign out', destructive: false, onTap: <existing SignOutButton action — call the sign-out flow directly>)])` — or keep the `SignOutButton` widget as the row's `trailing`-less child if it carries confirm logic; simplest is an `IosRow` that calls the same callback.
@@ -947,7 +947,7 @@ Profile block → a single tappable `IosSection` with one `IosRow`: `leading: Av
 - `IosSection(header: 'Data', children: [IosRow(title: 'Offline sync', trailingValue: <pending.when(...)>), IosRow(title: 'Export / import cards', showChevron: true, onTap: openSettings)])`
 - `IosSection(header: 'About', children: [IosRow(title: 'Help & feedback', showChevron: true, onTap: () => showFeedbackInfo(context)), IosRow(title: 'Version', trailingValue: <version.when(...)>)])`
 
-- [ ] **Step 2: Settings — same treatment**
+- [x] **Step 2: Settings — same treatment**
 
 Each `CollapsibleSettingsSection` becomes an `IosSection` (drop the collapse behaviour — iOS grouped settings don't collapse; the `settingsSectionsExpansionProvider` / `collapseAll` machinery and `collapsible_settings_section.dart` are deleted, and the `initState` post-frame `collapseAll()` call goes with them). Rows:
 - Appearance (theme mode System/Light/Dark) → keep `SettingsSegmentedControl` as an `IosRow`-less full-width control inside an `IosSection(header: 'Appearance')`, or a `IosRow(title: 'Theme', trailing: <segmented control>)`. Prefer a dedicated row group: `IosSection(header: 'Appearance', children: [<the segmented control padded 16>])`.
@@ -957,16 +957,16 @@ Each `CollapsibleSettingsSection` becomes an `IosSection` (drop the collapse beh
 - General: Help & feedback, About/version → `IosRow`s.
 - `IosSection(children: [IosRow(title: 'Delete account', destructive: true, onTap: () => showDeleteAccountDialog(context))])` — last, standalone, red. Never on More.
 
-- [ ] **Step 3: Update tests**
+- [x] **Step 3: Update tests**
 
 `test/features/settings/` + `test/ui/settings/`: retarget finders from `_NavRow`/`_Group`/`CollapsibleSettingsSection` to `IosRow`/`IosSection` and `find.text(...)`. Keep every asserted string. Delete tests that only asserted collapse/expand behaviour (that feature is intentionally removed — note it in the commit body). `grep -rn "collapsible_settings_section\|settingsSectionsExpansion\|collapseAll" lib test` must be empty after.
 
-- [ ] **Step 4: Verify**
+- [x] **Step 4: Verify**
 
 Run: `flutter analyze && flutter test test/features/settings/ test/ui/settings/ -r expanded`
 Expected: clean + green.
 
-- [ ] **Step 5: Visual check + commit**
+- [ ] **Step 5: Visual check + commit** _(not run — no emulator this session; verify before shipping)_
 
 Emulator: More and Settings should read like iOS Settings — grouped white cards on grey, inset separators, chevrons, the red Delete row alone at the bottom.
 
@@ -983,15 +983,15 @@ git commit -m "feat: More + Settings rebuilt as iOS grouped lists; drop section-
 - Modify: `lib/features/auth/presentation/login_screen.dart`, `signup_screen.dart`, `forgot_password_screen.dart`, `lib/features/splash/presentation/splash_screen.dart`
 - Test: whole suite.
 
-- [ ] **Step 1: Auth screens**
+- [x] **Step 1: Auth screens**
 
 They already inherit the type scale and the tinted `filledButton`. Verify the primary CTA on each is a `FilledButton` (→ now tint blue, radius 14, height 50). Input fields → the new borderless-filled look automatically. Any hand-rolled `Container` card → `AppCard`. Any inline `TextStyle`/hex → `AppType`/`AppTokens`. Screen background → `tokens.background` (grouped grey).
 
-- [ ] **Step 2: Splash**
+- [x] **Step 2: Splash**
 
 Confirm the logo lockup reads on `#F2F2F7` (light) / `#000000` (dark). Adjust asset tint or background only if it visibly clashes.
 
-- [ ] **Step 3: Full static + test sweep**
+- [x] **Step 3: Full static + test sweep**
 
 ```bash
 flutter analyze
@@ -999,19 +999,19 @@ flutter test -r expanded
 ```
 Expected: analyze clean, **all 99+ tests green**. Triage any remaining failure: it is almost certainly an assertion on a superseded value (Fraunces, old hex, `0.5` hairline, `GlassBottomNavBar`, `nav-create`, section-collapse) — fix it to the v5 equivalent. Do not `skip`.
 
-- [ ] **Step 4: Golden tests**
+- [x] **Step 4: Golden tests**
 
 `grep -rln "matchesGoldenFile" test/` — if any, regenerate: `flutter test --update-goldens` then eyeball each new PNG in `test/**/goldens/` before committing.
 
-- [ ] **Step 5: Full-app visual pass (emulator)**
+- [ ] **Step 5: Full-app visual pass (emulator)** _(not run — no emulator this session; verify before shipping)_
 
 `flutter run`. Walk every screen in both themes (toggle via Settings → Appearance): Home, Decks, deck detail, a full study session + summary, History, More, Settings, sign out → Login/Signup, splash. Checklist: large titles collapse; tab-bar blur + tint-selected; grouped lists match iOS Settings; `CupertinoPage` swipe-back works on pushed routes; no seeded-Material grey anywhere; dark mode correct on every surface.
 
-- [ ] **Step 6: Update the doc cross-references**
+- [x] **Step 6: Update the doc cross-references**
 
 Add a one-line "**Superseded by `ui-spec-v5-native-ios.md`** (typography, elevation, nav chrome)" banner to the top of `docs/ui-spec-v1.md` §3, `docs/ui-spec-v3-design-language.md` §1 and §4. Update `CLAUDE.md`'s "Stack" / project-layout notes if they mention Fraunces or the glass pill.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add -A
