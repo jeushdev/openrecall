@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 
 import '../../theme/app_tokens.dart';
+import '../common/app_card.dart';
 
 /// The aggregate mastery figure at the top of the Mastery tab (ui-spec-v1
-/// §6.3): the app-wide, card-weighted percentage on a `mutedFill` block with a
-/// thin blue progress bar beneath.
+/// §6.3): the app-wide, card-weighted percentage on an [AppCard] elevated
+/// surface with a thin blue progress bar beneath.
 ///
 /// [percent] is `overallMasteryProvider`'s value, already 0–100 and rounded.
 class OverallMasteryCard extends StatelessWidget {
@@ -18,13 +19,8 @@ class OverallMasteryCard extends StatelessWidget {
     final blue = tokens.accent('blue').fill;
     final fraction = (percent / 100).clamp(0.0, 1.0);
 
-    return Container(
-      width: double.infinity,
+    return AppCard(
       padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: tokens.mutedFill,
-        borderRadius: BorderRadius.circular(20),
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

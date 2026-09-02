@@ -1,3 +1,4 @@
+import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:open_recall/app.dart';
@@ -84,6 +85,19 @@ void main() {
     expect(find.byType(HomeTabScreen), findsOneWidget);
     expect(find.textContaining('Hello,'), findsOneWidget);
     expect(find.text('Overall mastery'), findsOneWidget);
+  });
+
+  testWidgets('the + action opens the Create menu', (tester) async {
+    await pumpHome(
+      tester,
+      decks: [_deck('d1', courseId: 'c1')],
+      stats: FakeStatsRepository(),
+    );
+
+    await tester.tap(find.byKey(const ValueKey('home-create')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Create deck'), findsOneWidget);
   });
 
   testWidgets('shows an unfinished-session card with its deck name and percent',
