@@ -8,6 +8,8 @@ import 'package:open_recall/features/auth/application/auth_providers.dart';
 import 'package:open_recall/features/decks/application/deck_providers.dart';
 import 'package:open_recall/features/settings/application/settings_providers.dart';
 import 'package:open_recall/features/settings/presentation/more_tab_screen.dart';
+import 'package:open_recall/features/profile/application/profile_providers.dart';
+import 'package:open_recall/features/profile/presentation/profile_edit_sheet.dart';
 import 'package:open_recall/features/study/application/session_controller.dart';
 import 'package:open_recall/ui/profile/sign_out_dialog.dart';
 import 'package:open_recall/ui/settings/settings_tab_screen.dart';
@@ -17,7 +19,11 @@ import '../../support/fake_auth_repository.dart';
 import '../../support/fake_deck_repository.dart';
 import '../../support/fake_study_repository.dart';
 
-Future<GoRouter> _pumpMore(WidgetTester tester) async {
+Future<GoRouter> _pumpMore(
+  WidgetTester tester, {
+  String? email,
+  String? username,
+}) async {
   SharedPreferences.setMockInitialValues(<String, Object>{});
   // The four groups run past the 800×600 default viewport; give the list room
   // so the lower rows (About, Version) build without every test scrolling.
@@ -36,6 +42,12 @@ Future<GoRouter> _pumpMore(WidgetTester tester) async {
         studyRepositoryProvider.overrideWithValue(FakeStudyRepository()),
         onlineStatusProvider.overrideWith((ref) => Stream.value(true)),
         appVersionProvider.overrideWith((ref) async => '1.2.3+4'),
+        userIdentityProvider.overrideWithValue((email: email)),
+        profileProvider.overrideWith(
+          (ref) async => username == null
+              ? null
+              : (id: 'u1', email: email ?? 'a@b.com', username: username),
+        ),
       ],
       child: const OpenRecallApp(),
     ),
@@ -65,6 +77,30 @@ void main() {
     expect(find.text('ABOUT'), findsOneWidget);
     expect(find.text('Sign out'), findsOneWidget);
     expect(find.text('1.2.3+4'), findsOneWidget);
+  });
+
+  testWidgets('the identity row opens the edit-name sheet, not Settings',
+      (tester) async {
+    await _pumpMore(tester,
+        email: 'jeush.b@example.com', username: 'Ada Lovelace');
+
+    await tester.tap(find.text('Ada Lovelace'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(ProfileEditSheet), findsOneWidget);
+  });
+
+  testWidgets('the identity row shows the username when one is set',
+      (tester) async {
+    await _pumpMore(tester,
+        email: 'jeush.b@example.com', username: 'Ada Lovelace');
+    expect(find.text('Ada Lovelace'), findsOneWidget);
+  });
+
+  testWidgets('the identity row shows the email-derived name when no username',
+      (tester) async {
+    await _pumpMore(tester, email: 'jeush.b@example.com');
+    expect(find.text('Jeush'), findsOneWidget);
   });
 
   testWidgets('offline sync shows an "Up to date" status with nothing queued',

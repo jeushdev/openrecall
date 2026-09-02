@@ -10,6 +10,7 @@ import '../../../ui/common/large_title_scaffold.dart';
 import '../../../ui/profile/sign_out_dialog.dart';
 import '../../../ui/settings/feedback_info_dialog.dart';
 import '../../profile/application/profile_providers.dart';
+import '../../profile/presentation/profile_edit_sheet.dart';
 import '../application/settings_providers.dart';
 
 /// The More tab (`/more`, ui-spec-v4-navigation §5; restyled ui-spec-v5 §6.6) —
@@ -29,6 +30,7 @@ class MoreTabScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final email = ref.watch(userIdentityProvider).email;
+    final username = ref.watch(profileProvider).asData?.value?.username;
     final version = ref.watch(appVersionProvider);
     final pending = ref.watch(pendingSyncCountProvider);
 
@@ -44,18 +46,20 @@ class MoreTabScreen extends ConsumerWidget {
             children: [
               const SizedBox(height: 8),
 
-              // Identity. There is no display name in the schema, so the row
-              // shows the greeting token Home derives from the email with the
-              // address itself as the trailing value. The chevron is legit —
-              // it goes to Settings.
+              // Identity. Tapping the row opens the edit-name sheet; the title
+              // is the user-set display name when there is one, else the
+              // greeting token derived from the email (see `displayNameOr`).
               IosSection(
                 children: [
                   IosRow(
-                    leading: Avatar(email: email, size: 28),
-                    title: email == null ? 'Not signed in' : greetingName(email),
+                    leading: Avatar(email: email, name: username, size: 28),
+                    title: email == null
+                        ? 'Not signed in'
+                        : displayNameOr(username, email),
                     trailingValue: email,
                     showChevron: true,
-                    onTap: openSettings,
+                    onTap: () =>
+                        ProfileEditSheet.show(context, currentName: username),
                   ),
                 ],
               ),
