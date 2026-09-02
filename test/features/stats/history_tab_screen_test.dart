@@ -109,8 +109,9 @@ void main() {
     await tester.tap(find.text('By Deck'));
     await tester.pumpAndSettle();
 
-    // Group header now carries the course · deck label; the row drops its name.
-    expect(find.text('Biology · Deck d1'), findsOneWidget);
+    // The grouped-inset section header (uppercased) now carries the course ·
+    // deck label; the row drops its name.
+    expect(find.text('BIOLOGY · DECK D1'), findsOneWidget);
     expect(find.text('Deck d1'), findsNothing);
   });
 }

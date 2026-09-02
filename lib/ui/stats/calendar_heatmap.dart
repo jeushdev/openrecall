@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../features/stats/domain/daily_activity.dart';
+import '../../theme/app_geometry.dart';
 import '../../theme/app_tokens.dart';
 import '../../theme/app_type.dart';
 
@@ -43,7 +44,6 @@ class CalendarHeatmap extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tokens = Theme.of(context).extension<AppTokens>()!;
-    final accent = tokens.accent('teal');
     final now = today ?? DateTime.now();
     final currentMonth = DateTime(now.year, now.month);
     final month = DateTime(visibleMonth.year, visibleMonth.month);
@@ -111,7 +111,6 @@ class CalendarHeatmap extends StatelessWidget {
                 ),
                 isFuture: DateTime(month.year, month.month, day)
                     .isAfter(DateTime(now.year, now.month, now.day)),
-                accent: accent,
                 tokens: tokens,
               ),
           ],
@@ -165,15 +164,16 @@ class _DayCell extends StatelessWidget {
     required this.day,
     required this.level,
     required this.isFuture,
-    required this.accent,
     required this.tokens,
   });
 
   final int day;
   final int level;
   final bool isFuture;
-  final AccentPair accent;
   final AppTokens tokens;
+
+  // Level 1–4 → tint opacity steps (ui-spec-v5 §6.5).
+  static const List<double> _rampAlpha = [0.12, 0.3, 0.55, 0.85];
 
   @override
   Widget build(BuildContext context) {
@@ -184,13 +184,13 @@ class _DayCell extends StatelessWidget {
     } else if (level == 0) {
       fill = tokens.mutedFill;
     } else {
-      fill = accent.fill.withValues(alpha: 0.25 + 0.2 * level);
+      fill = tokens.tint.withValues(alpha: _rampAlpha[level - 1]);
     }
 
     return Container(
       decoration: BoxDecoration(
         color: fill,
-        borderRadius: BorderRadius.circular(7),
+        borderRadius: BorderRadius.circular(AppRadii.control / 2),
         border: isFuture
             ? Border.all(color: tokens.borderHairline, width: 0.5)
             : null,
