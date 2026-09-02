@@ -37,7 +37,7 @@ class LocalStatsStore {
     if (db == null) return const [];
     final rows = await db.query(
       'offline_study_sessions',
-      columns: ['deck_id', 'completed_at', 'mastery_delta'],
+      columns: ['deck_id', 'completed_at', 'mastery_delta', 'study_mode', 'cards_reviewed'],
       where: 'status = ? AND completed_at IS NOT NULL',
       whereArgs: ['completed'],
       orderBy: 'completed_at DESC',
@@ -49,6 +49,8 @@ class LocalStatsStore {
           deckId: r['deck_id'] as String,
           completedAt: DateTime.parse(r['completed_at'] as String),
           masteryDelta: r['mastery_delta'] as int?,
+          studyMode: studyModeFromDb(r['study_mode'] as String),
+          cardsReviewed: r['cards_reviewed'] as int?,
         ),
     ];
   }

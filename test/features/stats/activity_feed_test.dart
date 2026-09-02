@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:open_recall/features/courses/domain/course.dart';
 import 'package:open_recall/features/decks/domain/deck.dart';
 import 'package:open_recall/features/stats/domain/activity_feed.dart';
+import 'package:open_recall/features/decks/domain/study_mode.dart';
 import 'package:open_recall/features/stats/domain/completed_session_activity.dart';
 
 DeckSummary _deck(String id, String name, DateTime createdAt) => DeckSummary(
@@ -33,6 +34,7 @@ void main() {
           deckId: 'd1',
           completedAt: DateTime(2026, 8, 20),
           masteryDelta: 8,
+          studyMode: StudyMode.flip,
         ),
       ],
       decks: [
@@ -60,6 +62,7 @@ void main() {
           deckId: 'd1',
           completedAt: DateTime(2026, 8, 20),
           masteryDelta: 8,
+          studyMode: StudyMode.flip,
         ),
       ],
       decks: [_deck('d1', 'Biology', DateTime(2026, 8, 10))],
@@ -94,6 +97,7 @@ void main() {
           deckId: 'gone',
           completedAt: DateTime(2026, 8, 20),
           masteryDelta: 3,
+          studyMode: StudyMode.flip,
         ),
       ],
       decks: const [],

@@ -12,6 +12,8 @@ import '../domain/activity_feed.dart';
 import '../domain/completed_session.dart';
 import '../domain/completed_session_activity.dart';
 import '../domain/course_summary.dart';
+import '../domain/daily_activity.dart';
+import '../domain/history_log.dart';
 import '../domain/overall_mastery.dart';
 import '../domain/stats_repository.dart';
 import '../domain/study_metrics.dart';
@@ -108,4 +110,22 @@ final courseSummariesProvider = FutureProvider<List<CourseSummary>>((ref) async 
   final courses = await ref.watch(coursesProvider.future);
   final decks = await ref.watch(decksProvider.future);
   return rollUpCourses(courses, decks);
+});
+
+/// The History tab's session log (ui-spec-v4 section 4): the recent completed
+/// sessions from [recentCompletedSessionsProvider], each resolved to its deck
+/// name, course label and accent. A pure join -- see [buildHistoryLog].
+final historyLogProvider = FutureProvider<List<HistoryEntry>>((ref) async {
+  final sessions = await ref.watch(recentCompletedSessionsProvider.future);
+  final decks = await ref.watch(decksProvider.future);
+  final courses = await ref.watch(coursesProvider.future);
+  return buildHistoryLog(sessions: sessions, decks: decks, courses: courses);
+});
+
+/// The History tab's calendar heatmap data (ui-spec-v4 section 4): completed
+/// sessions per local calendar day, folded from the full completed-session
+/// history ([completedSessionsProvider]). See [buildDailyActivityCounts].
+final dailyActivityProvider = FutureProvider<Map<DateTime, int>>((ref) async {
+  final sessions = await ref.watch(completedSessionsProvider.future);
+  return buildDailyActivityCounts(sessions);
 });

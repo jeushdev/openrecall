@@ -1,19 +1,24 @@
 import 'package:flutter/foundation.dart';
 
-/// A finished study session as the Mastery tab's activity feed needs it
-/// (milestone C): just the deck it covered, when it wrapped up, and the run's
-/// whole-deck mastery delta.
+import '../../decks/domain/study_mode.dart';
+
+/// A finished study session as the Mastery tab's activity feed (milestone C)
+/// and the History tab's session log (ui-spec-v4 §4) need it: the deck it
+/// covered, when it wrapped up, the run's whole-deck mastery delta, and — for
+/// the History log's per-row detail — the mode it ran in and how many cards it
+/// covered.
 ///
 /// Sourced from `study_sessions` rows with `status = 'completed'` (or the
-/// `offline_study_sessions` mirror). Deliberately lean — the feed shows a deck
-/// name and a "+X%", nothing per-card. Milestone D reuses the same rows for its
-/// session-count and streak metrics.
+/// `offline_study_sessions` mirror). Deliberately lean — no per-card data.
+/// Milestone D reuses the same rows for its session-count and streak metrics.
 @immutable
 class CompletedSessionActivity {
   const CompletedSessionActivity({
     required this.deckId,
     required this.completedAt,
     required this.masteryDelta,
+    required this.studyMode,
+    this.cardsReviewed,
   });
 
   final String deckId;
@@ -23,13 +28,24 @@ class CompletedSessionActivity {
   /// the column was populated.
   final int? masteryDelta;
 
+  /// `study_sessions.study_mode` — always set (the column is NOT NULL).
+  final StudyMode studyMode;
+
+  /// `study_sessions.cards_reviewed` — the distinct cards the session covered,
+  /// stamped at completion. Null for sessions completed before the column
+  /// existed and not yet backfilled.
+  final int? cardsReviewed;
+
   @override
   bool operator ==(Object other) =>
       other is CompletedSessionActivity &&
       other.deckId == deckId &&
       other.completedAt == completedAt &&
-      other.masteryDelta == masteryDelta;
+      other.masteryDelta == masteryDelta &&
+      other.studyMode == studyMode &&
+      other.cardsReviewed == cardsReviewed;
 
   @override
-  int get hashCode => Object.hash(deckId, completedAt, masteryDelta);
+  int get hashCode =>
+      Object.hash(deckId, completedAt, masteryDelta, studyMode, cardsReviewed);
 }

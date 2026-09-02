@@ -8,6 +8,7 @@ import 'package:open_recall/features/decks/domain/deck.dart';
 import 'package:open_recall/features/stats/application/stats_providers.dart';
 import 'package:open_recall/features/stats/domain/activity_feed.dart';
 import 'package:open_recall/features/stats/domain/completed_session.dart';
+import 'package:open_recall/features/decks/domain/study_mode.dart';
 import 'package:open_recall/features/stats/domain/completed_session_activity.dart';
 
 import '../../support/fake_course_repository.dart';
@@ -69,6 +70,7 @@ void main() {
           deckId: 'd1',
           completedAt: DateTime(2026, 8, 20),
           masteryDelta: 9,
+          studyMode: StudyMode.flip,
         ),
       ],
       runThroughs: {'d1': 3, 'd3': 1},
@@ -174,5 +176,26 @@ void main() {
     final state = bounded.read(completedSessionsProvider);
     expect(state.hasError, isTrue);
     expect(state.error, isA<TimeoutException>());
+  });
+  test('historyLogProvider joins each completed session to its deck and course',
+      () async {
+    final log = await container.read(historyLogProvider.future);
+
+    expect(log, hasLength(1));
+    expect(log.single.deckId, 'd1');
+    expect(log.single.deckName, 'd1');
+    expect(log.single.courseName, 'Biology');
+    expect(log.single.accentColor, 'green');
+    expect(log.single.studyMode, StudyMode.flip);
+    expect(log.single.masteryDelta, 9);
+  });
+
+  test('dailyActivityProvider counts completed sessions per calendar day',
+      () async {
+    final counts = await container.read(dailyActivityProvider.future);
+
+    expect(counts[DateTime(2026, 8, 20)], 1);
+    expect(counts[DateTime(2026, 8, 19)], 1);
+    expect(counts.length, 2);
   });
 }

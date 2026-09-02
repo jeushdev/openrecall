@@ -23,7 +23,7 @@ class SupabaseStatsRepository implements StatsRepository {
   }) async {
     final rows = await _client
         .from('study_sessions')
-        .select('deck_id, completed_at, mastery_delta')
+        .select('deck_id, completed_at, mastery_delta, study_mode, cards_reviewed')
         .eq('status', 'completed')
         .not('completed_at', 'is', null)
         .order('completed_at', ascending: false)
@@ -34,6 +34,8 @@ class SupabaseStatsRepository implements StatsRepository {
           deckId: row['deck_id'] as String,
           completedAt: DateTime.parse(row['completed_at'] as String),
           masteryDelta: row['mastery_delta'] as int?,
+          studyMode: studyModeFromDb(row['study_mode'] as String),
+          cardsReviewed: row['cards_reviewed'] as int?,
         ),
     ];
   }
