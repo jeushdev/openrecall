@@ -877,26 +877,26 @@ git commit -m "feat: Decks tab on v5 large-title + card tiles (ui-spec-v5 §6.3)
 - Modify: `lib/features/study/presentation/session_summary_view.dart`, `lib/features/study/presentation/widgets/*` (flip card, rating row, progress bar — inherit-only, verify)
 - Test: `test/features/study/` — must stay green **without** changing the asserted literal strings ("This session", "Drill parked cards now", "Done", the mastery-delta label).
 
-- [ ] **Step 1: Audit for grey leak / serif**
+- [x] **Step 1: Audit for grey leak / serif**
 
 `grep -rn "TextStyle(\|fontFamily\|Color(0xFF\|Colors\.\|BoxShadow\|elevation:" lib/features/study/presentation/` — list every inline style/colour. Anything not routed through `AppType` / `AppTokens` gets routed. The session-summary big number → `AppType.display` (Figtree 40 tabular — already its role). Metric values → `AppType.numericLarge`.
 
-- [ ] **Step 2: Session Summary surfaces**
+- [x] **Step 2: Session Summary surfaces**
 
 Any `Card` / `Container` with a fill → `AppCard`. The mastery arc keeps its `CustomPaint`; its track colour → `tokens.borderHairline`, its progress → `tokens.tint` (was `blue` accent — switch to `tint` for consistency, or keep `accent('blue')` if the deck-accent tie-in matters; prefer `tint`). Remove any leftover `AppBar` / `scheme.primaryContainer`.
 
-- [ ] **Step 3: Confirm count-ups stay finite**
+- [x] **Step 3: Confirm count-ups stay finite**
 
 Verify every `TweenAnimationBuilder` in the summary has no `.repeat()` and a real `onEnd`-free finite tween, so `pumpAndSettle` settles. (This is existing behaviour — just confirm the pass didn't regress it.)
 
-- [ ] **Step 4: Verify**
+- [x] **Step 4: Verify**
 
 Run: `flutter analyze && flutter test test/features/study/ -r expanded`
 Expected: green, no literal-string test edited.
 
-- [ ] **Step 5: Visual check (emulator): run a full session to the summary — flip weight, rating press-in, progress bar, the summary reveal + haptic all intact.**
+- [ ] **Step 5: Visual check (emulator): run a full session to the summary — flip weight, rating press-in, progress bar, the summary reveal + haptic all intact.** _(not run — no emulator this session; verify before shipping)_
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add lib/features/study/
@@ -911,17 +911,17 @@ git commit -m "feat: study loop + Session Summary on v5 tokens (ui-spec-v5 §6.4
 - Modify: `lib/features/stats/presentation/history_tab_screen.dart` (+ any heatmap widget under `lib/features/stats/presentation/widgets/`)
 - Test: `test/features/stats/` — update.
 
-- [ ] **Step 1: Header → `LargeTitleScaffold(title: 'History', slivers: [...])`.**
+- [x] **Step 1: Header → `LargeTitleScaffold(title: 'History', slivers: [...])`.**
 
-- [ ] **Step 2: Heatmap cells**
+- [x] **Step 2: Heatmap cells**
 
 Re-map the calendar-heatmap intensity ramp to `tokens.tint` at opacity steps — e.g. `tokens.tint.withValues(alpha: [0.12, 0.3, 0.55, 0.85][bucket])` on a `tokens.mutedFill` empty cell, `AppRadii.control / 2` corner. (If it currently uses an `AccentPair` ramp, keep that shape but point at `tint`.)
 
-- [ ] **Step 3: Session log**
+- [x] **Step 3: Session log**
 
 The per-session rows become `IosRow`s (leading = a small `IosRowIcon` in the deck/course accent, title = deck name, `trailingValue` = the date/score) grouped into `IosSection`s by day, one section per date with the date as `header`.
 
-- [ ] **Step 4: Verify + commit**
+- [x] **Step 4: Verify + commit**
 
 Run: `flutter analyze && flutter test test/features/stats/ -r expanded`
 
