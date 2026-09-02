@@ -1,7 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:open_recall/features/profile/application/profile_providers.dart';
-import 'package:open_recall/features/profile/domain/profile.dart';
 
 import '../../support/fake_profile_repository.dart';
 
