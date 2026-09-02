@@ -4,15 +4,18 @@ import 'package:go_router/go_router.dart';
 import '../../../../routing/app_routes.dart';
 import '../../../../theme/app_geometry.dart';
 import '../../../../theme/app_tokens.dart';
+import '../../../../ui/common/app_card.dart';
 import '../../application/decks_tab_view.dart';
 import 'deck_badge.dart';
 
-/// One square tile in a course section's deck grid (ui-spec-v2 §5).
+/// One square tile in a course section's deck grid (ui-spec-v2 §5, restyled on
+/// the v5 card system — ui-spec-v5 §6.3).
 ///
 /// The "stacked deck" depth is a single solid offset [Container] behind the
-/// foreground card — **never** a [BoxShadow] (§3.3, a hard perf constraint).
+/// foreground [AppCard] — **never** a [BoxShadow] on the backing layer (§3.3).
 /// The accent sliver peeks ~8px past the **left** edge only; this direction is
-/// locked (§6.1).
+/// locked (§6.1). The foreground card is an [AppCard]: soft elevation, no
+/// hairline border.
 ///
 /// Tapping the foreground card pushes `/deck/:deckId` — the deck detail screen
 /// (ui-spec-v2 §6.3), which hosts the mode picker that starts a session. The
@@ -52,59 +55,46 @@ class DeckGridTile extends StatelessWidget {
         // Foreground card, inset 8px from the left to reveal the sliver.
         Padding(
           padding: const EdgeInsets.only(left: 8),
-          child: Container(
-            decoration: BoxDecoration(
-              color: tokens.cardFill,
-              borderRadius: AppRadii.gridTileRadius,
-              border: Border.all(
-                color: tokens.borderHairline,
-                width: AppBorders.hairline,
-              ),
-            ),
-            clipBehavior: Clip.antiAlias,
-            child: Material(
-              type: MaterialType.transparency,
-              child: InkWell(
-                onTap: deck.isLockedOffline
-                    ? () => ScaffoldMessenger.maybeOf(context)
-                      ?..hideCurrentSnackBar()
-                      ..showSnackBar(SnackBar(
-                        content: Text(
-                          '“${deck.name}” isn\'t available offline — connect '
-                          'to download it.',
-                        ),
-                      ))
-                    : () => context.pushNamed(
-                          AppRoutes.deckDetailName,
-                          pathParameters: {'deckId': deck.id},
-                        ),
-                child: Opacity(
-                  // Greyed while locked offline (design spec §E.1).
-                  opacity: deck.isLockedOffline ? 0.45 : 1.0,
-                  child: Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          deck.name,
-                          textAlign: TextAlign.center,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w600,
-                            color: tokens.textPrimary,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        if (deck.isLockedOffline)
-                          _OfflineLockAffordance(color: tokens.textSecondary)
-                        else
-                          DeckBadge(deck: deck, accent: accent),
-                      ],
+          child: AppCard(
+            radius: AppRadii.gridTile,
+            onTap: deck.isLockedOffline
+                ? () => ScaffoldMessenger.maybeOf(context)
+                  ?..hideCurrentSnackBar()
+                  ..showSnackBar(SnackBar(
+                    content: Text(
+                      '“${deck.name}” isn\'t available offline — connect '
+                      'to download it.',
                     ),
-                  ),
+                  ))
+                : () => context.pushNamed(
+                      AppRoutes.deckDetailName,
+                      pathParameters: {'deckId': deck.id},
+                    ),
+            child: Opacity(
+              // Greyed while locked offline (design spec §E.1).
+              opacity: deck.isLockedOffline ? 0.45 : 1.0,
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      deck.name,
+                      textAlign: TextAlign.center,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: tokens.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    if (deck.isLockedOffline)
+                      _OfflineLockAffordance(color: tokens.textSecondary)
+                    else
+                      DeckBadge(deck: deck, accent: accent),
+                  ],
                 ),
               ),
             ),

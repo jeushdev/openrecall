@@ -124,6 +124,19 @@ void main() {
     expect(find.text('2 decks'), findsOneWidget);
   });
 
+  testWidgets('the + action opens the Create menu', (tester) async {
+    await tester.pumpWidget(_host(
+      _Recorder(),
+      decks: FakeDeckRepository(decks: [_deck('d1', courseId: 'c-bio')]),
+    ));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('decks-create')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Create deck'), findsOneWidget);
+  });
+
   testWidgets('the chevron lines up whether or not the header carries a ⋮ menu '
       '(milestone R2)', (tester) async {
     // A course with a menu (real) and one without (the synthetic fallback shown

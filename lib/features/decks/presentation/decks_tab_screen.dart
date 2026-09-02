@@ -6,9 +6,11 @@ import '../../../core/reorder.dart';
 import '../../../routing/app_routes.dart';
 import '../../../theme/app_geometry.dart';
 import '../../../theme/app_tokens.dart';
+import '../../../ui/common/large_title_scaffold.dart';
 import '../../courses/application/course_providers.dart';
 import '../../courses/domain/course.dart';
 import '../application/decks_tab_view.dart';
+import 'widgets/create_menu_sheet.dart';
 import 'widgets/deck_grid.dart';
 import 'widgets/sync_status_chip.dart';
 
@@ -38,50 +40,43 @@ class DecksTabScreen extends ConsumerWidget {
       }
     });
 
-    final tokens = Theme.of(context).extension<AppTokens>()!;
     final groups = ref.watch(decksTabViewProvider);
     final stored = ref.watch(expandedCoursesProvider).asData?.value;
 
-    return Scaffold(
-      backgroundColor: tokens.background,
-      body: SafeArea(
-        bottom: false,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-              child: Row(
-                children: [
-                  Text(
-                    'Decks',
-                    style: TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.w700,
-                      color: tokens.textPrimary,
-                    ),
-                  ),
-                  const Spacer(),
-                  const SyncStatusChip(),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-            Expanded(
-              child: groups.when(
-                loading: () =>
-                    const Center(child: CircularProgressIndicator()),
-                error: (_, _) => _DecksError(
-                  onRetry: () => refreshDecksTab(ref),
-                ),
-                data: (list) => _Accordion(groups: list, stored: stored),
-              ),
-            ),
-          ],
+    return LargeTitleScaffold(
+      title: 'Decks',
+      actions: const [_DecksCreateButton(), SyncStatusChip()],
+      contentPadding: EdgeInsets.zero,
+      slivers: [
+        groups.when(
+          loading: () => const SliverFillRemaining(
+            hasScrollBody: false,
+            child: Center(child: CircularProgressIndicator()),
+          ),
+          error: (_, _) => SliverFillRemaining(
+            hasScrollBody: false,
+            child: _DecksError(onRetry: () => refreshDecksTab(ref)),
+          ),
+          data: (list) => SliverToBoxAdapter(
+            child: _Accordion(groups: list, stored: stored),
+          ),
         ),
-      ),
+      ],
     );
   }
+}
+
+/// The Decks-tab `+` action — opens the shared Create menu (mirrors Home's).
+class _DecksCreateButton extends StatelessWidget {
+  const _DecksCreateButton();
+
+  @override
+  Widget build(BuildContext context) => IconButton(
+        key: const ValueKey('decks-create'),
+        icon: const Icon(Icons.add, size: 26),
+        color: Theme.of(context).extension<AppTokens>()!.tint,
+        onPressed: () => CreateMenuSheet.show(context),
+      );
 }
 
 /// The list of collapsible course sections. A course is expanded when the user
@@ -181,12 +176,16 @@ class _Accordion extends ConsumerWidget {
     if (!reorderable) {
       return ListView(
         padding: padding,
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
         children: [for (final g in groups) _section(context, ref, g)],
       );
     }
 
     return ReorderableListView(
       padding: padding,
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
       buildDefaultDragHandles: false,
       onReorderItem: (oldIndex, newIndex) {
         final ids = [for (final g in groups) g.course.id];
