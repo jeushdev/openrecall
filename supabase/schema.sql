@@ -23,6 +23,7 @@
 create table profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   email text not null,
+  username text,
   tier text not null default 'free',
   created_at timestamptz not null default now()
 );
@@ -553,3 +554,15 @@ begin
   )
   where s.status = 'completed' and s.cards_reviewed is null;
 end $$;
+
+-- ---------------------------------------------------------------------------
+-- Editable username migration — 2026-09-03
+-- (docs/superpowers/specs/2026-09-03-editable-username-design.md)
+--
+-- No-op on a fresh project (the `create table profiles` above already carries
+-- `username`). On an existing project: add the nullable column. RLS is
+-- unchanged — `profiles_owner` already scopes `for all` to `id = auth.uid()`,
+-- so the owner can update their own `username`.
+-- ---------------------------------------------------------------------------
+
+alter table public.profiles add column if not exists username text;
