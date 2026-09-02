@@ -1,18 +1,25 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:open_recall/features/notifications/application/notification_providers.dart';
 import 'package:open_recall/features/settings/application/settings_providers.dart';
 import 'package:open_recall/features/settings/data/study_appearance_preferences.dart';
 import 'package:open_recall/features/settings/data/theme_mode_preference.dart';
+import 'package:open_recall/features/settings/presentation/widgets/delete_account_dialog.dart';
 import 'package:open_recall/features/study/application/feynman_timer_providers.dart';
 import 'package:open_recall/features/study/data/feynman_timer_preference.dart';
 import 'package:open_recall/theme/app_theme.dart';
 import 'package:open_recall/ui/settings/settings_tab_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../support/fake_account_repository.dart';
+import '../../support/fake_notification_service.dart';
+
 Future<StudyAppearancePreferences> _pump(
   WidgetTester tester, {
   Map<String, Object> initialPrefs = const {},
+  FakeAccountRepository? account,
+  FakeNotificationService? notifications,
 }) async {
   SharedPreferences.setMockInitialValues(initialPrefs);
   final sp = await SharedPreferences.getInstance();
@@ -34,6 +41,10 @@ Future<StudyAppearancePreferences> _pump(
         feynmanTimerPreferenceProvider
             .overrideWithValue(FeynmanTimerPreference(sp)),
         appVersionProvider.overrideWith((ref) async => '1.2.3+4'),
+        accountRepositoryProvider
+            .overrideWithValue(account ?? FakeAccountRepository()),
+        notificationServiceProvider
+            .overrideWithValue(notifications ?? FakeNotificationService()),
       ],
       child: MaterialApp(
         theme: AppTheme.light,
@@ -176,5 +187,68 @@ void main() {
 
     await _expandSection(tester, 'Study appearance'); // collapse again
     expect(find.text('Card transition'), findsNothing);
+  });
+
+  testWidgets('the reminders toggle reflects and persists the preference',
+      (tester) async {
+    final notifications = FakeNotificationService();
+    await _pump(tester, notifications: notifications);
+    await _expandSection(tester, 'Notifications');
+
+    // Defaults on for a fresh install.
+    expect(tester.widget<Switch>(find.byType(Switch)).value, isTrue);
+
+    await tester.tap(find.byType(Switch));
+    await tester.pumpAndSettle();
+
+    expect(notifications.setEnabledCalls, [false]);
+    final sp = await SharedPreferences.getInstance();
+    expect(sp.getBool('notifications_enabled'), isFalse);
+  });
+
+  testWidgets('the reminders toggle reflects a stored "off" preference',
+      (tester) async {
+    await _pump(tester, initialPrefs: {'notifications_enabled': false});
+    await _expandSection(tester, 'Notifications');
+
+    expect(tester.widget<Switch>(find.byType(Switch)).value, isFalse);
+  });
+
+  testWidgets('Delete account confirms with the type-DELETE dialog before '
+      'calling the repository', (tester) async {
+    final account = FakeAccountRepository();
+    await _pump(tester, account: account);
+    await _expandSection(tester, 'Account');
+
+    await tester.tap(find.text('Delete account'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(DeleteAccountDialog), findsOneWidget);
+    // The confirm button is inert until the phrase is typed.
+    await tester.tap(find.widgetWithText(FilledButton, 'Delete account'));
+    await tester.pumpAndSettle();
+    expect(account.deleteAccountCalls, 0);
+
+    await tester.enterText(find.byType(TextField), 'DELETE');
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, 'Delete account'));
+    await tester.pumpAndSettle();
+
+    expect(account.deleteAccountCalls, 1);
+  });
+
+  testWidgets('cancelling the delete dialog leaves the account untouched',
+      (tester) async {
+    final account = FakeAccountRepository();
+    await _pump(tester, account: account);
+    await _expandSection(tester, 'Account');
+
+    await tester.tap(find.text('Delete account'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(TextButton, 'Cancel'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(DeleteAccountDialog), findsNothing);
+    expect(account.deleteAccountCalls, 0);
   });
 }

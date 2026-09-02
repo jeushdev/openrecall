@@ -1,9 +1,11 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../features/settings/application/settings_providers.dart';
 import '../../features/settings/application/settings_sections_expansion.dart';
 import '../../features/settings/data/study_appearance_preferences.dart';
+import '../../features/settings/presentation/widgets/delete_account_dialog.dart';
 import '../../features/study/application/feynman_timer_providers.dart';
 import '../../theme/app_tokens.dart';
 import 'collapsible_settings_section.dart';
@@ -15,7 +17,9 @@ import 'settings_segmented_control.dart';
 const _kAppearance = 'appearance';
 const _kStudyAppearance = 'study_appearance';
 const _kFeynman = 'feynman';
+const _kNotifications = 'notifications';
 const _kGeneral = 'general';
+const _kAccount = 'account';
 
 /// The Settings screen (`/settings`, ui-spec-v1 §6.5).
 ///
@@ -23,6 +27,11 @@ const _kGeneral = 'general';
 /// `studyAppearanceProvider`), a "Feynman mode" row that surfaces the last-used
 /// timer preset as information only, and a "General" section with feedback and
 /// about.
+///
+/// It also carries the account-scoped controls that have no home on the More
+/// tab: the study-reminders toggle and the destructive "Delete account" flow.
+/// "Delete account" deliberately lives only here, behind a type-`DELETE`
+/// confirmation, and is never mirrored onto More (ui-spec-v4-navigation §5).
 ///
 /// No longer a shell branch (ui-spec-v4-navigation §2) — a pushed route reached
 /// from `MoreTabScreen`. The sections never remember their expand state: every
@@ -50,6 +59,18 @@ class _SettingsTabScreenState extends ConsumerState<SettingsTabScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Surface a failed sign-out / account deletion the same way the old
+    // Settings screen did — the action providers hold no value of their own.
+    ref.listen(accountActionsProvider, (_, next) {
+      if (next case AsyncError(:final error)) {
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(
+            SnackBar(content: Text('Something went wrong: $error')),
+          );
+      }
+    });
+
     final tokens = Theme.of(context).extension<AppTokens>()!;
     final themeMode =
         ref.watch(themeModeProvider).asData?.value ?? ThemeMode.system;
@@ -60,6 +81,8 @@ class _SettingsTabScreenState extends ConsumerState<SettingsTabScreen> {
     final controller = ref.read(studyAppearanceProvider.notifier);
     final lastFeynman = ref.watch(lastFeynmanTimerProvider);
     final version = ref.watch(appVersionProvider);
+    final reminders = ref.watch(notificationsEnabledProvider);
+    final accountBusy = ref.watch(accountActionsProvider).isLoading;
     final expanded = ref.watch(settingsSectionsExpansionProvider);
     final sections = ref.read(settingsSectionsExpansionProvider.notifier);
 
@@ -172,6 +195,30 @@ class _SettingsTabScreenState extends ConsumerState<SettingsTabScreen> {
             ),
             const SizedBox(height: 28),
 
+            // Local notifications can't fire from a hosted web page
+            // (spec-web-mvp §5.3), so the section is absent on web entirely.
+            if (!kIsWeb) ...[
+              CollapsibleSettingsSection(
+                title: 'Notifications',
+                expanded: expanded.contains(_kNotifications),
+                onToggle: () => sections.toggle(_kNotifications),
+                children: [
+                  _ToggleRow(
+                    label: 'Study reminders',
+                    caption: 'Nudge me a few hours after I leave cards '
+                        'unfinished or parked.',
+                    value: reminders.asData?.value ?? true,
+                    onChanged: reminders.isLoading
+                        ? null
+                        : (v) => ref
+                            .read(notificationsEnabledProvider.notifier)
+                            .setEnabled(v),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 28),
+            ],
+
             CollapsibleSettingsSection(
               title: 'General',
               expanded: expanded.contains(_kGeneral),
@@ -196,12 +243,32 @@ class _SettingsTabScreenState extends ConsumerState<SettingsTabScreen> {
                 ),
               ],
             ),
+            const SizedBox(height: 28),
+
+            CollapsibleSettingsSection(
+              title: 'Account',
+              expanded: expanded.contains(_kAccount),
+              onToggle: () => sections.toggle(_kAccount),
+              children: [
+                _DangerRow(
+                  label: 'Delete account',
+                  caption: 'Permanently removes your account and every deck, '
+                      'card and session tied to it.',
+                  onTap: accountBusy ? null : () => _confirmDelete(context),
+                ),
+              ],
+            ),
           ],
         ),
       ),
     );
   }
 
+  Future<void> _confirmDelete(BuildContext context) async {
+    final confirmed = await DeleteAccountDialog.show(context);
+    if (confirmed != true) return;
+    await ref.read(accountActionsProvider.notifier).deleteAccount();
+  }
 }
 
 class _AppearanceRow extends StatelessWidget {
@@ -294,6 +361,108 @@ class _InfoRow extends StatelessWidget {
             style: TextStyle(fontSize: 13, color: tokens.textSecondary),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// A labelled switch row, matching [_AppearanceRow]'s label + caption stack.
+/// A null [onChanged] renders the switch disabled (while the preference loads).
+class _ToggleRow extends StatelessWidget {
+  const _ToggleRow({
+    required this.label,
+    required this.caption,
+    required this.value,
+    required this.onChanged,
+  });
+
+  final String label;
+  final String caption;
+  final bool value;
+  final ValueChanged<bool>? onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final tokens = Theme.of(context).extension<AppTokens>()!;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  color: tokens.textPrimary,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                caption,
+                style: TextStyle(fontSize: 12, color: tokens.textTertiary),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 12),
+        Switch(value: value, onChanged: onChanged),
+      ],
+    );
+  }
+}
+
+/// A destructive tappable row: label + caption in the fixed `red` accent, with
+/// a trailing chevron. A null [onTap] renders it dimmed (while an action runs).
+class _DangerRow extends StatelessWidget {
+  const _DangerRow({
+    required this.label,
+    required this.caption,
+    required this.onTap,
+  });
+
+  final String label;
+  final String caption;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final tokens = Theme.of(context).extension<AppTokens>()!;
+    final red = tokens.accent('red').text;
+    return Opacity(
+      opacity: onTap == null ? 0.5 : 1,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      label,
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: red,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      caption,
+                      style: TextStyle(fontSize: 12, color: tokens.textTertiary),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(Icons.chevron_right, size: 20, color: red),
+            ],
+          ),
+        ),
       ),
     );
   }
