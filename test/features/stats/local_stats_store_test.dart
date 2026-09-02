@@ -24,5 +24,13 @@ void main() {
     test('completedSessions returns empty', () async {
       expect(await store.completedSessions(1000), isEmpty);
     });
+
+    test('activeSessions returns empty', () async {
+      expect(await store.activeSessions(), isEmpty);
+    });
+
+    test('sessionCountsByDeck returns empty', () async {
+      expect(await store.sessionCountsByDeck(), isEmpty);
+    });
   });
 }

@@ -1,3 +1,4 @@
+import '../domain/active_session.dart';
 import '../domain/activity_feed.dart';
 import '../domain/completed_session.dart';
 import '../domain/completed_session_activity.dart';
@@ -38,6 +39,27 @@ class CacheFirstStatsRepository implements StatsRepository {
     } catch (_) {
       if (_local.isNoop) rethrow;
       return _local.runThroughsByDeck();
+    }
+  }
+
+
+  @override
+  Future<List<ActiveSessionProgress>> fetchActiveSessions() async {
+    try {
+      return await _remote.fetchActiveSessions();
+    } catch (_) {
+      if (_local.isNoop) rethrow;
+      return _local.activeSessions();
+    }
+  }
+
+  @override
+  Future<Map<String, int>> fetchSessionCountsByDeck() async {
+    try {
+      return await _remote.fetchSessionCountsByDeck();
+    } catch (_) {
+      if (_local.isNoop) rethrow;
+      return _local.sessionCountsByDeck();
     }
   }
 

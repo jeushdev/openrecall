@@ -1,3 +1,4 @@
+import 'active_session.dart';
 import 'activity_feed.dart';
 import 'completed_session.dart';
 import 'completed_session_activity.dart';
@@ -25,6 +26,17 @@ abstract interface class StatsRepository {
   /// count of `completed` sessions whose `card_scope` was `all`. Decks that have
   /// never been cleared this way are absent from the map.
   Future<Map<String, int>> fetchDeckRunThroughs();
+
+  /// Every still-`active` study session with its mastered/total card figures
+  /// (ui-spec-v4 §3), newest first. Read-only and off the study path; offline
+  /// it returns only sessions and cards mirrored on this device.
+  Future<List<ActiveSessionProgress>> fetchActiveSessions();
+
+  /// The count of `completed` study sessions per deck, all card scopes — the
+  /// ordering key for Home's "Most Reviewed Decks" (ui-spec-v4 §3). Unlike
+  /// [fetchDeckRunThroughs] this is not limited to whole-deck (`card_scope =
+  /// all`) sessions. Decks with no completed session are absent from the map.
+  Future<Map<String, int>> fetchSessionCountsByDeck();
 
   /// Every `completed` study session, most-recent first, capped at [limit] — the
   /// raw input for the Profile tab's streaks and study-volume metrics

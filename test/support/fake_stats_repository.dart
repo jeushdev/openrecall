@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:open_recall/features/stats/domain/active_session.dart';
 import 'package:open_recall/features/stats/domain/activity_feed.dart';
 import 'package:open_recall/features/stats/domain/completed_session.dart';
 import 'package:open_recall/features/stats/domain/completed_session_activity.dart';
@@ -12,13 +13,19 @@ class FakeStatsRepository implements StatsRepository {
     List<CompletedSessionActivity>? recentCompletedSessions,
     Map<String, int>? runThroughs,
     List<CompletedSession>? completedSessions,
+    List<ActiveSessionProgress>? activeSessions,
+    Map<String, int>? sessionCountsByDeck,
   })  : _recentCompletedSessions = [...?recentCompletedSessions],
         _runThroughs = {...?runThroughs},
-        _completedSessions = [...?completedSessions];
+        _completedSessions = [...?completedSessions],
+        _activeSessions = [...?activeSessions],
+        _sessionCountsByDeck = {...?sessionCountsByDeck};
 
   final List<CompletedSessionActivity> _recentCompletedSessions;
   final Map<String, int> _runThroughs;
   final List<CompletedSession> _completedSessions;
+  final List<ActiveSessionProgress> _activeSessions;
+  final Map<String, int> _sessionCountsByDeck;
 
   final List<String> calls = <String>[];
 
@@ -55,6 +62,23 @@ class FakeStatsRepository implements StatsRepository {
     _maybeThrow();
     if (hangForever) return _hang();
     return Map.unmodifiable(_runThroughs);
+  }
+
+
+  @override
+  Future<List<ActiveSessionProgress>> fetchActiveSessions() async {
+    calls.add('fetchActiveSessions()');
+    _maybeThrow();
+    if (hangForever) return _hang();
+    return List.unmodifiable(_activeSessions);
+  }
+
+  @override
+  Future<Map<String, int>> fetchSessionCountsByDeck() async {
+    calls.add('fetchSessionCountsByDeck()');
+    _maybeThrow();
+    if (hangForever) return _hang();
+    return Map.unmodifiable(_sessionCountsByDeck);
   }
 
   @override

@@ -23,7 +23,7 @@ CardScope cardScopeFromDb(String value) =>
 /// tolerating values no longer in the enum. List mode was removed in R3; a
 /// persisted or synced `study_mode = 'list'` row is read as [StudyMode.flip]
 /// (its queue is rebuilt on resume anyway).
-StudyMode _studyModeFromDb(String value) {
+StudyMode studyModeFromDb(String value) {
   for (final mode in StudyMode.values) {
     if (mode.name == value) return mode;
   }
@@ -52,7 +52,7 @@ class StudySession {
         id: json['id'] as String,
         deckId: json['deck_id'] as String,
         status: sessionStatusFromDb(json['status'] as String),
-        studyMode: _studyModeFromDb(json['study_mode'] as String),
+        studyMode: studyModeFromDb(json['study_mode'] as String),
         lengthMode: sessionLengthModeFromDb(json['length_mode'] as String),
         cappedLength: json['capped_length'] as int?,
         cardScope: json['card_scope'] == null

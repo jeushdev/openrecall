@@ -107,12 +107,36 @@ Content, top to bottom (wireframe order):
    with the existing resume behavior `StudySessionScreen` already has for an
    `active` session on that deck (confirm it does; if resuming isn't wired
    today, that's a gap this milestone must close, not skip).
+
+   > **U17 as built.** There is no persisted session-queue state to resume —
+   > `SessionController` holds the resumable state in memory only, and a
+   > `session_cards` row is never rewritten when its card is mastered, so
+   > mid-session progress cannot be reconstructed from the table. So:
+   > `StatsRepository.fetchActiveSessions()` (new; local-mirror fallback like
+   > `fetchDeckRunThroughs`) reads the `active` `study_sessions` rows and, per
+   > session, joins `session_cards` to each card's **live** `cards.mastery_level`
+   > — a card counts as done when it is at/above `masteredLevel` or parked.
+   > `percentComplete = mastered / total`, rounded. Tapping a card pushes
+   > `/study/:deckId` with the session's mode as `extra`; the study route
+   > already always runs until-mastered over the whole deck, and the
+   > session-conflict rule retires the stale `active` row — so "resume" re-queues
+   > the deck's still-unmastered cards in that mode. No study-path or engine
+   > change; the join is read-only and only runs while Home is open.
 4. **Most Reviewed Decks** — stacked-card carousel. **New**:
    `mostReviewedDecksProvider` — decks ordered by session count (recency
    secondary), sourced from the same local data `deckRunThroughsProvider`
    already aggregates (extend rather than duplicate the query). Each card:
    course code + underline (accent-paired to the course), deck name, "View
-   Deck" button → `/deck/:deckId`, card count. Rendered as a real card stack
+   Deck" button → `/deck/:deckId`, card count.
+
+   > **U17 as built.** `deckRunThroughsProvider` only counts whole-deck
+   > (`card_scope = 'all'`) clears, so ordering needs a broader signal:
+   > `StatsRepository.fetchSessionCountsByDeck()` (new; sibling of
+   > `fetchDeckRunThroughs` without the scope filter) gives the completed-session
+   > count per deck across all scopes. `mostReviewedDecksProvider` sorts decks by
+   > that count desc, ties broken by `lastStudiedAt` desc, capped at 6. There is
+   > no separate course *code* in the schema — the card's "code" line is the
+   > course **name**, upper-cased, over an accent underline. Rendered as a real card stack
    (z-order + slight offset + rotation, matching the wireframe's layered
    look) using v3's card tokens (radius, accent-pair border, no hard drop
    shadow — v3 explicitly bans `BoxShadow`).

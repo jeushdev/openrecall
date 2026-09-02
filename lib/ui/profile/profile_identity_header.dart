@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../../theme/app_tokens.dart';
+import '../common/avatar.dart';
+
+export '../common/avatar.dart' show emailInitials;
 
 /// Avatar + email at the top of the Profile tab (ui-spec-v1 §6.4).
 ///
@@ -15,27 +18,10 @@ class ProfileIdentityHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tokens = Theme.of(context).extension<AppTokens>()!;
-    final amber = tokens.accent('amber');
 
     return Row(
       children: [
-        Container(
-          width: 56,
-          height: 56,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: amber.fill.withValues(alpha: 0.35),
-            shape: BoxShape.circle,
-          ),
-          child: Text(
-            emailInitials(email),
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w700,
-              color: amber.text,
-            ),
-          ),
-        ),
+        Avatar(email: email),
         const SizedBox(width: 14),
         Expanded(
           child: Text(
@@ -52,15 +38,4 @@ class ProfileIdentityHeader extends StatelessWidget {
       ],
     );
   }
-}
-
-/// Up to two uppercase alphanumeric characters from the start of [email]'s
-/// local part, e.g. `jeush.b@example.com` → `JE`. Falls back to `?` for a null,
-/// empty, or symbol-only address.
-String emailInitials(String? email) {
-  if (email == null) return '?';
-  final local = email.split('@').first;
-  final letters = local.replaceAll(RegExp('[^A-Za-z0-9]'), '');
-  if (letters.isEmpty) return '?';
-  return letters.substring(0, letters.length >= 2 ? 2 : 1).toUpperCase();
 }
