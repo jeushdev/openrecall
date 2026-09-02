@@ -9,6 +9,7 @@ import 'package:open_recall/features/decks/application/deck_providers.dart';
 import 'package:open_recall/features/decks/domain/deck.dart';
 import 'package:open_recall/features/decks/domain/study_mode.dart';
 import 'package:open_recall/features/home/presentation/home_tab_screen.dart';
+import 'package:open_recall/features/profile/application/profile_providers.dart';
 import 'package:open_recall/features/stats/application/stats_providers.dart';
 import 'package:open_recall/features/stats/domain/active_session.dart';
 import 'package:open_recall/features/study/application/session_controller.dart';
@@ -52,6 +53,7 @@ void main() {
     WidgetTester tester, {
     required List<DeckSummary> decks,
     required FakeStatsRepository stats,
+    String? username,
   }) async {
     final auth = FakeAuthRepository(signedIn: true);
     addTearDown(auth.dispose);
@@ -67,6 +69,11 @@ void main() {
           ),
           statsRepositoryProvider.overrideWithValue(stats),
           onlineStatusProvider.overrideWith((ref) => Stream.value(true)),
+          profileProvider.overrideWith(
+            (ref) async => username == null
+                ? null
+                : (id: 'u1', email: 'a@b.com', username: username),
+          ),
         ],
         child: const OpenRecallApp(),
       ),
@@ -133,5 +140,16 @@ void main() {
     expect(find.text('Most reviewed decks'), findsOneWidget);
     expect(find.text('View Deck'), findsOneWidget);
     expect(find.text('BIOLOGY'), findsWidgets);
+  });
+
+  testWidgets('the greeting uses the username when one is set', (tester) async {
+    await pumpHome(
+      tester,
+      decks: [_deck('d1', courseId: 'c1')],
+      stats: FakeStatsRepository(),
+      username: 'Ada',
+    );
+
+    expect(find.text('Hello, Ada'), findsOneWidget);
   });
 }

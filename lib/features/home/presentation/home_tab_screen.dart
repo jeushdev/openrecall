@@ -31,12 +31,13 @@ class HomeTabScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final email = ref.watch(userIdentityProvider).email;
+    final username = ref.watch(profileProvider).asData?.value?.username;
     final overall = ref.watch(overallMasteryProvider);
     final active = ref.watch(activeSessionsProvider);
     final mostReviewed = ref.watch(mostReviewedDecksProvider);
 
     return LargeTitleScaffold(
-      title: 'Hello, ${greetingName(email)}',
+      title: 'Hello, ${displayNameOr(username, email)}',
       slivers: [
         SliverPadding(
           padding: const EdgeInsets.fromLTRB(16, 4, 16, 120),
