@@ -16,17 +16,39 @@ const _kStudyAppearance = 'study_appearance';
 const _kFeynman = 'feynman';
 const _kGeneral = 'general';
 
-/// The Settings tab (`/settings`, ui-spec-v1 §6.5).
+/// The Settings screen (`/settings`, ui-spec-v1 §6.5).
 ///
 /// "Study appearance" segmented toggles (persisted to `SharedPreferences` via
 /// `studyAppearanceProvider`), a "Feynman mode" row that surfaces the last-used
 /// timer preset as information only, and a "General" section with feedback and
 /// about.
-class SettingsTabScreen extends ConsumerWidget {
+///
+/// No longer a shell branch (ui-spec-v4-navigation §2) — a pushed route reached
+/// from `MoreTabScreen`. The sections never remember their expand state: every
+/// entry collapses them all (milestone A), done here in [initState] now that
+/// there is no branch navigation for `ScaffoldWithNavBar` to hook.
+class SettingsTabScreen extends ConsumerStatefulWidget {
   const SettingsTabScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<SettingsTabScreen> createState() => _SettingsTabScreenState();
+}
+
+class _SettingsTabScreenState extends ConsumerState<SettingsTabScreen> {
+  @override
+  void initState() {
+    super.initState();
+    // Deferred a frame: mutating a provider synchronously during `initState`
+    // throws while the tree is still building.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        ref.read(settingsSectionsExpansionProvider.notifier).collapseAll();
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final tokens = Theme.of(context).extension<AppTokens>()!;
     final themeMode =
         ref.watch(themeModeProvider).asData?.value ?? ThemeMode.system;

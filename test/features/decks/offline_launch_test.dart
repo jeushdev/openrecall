@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:open_recall/features/decks/data/local_deck_store.dart';
 import 'package:open_recall/features/decks/domain/deck.dart';
+import 'package:open_recall/features/home/presentation/home_tab_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../support/fake_deck_repository.dart';
@@ -45,6 +47,15 @@ class _OfflineMirror extends LocalDeckStore {
   Future<Set<String>> mirroredCardDeckIds() async => {'cached-1'};
 }
 
+/// The shell now defaults to the Home branch (ui-spec-v4-navigation §2); the
+/// Decks tab is a lazy branch, so a test about the deck list must navigate to
+/// it first. This is still a bounded, non-settling hop — the point of these
+/// tests (the cache-first read never blocks on the dead Supabase host) is
+/// unchanged.
+void _openDecks(WidgetTester tester) {
+  GoRouter.of(tester.element(find.byType(HomeTabScreen))).go('/decks');
+}
+
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
@@ -60,6 +71,7 @@ void main() {
       localDecks: _OfflineMirror(),
       settle: false,
     );
+    _openDecks(tester);
 
     // A bounded number of frames — no pumpAndSettle, no elapsed timeout.
     await tester.pump();
@@ -86,6 +98,7 @@ void main() {
       localDecks: _OfflineMirror(),
       settle: false,
     );
+    _openDecks(tester);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 16));
 

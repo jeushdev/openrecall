@@ -7,7 +7,8 @@ import '../theme/app_tokens.dart';
 
 /// The floating glassmorphic bottom navigation pill (ui-spec-v1 §5.1).
 ///
-/// A safe-area-aware rounded bar carrying the four tab icons plus a central,
+/// A safe-area-aware rounded bar carrying the four tab icons (Home, Decks,
+/// History, More — ui-spec-v4-navigation §2) plus a central,
 /// inline (not elevated) circular Create button. Selection is conveyed by icon
 /// colour only — [AppTokens.textPrimary] active, [AppTokens.textTertiary]
 /// inactive — with no background highlight.
@@ -24,7 +25,7 @@ class GlassBottomNavBar extends StatelessWidget {
     required this.onSelectTab,
   });
 
-  /// The active shell branch index (0 Decks, 1 Mastery, 2 Profile, 3 Settings).
+  /// The active shell branch index (0 Home, 1 Decks, 2 History, 3 More).
   final int currentIndex;
 
   /// Invoked with a branch index when a tab icon is tapped.
@@ -66,17 +67,17 @@ class GlassBottomNavBar extends StatelessWidget {
               child: Row(
                 children: [
                   _NavItem(
-                    itemKey: const ValueKey('nav-decks'),
-                    icon: Icons.style_outlined,
-                    semanticLabel: 'Decks',
+                    itemKey: const ValueKey('nav-home'),
+                    icon: Icons.home_outlined,
+                    semanticLabel: 'Home',
                     selected: currentIndex == 0,
                     onTap: () => onSelectTab(0),
                     tokens: tokens,
                   ),
                   _NavItem(
-                    itemKey: const ValueKey('nav-mastery'),
-                    icon: Icons.insights_outlined,
-                    semanticLabel: 'Mastery',
+                    itemKey: const ValueKey('nav-decks'),
+                    icon: Icons.style_outlined,
+                    semanticLabel: 'Decks',
                     selected: currentIndex == 1,
                     onTap: () => onSelectTab(1),
                     tokens: tokens,
@@ -85,17 +86,17 @@ class GlassBottomNavBar extends StatelessWidget {
                     child: Center(child: _CreateButton(tokens: tokens)),
                   ),
                   _NavItem(
-                    itemKey: const ValueKey('nav-profile'),
-                    icon: Icons.person_outline,
-                    semanticLabel: 'Profile',
+                    itemKey: const ValueKey('nav-history'),
+                    icon: Icons.schedule_outlined,
+                    semanticLabel: 'History',
                     selected: currentIndex == 2,
                     onTap: () => onSelectTab(2),
                     tokens: tokens,
                   ),
                   _NavItem(
-                    itemKey: const ValueKey('nav-settings'),
-                    icon: Icons.settings_outlined,
-                    semanticLabel: 'Settings',
+                    itemKey: const ValueKey('nav-more'),
+                    icon: Icons.more_horiz,
+                    semanticLabel: 'More',
                     selected: currentIndex == 3,
                     onTap: () => onSelectTab(3),
                     tokens: tokens,

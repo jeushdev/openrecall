@@ -4,7 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:open_recall/app.dart';
 import 'package:open_recall/features/auth/application/auth_providers.dart';
 import 'package:open_recall/features/decks/application/deck_providers.dart';
-import 'package:open_recall/features/stats/presentation/mastery_tab_screen.dart';
+import 'package:open_recall/features/stats/presentation/history_tab_screen.dart';
 import 'package:open_recall/routing/glass_bottom_nav_bar.dart';
 import 'package:open_recall/routing/placeholders/deck_creator_screen.dart';
 import 'package:open_recall/theme/app_tokens.dart';
@@ -45,11 +45,11 @@ void main() {
 
     expect(find.byType(GlassBottomNavBar), findsOneWidget);
     for (final key in const [
+      'nav-home',
       'nav-decks',
-      'nav-mastery',
       'nav-create',
-      'nav-profile',
-      'nav-settings',
+      'nav-history',
+      'nav-more',
     ]) {
       expect(find.byKey(ValueKey(key)), findsOneWidget, reason: key);
     }
@@ -59,22 +59,22 @@ void main() {
       (tester) async {
     await _pumpSignedIn(tester);
 
-    // Launch lands on the Decks tab (branch 0).
-    expect(_iconColor(tester, 'nav-decks'), AppTokens.light.textPrimary);
-    expect(_iconColor(tester, 'nav-mastery'), AppTokens.light.textTertiary);
-    expect(_iconColor(tester, 'nav-profile'), AppTokens.light.textTertiary);
-    expect(_iconColor(tester, 'nav-settings'), AppTokens.light.textTertiary);
+    // Launch lands on the Home tab (branch 0).
+    expect(_iconColor(tester, 'nav-home'), AppTokens.light.textPrimary);
+    expect(_iconColor(tester, 'nav-decks'), AppTokens.light.textTertiary);
+    expect(_iconColor(tester, 'nav-history'), AppTokens.light.textTertiary);
+    expect(_iconColor(tester, 'nav-more'), AppTokens.light.textTertiary);
   });
 
   testWidgets('tapping a tab switches the shell branch', (tester) async {
     await _pumpSignedIn(tester);
 
-    await tester.tap(find.byKey(const ValueKey('nav-mastery')));
+    await tester.tap(find.byKey(const ValueKey('nav-history')));
     await tester.pumpAndSettle();
 
-    expect(find.byType(MasteryTabScreen), findsOneWidget);
-    expect(_iconColor(tester, 'nav-mastery'), AppTokens.light.textPrimary);
-    expect(_iconColor(tester, 'nav-decks'), AppTokens.light.textTertiary);
+    expect(find.byType(HistoryTabScreen), findsOneWidget);
+    expect(_iconColor(tester, 'nav-history'), AppTokens.light.textPrimary);
+    expect(_iconColor(tester, 'nav-home'), AppTokens.light.textTertiary);
   });
 
   testWidgets(

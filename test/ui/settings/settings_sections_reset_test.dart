@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:open_recall/app.dart';
 import 'package:open_recall/features/auth/application/auth_providers.dart';
 import 'package:open_recall/features/decks/application/deck_providers.dart';
+import 'package:open_recall/features/home/presentation/home_tab_screen.dart';
 import 'package:open_recall/features/study/application/session_controller.dart';
 import 'package:open_recall/ui/settings/settings_tab_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -36,11 +38,13 @@ Future<void> _pump(WidgetTester tester) async {
 }
 
 void main() {
-  testWidgets('re-entering the Settings tab resets every section to collapsed',
+  testWidgets('re-entering the Settings screen resets every section to collapsed',
       (tester) async {
     await _pump(tester);
 
-    await tester.tap(find.byIcon(Icons.settings_outlined));
+    final router = GoRouter.of(tester.element(find.byType(HomeTabScreen)));
+
+    router.push('/settings');
     await tester.pumpAndSettle();
     expect(find.byType(SettingsTabScreen), findsOneWidget);
 
@@ -48,10 +52,10 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Card transition'), findsOneWidget);
 
-    // Leave to another tab and come back.
-    await tester.tap(find.byIcon(Icons.style_outlined)); // Decks
+    // Leave the screen and come back.
+    router.pop();
     await tester.pumpAndSettle();
-    await tester.tap(find.byIcon(Icons.settings_outlined)); // Settings again
+    router.push('/settings');
     await tester.pumpAndSettle();
 
     expect(find.text('Card transition'), findsNothing);

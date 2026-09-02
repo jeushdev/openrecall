@@ -24,19 +24,21 @@ void main() {
   });
 
   group('authRedirect (signed in)', () {
-    test('sends the splash and auth routes to the Deck Library', () {
+    test('sends the splash and auth routes to Home', () {
       expect(authRedirect(signedIn: true, location: AppRoutes.splashPath),
-          AppRoutes.deckLibraryPath);
+          AppRoutes.homePath);
       expect(authRedirect(signedIn: true, location: AppRoutes.loginPath),
-          AppRoutes.deckLibraryPath);
+          AppRoutes.homePath);
       expect(authRedirect(signedIn: true, location: AppRoutes.signupPath),
-          AppRoutes.deckLibraryPath);
+          AppRoutes.homePath);
       expect(
           authRedirect(signedIn: true, location: AppRoutes.forgotPasswordPath),
-          AppRoutes.deckLibraryPath);
+          AppRoutes.homePath);
     });
 
-    test('leaves the Deck Library alone', () {
+    test('leaves a protected route alone', () {
+      expect(authRedirect(signedIn: true, location: AppRoutes.homePath),
+          isNull);
       expect(authRedirect(signedIn: true, location: AppRoutes.deckLibraryPath),
           isNull);
     });

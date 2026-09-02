@@ -11,12 +11,13 @@ import '../features/decks/presentation/card_list_screen.dart';
 import '../features/decks/presentation/deck_detail_screen.dart';
 import '../features/decks/presentation/decks_tab_screen.dart';
 import '../features/decks/presentation/import_cards_screen.dart';
+import '../features/home/presentation/home_tab_screen.dart';
+import '../features/settings/presentation/more_tab_screen.dart';
 import '../features/splash/presentation/splash_screen.dart';
-import '../features/stats/presentation/mastery_tab_screen.dart';
+import '../features/stats/presentation/history_tab_screen.dart';
 import '../features/study/domain/study_session.dart';
 import '../features/study/presentation/study_session_args.dart';
 import '../features/study/presentation/study_session_screen.dart';
-import '../ui/profile/profile_tab_screen.dart';
 import '../ui/settings/settings_tab_screen.dart';
 import 'app_routes.dart';
 import 'auth_redirect.dart';
@@ -35,7 +36,7 @@ import 'scaffold_with_nav_bar.dart';
 /// Auth is the other routing concern: [authRedirect] gates every navigation
 /// against the current session and [GoRouterRefreshStream] re-runs it whenever
 /// the session appears or clears. [SplashScreen] is a passive frame — the
-/// redirect resolves `/` to Login or `/decks` on the first build.
+/// redirect resolves `/` to Login or `/home` on the first build.
 final appRouterProvider = Provider<GoRouter>((ref) {
   final auth = ref.watch(authRepositoryProvider);
   final refresh = GoRouterRefreshStream(auth.authStateChanges());
@@ -81,7 +82,19 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               navigationShell: navigationShell,
               children: children,
             ),
+        // Branch order (ui-spec-v4-navigation §2): 0 Home, 1 Decks, 2 History,
+        // 3 More. `/settings` is no longer a branch — it is a pushed top-level
+        // route (below), reached from a row inside `MoreTabScreen`.
         branches: [
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: AppRoutes.homePath,
+                name: AppRoutes.homeName,
+                builder: (context, state) => const HomeTabScreen(),
+              ),
+            ],
+          ),
           StatefulShellBranch(
             routes: [
               GoRoute(
@@ -94,31 +107,28 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           StatefulShellBranch(
             routes: [
               GoRoute(
-                path: AppRoutes.masteryPath,
-                name: AppRoutes.masteryName,
-                builder: (context, state) => const MasteryTabScreen(),
+                path: AppRoutes.historyPath,
+                name: AppRoutes.historyName,
+                builder: (context, state) => const HistoryTabScreen(),
               ),
             ],
           ),
           StatefulShellBranch(
             routes: [
               GoRoute(
-                path: AppRoutes.profilePath,
-                name: AppRoutes.profileName,
-                builder: (context, state) => const ProfileTabScreen(),
-              ),
-            ],
-          ),
-          StatefulShellBranch(
-            routes: [
-              GoRoute(
-                path: AppRoutes.settingsPath,
-                name: AppRoutes.settingsName,
-                builder: (context, state) => const SettingsTabScreen(),
+                path: AppRoutes.morePath,
+                name: AppRoutes.moreName,
+                builder: (context, state) => const MoreTabScreen(),
               ),
             ],
           ),
         ],
+      ),
+      GoRoute(
+        path: AppRoutes.settingsPath,
+        name: AppRoutes.settingsName,
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) => const SettingsTabScreen(),
       ),
       GoRoute(
         path: AppRoutes.studySessionPath,

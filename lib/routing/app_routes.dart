@@ -17,20 +17,29 @@ abstract final class AppRoutes {
   static const String forgotPasswordPath = '/forgot-password';
   static const String forgotPasswordName = 'forgot-password';
 
-  // --- Shell tabs (ui-spec-v1 §4). Four branches of a
-  //     StatefulShellRoute.indexedStack; the bottom nav bar is part of the
-  //     shell scaffold and never mounts outside it.
+  // --- Shell tabs (ui-spec-v4-navigation §2). Four branches of a
+  //     StatefulShellRoute, in order: Home, Decks, History, More. The bottom
+  //     nav bar is part of the shell scaffold and never mounts outside it.
+
+  /// Home (ui-spec-v4-navigation §3). The shell's default branch.
+  static const String homePath = '/home';
+  static const String homeName = 'home';
 
   static const String deckLibraryPath = '/decks';
   static const String deckLibraryName = 'decks';
 
-  static const String masteryPath = '/mastery';
-  static const String masteryName = 'mastery';
+  /// History (ui-spec-v4-navigation §4) — replaces the retired Mastery tab.
+  static const String historyPath = '/history';
+  static const String historyName = 'history';
 
-  static const String profilePath = '/profile';
-  static const String profileName = 'profile';
+  /// More (ui-spec-v4-navigation §5) — replaces the retired Profile tab; the
+  /// entry point into the pushed `/settings` route.
+  static const String morePath = '/more';
+  static const String moreName = 'more';
 
-  /// Settings & account management (spec §9, ui-spec-v1 §6.5).
+  /// Settings & account management (spec §9, ui-spec-v1 §6.5). No longer a
+  /// shell branch (ui-spec-v4-navigation §2) — a normal pushed route reached
+  /// from a row inside `MoreTabScreen`.
   static const String settingsPath = '/settings';
   static const String settingsName = 'settings';
 

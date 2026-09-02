@@ -3,11 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../core/ui/offline_banner.dart';
-import '../features/settings/application/settings_sections_expansion.dart';
 import 'glass_bottom_nav_bar.dart';
 
 /// The shell chrome wrapped around the four tab branches
-/// (`/decks`, `/mastery`, `/profile`, `/settings`).
+/// (`/home`, `/decks`, `/history`, `/more`).
 ///
 /// The bottom nav bar is "conditionally rendered" purely by tree structure: it
 /// lives here, inside [StatefulShellRoute], and is simply never part of the
@@ -54,10 +53,9 @@ class _ScaffoldWithNavBarState extends ConsumerState<ScaffoldWithNavBar>
   static const _still = AlwaysStoppedAnimation(Offset.zero);
   static const _duration = Duration(milliseconds: 240);
 
-  /// Branch order is fixed in `app_router.dart`: 0 Decks, 1 Mastery, 2 Profile,
-  /// 3 Settings.
-  static const _settingsBranchIndex = 3;
-
+  /// Branch order is fixed in `app_router.dart`: 0 Home, 1 Decks, 2 History,
+  /// 3 More. No index here is special-cased — `/settings` left the shell
+  /// (ui-spec-v4-navigation §2).
   late final AnimationController _controller;
 
   /// The branch currently settling into place.
@@ -117,12 +115,6 @@ class _ScaffoldWithNavBarState extends ConsumerState<ScaffoldWithNavBar>
   }
 
   void _goBranch(int index) {
-    // Settings sections never remember their expand state — every entry to the
-    // tab shows a fully collapsed screen (milestone A). The nav bar is the only
-    // in-app route into `/settings`.
-    if (index == _settingsBranchIndex) {
-      ref.read(settingsSectionsExpansionProvider.notifier).collapseAll();
-    }
     widget.navigationShell.goBranch(
       index,
       // Tapping the active tab again returns it to its initial location.

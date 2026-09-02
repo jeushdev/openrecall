@@ -5,8 +5,8 @@ import 'app_routes.dart';
 ///
 /// - Signed out: only the login / signup / forgot-password routes are allowed;
 ///   everything else (including the splash) goes to Login.
-/// - Signed in: the splash and the auth routes bounce to the Deck Library;
-///   everything else is allowed.
+/// - Signed in: the splash and the auth routes bounce to Home
+///   (ui-spec-v4-navigation §2); everything else is allowed.
 String? authRedirect({required bool signedIn, required String location}) {
   final atUnauthenticated = AppRoutes.unauthenticatedPaths.contains(location);
 
@@ -15,7 +15,7 @@ String? authRedirect({required bool signedIn, required String location}) {
   }
 
   if (atUnauthenticated || location == AppRoutes.splashPath) {
-    return AppRoutes.deckLibraryPath;
+    return AppRoutes.homePath;
   }
   return null;
 }

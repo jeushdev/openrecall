@@ -9,7 +9,9 @@ import 'package:open_recall/features/decks/application/deck_providers.dart';
 import 'package:open_recall/features/decks/domain/card.dart';
 import 'package:open_recall/features/decks/presentation/deck_detail_screen.dart';
 import 'package:open_recall/features/decks/presentation/decks_tab_screen.dart';
-import 'package:open_recall/features/stats/presentation/mastery_tab_screen.dart';
+import 'package:open_recall/features/home/presentation/home_tab_screen.dart';
+import 'package:open_recall/features/settings/presentation/more_tab_screen.dart';
+import 'package:open_recall/features/stats/presentation/history_tab_screen.dart';
 import 'package:open_recall/features/study/application/session_controller.dart';
 import 'package:open_recall/features/study/presentation/study_session_screen.dart';
 import 'package:open_recall/routing/glass_bottom_nav_bar.dart';
@@ -58,7 +60,7 @@ Future<void> _pump(WidgetTester tester, {required bool signedIn}) async {
 /// test can keep navigating after the shell itself is torn down by a top-level
 /// route.
 GoRouter _router(WidgetTester tester) => GoRouter.of(
-      tester.element(find.byType(DecksTabScreen, skipOffstage: false).first),
+      tester.element(find.byType(HomeTabScreen, skipOffstage: false).first),
     );
 
 void main() {
@@ -69,30 +71,59 @@ void main() {
     expect(find.byType(DecksTabScreen), findsNothing);
   });
 
-  testWidgets('a signed-in launch redirects / to the Decks tab with a nav bar',
+  testWidgets('a signed-in launch redirects / to the Home tab with a nav bar',
       (tester) async {
     await _pump(tester, signedIn: true);
 
-    expect(find.byType(DecksTabScreen), findsOneWidget);
+    expect(find.byType(HomeTabScreen), findsOneWidget);
     expect(find.byType(LoginScreen), findsNothing);
     expect(find.byType(GlassBottomNavBar), findsOneWidget);
+  });
+
+  testWidgets('the shell has four branches in order: Home, Decks, History, More',
+      (tester) async {
+    await _pump(tester, signedIn: true);
+    final router = _router(tester);
+
+    for (final (path, matcher) in <(String, Type)>[
+      ('/home', HomeTabScreen),
+      ('/decks', DecksTabScreen),
+      ('/history', HistoryTabScreen),
+      ('/more', MoreTabScreen),
+    ]) {
+      router.go(path);
+      await tester.pumpAndSettle();
+      expect(find.byType(matcher), findsOneWidget, reason: path);
+      expect(find.byType(GlassBottomNavBar), findsOneWidget, reason: path);
+    }
+  });
+
+  testWidgets('/settings is reachable but not a shell branch — no bottom bar',
+      (tester) async {
+    await _pump(tester, signedIn: true);
+
+    _router(tester).go('/settings');
+    await tester.pumpAndSettle();
+
+    expect(find.byType(SettingsTabScreen), findsOneWidget);
+    expect(find.byType(GlassBottomNavBar), findsNothing);
   });
 
   testWidgets('switching tabs preserves the inactive branch in the IndexedStack',
       (tester) async {
     await _pump(tester, signedIn: true);
 
-    await tester.tap(find.byIcon(Icons.insights_outlined)); // Mastery
+    await tester.tap(find.byIcon(Icons.schedule_outlined)); // History
     await tester.pumpAndSettle();
-    expect(find.byType(MasteryTabScreen), findsOneWidget);
+    expect(find.byType(HistoryTabScreen), findsOneWidget);
 
-    await tester.tap(find.byIcon(Icons.style_outlined)); // back to Decks
+    await tester.tap(find.byIcon(Icons.home_outlined)); // back to Home
     await tester.pumpAndSettle();
-    expect(find.byType(DecksTabScreen), findsOneWidget);
+    expect(find.byType(HomeTabScreen), findsOneWidget);
 
-    // Mastery is off-stage but still mounted — the indexedStack kept its state.
-    expect(find.byType(MasteryTabScreen), findsNothing);
-    expect(find.byType(MasteryTabScreen, skipOffstage: false), findsOneWidget);
+    // History is off-stage but still mounted — the indexedStack kept its state.
+    expect(find.byType(HistoryTabScreen), findsNothing);
+    expect(find.byType(HistoryTabScreen, skipOffstage: false), findsOneWidget);
   });
 
   testWidgets('pushing /study/:deckId leaves the shell — no bottom bar',
@@ -137,8 +168,8 @@ void main() {
     await _pump(tester, signedIn: true);
     final router = _router(tester);
 
-    // Move to the Settings tab, then launch the creator from there.
-    router.go('/settings');
+    // Move to the History tab, then launch the creator from there.
+    router.go('/history');
     await tester.pumpAndSettle();
     router.push('/deck-creator');
     await tester.pumpAndSettle();
@@ -151,6 +182,6 @@ void main() {
 
     expect(find.byType(DeckCreatorScreen), findsNothing);
     expect(find.byType(GlassBottomNavBar), findsOneWidget);
-    expect(find.byType(SettingsTabScreen), findsOneWidget);
+    expect(find.byType(HistoryTabScreen), findsOneWidget);
   });
 }
