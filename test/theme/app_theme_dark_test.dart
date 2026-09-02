@@ -6,17 +6,18 @@ import 'package:open_recall/theme/app_theme.dart';
 import 'package:open_recall/theme/app_tokens.dart';
 
 void main() {
-  group('AppTokens.dark palette hexes (spec-v5 §2)', () {
+  group('AppTokens.dark palette hexes (ui-spec-v5 §3)', () {
     const t = AppTokens.dark;
 
     test('surface + text tokens map to the exact spec hexes', () {
-      expect(t.background, const Color(0xFF121212));
-      expect(t.cardFill, const Color(0xFF1E1E1E));
-      expect(t.mutedFill, const Color(0xFF262624));
-      expect(t.borderHairline, const Color(0xFF333333));
-      expect(t.textPrimary, const Color(0xFFECECEC));
-      expect(t.textSecondary, const Color(0xFF9A9A9A));
-      expect(t.textTertiary, const Color(0xFF6E6E6E));
+      expect(t.background, const Color(0xFF000000));
+      expect(t.cardFill, const Color(0xFF1C1C1E));
+      expect(t.mutedFill, const Color(0xFF2C2C2E));
+      expect(t.borderHairline, const Color(0xFF38383A));
+      expect(t.textPrimary, const Color(0xFFFFFFFF));
+      expect(t.textSecondary, const Color(0xFF98989F));
+      expect(t.textTertiary, const Color(0xFF48484A));
+      expect(t.tint, const Color(0xFF0A84FF));
     });
 
     test('carries exactly the 8 named accent keys', () {
@@ -27,8 +28,8 @@ void main() {
       );
     });
 
-    test('the fixed "Mastered" red is the nudged dark fill', () {
-      expect(t.accent('red').fill, const Color(0xFFDA7C6F));
+    test('the fixed "Mastered" red uses the shared iOS red fill', () {
+      expect(t.accent('red').fill, const Color(0xFFFF6961));
     });
   });
 
@@ -77,7 +78,7 @@ void main() {
       );
 
       expect(resolved, same(AppTokens.dark));
-      expect(resolved.background, const Color(0xFF121212));
+      expect(resolved.background, const Color(0xFF000000));
     });
   });
 
