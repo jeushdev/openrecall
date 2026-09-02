@@ -6,9 +6,14 @@ import '../../theme/app_tokens.dart';
 /// Profile / More identity blocks. There is no image or display name anywhere
 /// in the schema, so it is always initials on an `amber` fill.
 class Avatar extends StatelessWidget {
-  const Avatar({super.key, required this.email, this.size = 56});
+  const Avatar({super.key, required this.email, this.name, this.size = 56});
 
   final String? email;
+
+  /// The user's display name, when set — initials derive from this rather than
+  /// [email]'s local part.
+  final String? name;
+
   final double size;
 
   @override
@@ -24,7 +29,9 @@ class Avatar extends StatelessWidget {
         shape: BoxShape.circle,
       ),
       child: Text(
-        emailInitials(email),
+        (name != null && name!.trim().isNotEmpty)
+            ? initialsFrom(name!)
+            : emailInitials(email),
         style: TextStyle(
           fontSize: size * 0.32,
           fontWeight: FontWeight.w700,
@@ -59,4 +66,25 @@ String greetingName(String? email) {
   final cleaned = first.replaceAll(RegExp('[^A-Za-z0-9]'), '');
   if (cleaned.isEmpty) return 'there';
   return cleaned[0].toUpperCase() + cleaned.substring(1).toLowerCase();
+}
+
+/// The display name to show for a user: [username] when it has non-whitespace
+/// content, otherwise the email-derived greeting token from [greetingName].
+String displayNameOr(String? username, String? email) =>
+    (username != null && username.trim().isNotEmpty)
+        ? username.trim()
+        : greetingName(email);
+
+/// Up to two uppercase letters from a display [name]: the first letters of its
+/// first two whitespace-separated words, or the first two letters of a single
+/// word. Falls back to `?` for an empty name.
+String initialsFrom(String name) {
+  final words =
+      name.trim().split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
+  if (words.isEmpty) return '?';
+  if (words.length == 1) {
+    final w = words.first;
+    return w.substring(0, w.length >= 2 ? 2 : 1).toUpperCase();
+  }
+  return (words[0][0] + words[1][0]).toUpperCase();
 }
