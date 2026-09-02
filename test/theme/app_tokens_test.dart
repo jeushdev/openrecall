@@ -29,14 +29,30 @@ void main() {
   group('AppTokens.light palette hexes (spec §3.1)', () {
     const t = AppTokens.light;
 
-    test('surface + text tokens map to the exact spec hexes', () {
-      expect(t.background, const Color(0xFFFFFFFF));
+    test('surface + text tokens map to the exact ui-spec-v5 hexes', () {
+      expect(t.background, const Color(0xFFF2F2F7));
       expect(t.cardFill, const Color(0xFFFFFFFF));
-      expect(t.mutedFill, const Color(0xFFF7F7F5));
-      expect(t.borderHairline, const Color(0xFFEDEDED));
-      expect(t.textPrimary, const Color(0xFF1A1A1A));
-      expect(t.textSecondary, const Color(0xFF8A8A8A));
-      expect(t.textTertiary, const Color(0xFFB0B0B0));
+      expect(t.mutedFill, const Color(0xFFEFEFF4));
+      expect(t.borderHairline, const Color(0xFFC6C6C8));
+      expect(t.textPrimary, const Color(0xFF1C1C1E));
+      expect(t.textSecondary, const Color(0xFF8E8E93));
+      expect(t.textTertiary, const Color(0xFFC7C7CC));
+      expect(t.tint, const Color(0xFF007AFF));
+    });
+  });
+
+  group('AppTokens.dark palette hexes (ui-spec-v5 §3)', () {
+    const t = AppTokens.dark;
+
+    test('surface + text tokens map to the exact ui-spec-v5 hexes', () {
+      expect(t.background, const Color(0xFF000000));
+      expect(t.cardFill, const Color(0xFF1C1C1E));
+      expect(t.mutedFill, const Color(0xFF2C2C2E));
+      expect(t.borderHairline, const Color(0xFF38383A));
+      expect(t.textPrimary, const Color(0xFFFFFFFF));
+      expect(t.textSecondary, const Color(0xFF98989F));
+      expect(t.textTertiary, const Color(0xFF48484A));
+      expect(t.tint, const Color(0xFF0A84FF));
     });
   });
 
@@ -61,21 +77,21 @@ void main() {
 
     test('each key maps to its exact fill/text hex pair', () {
       expect(t.accents['slate'],
-          const AccentPair(Color(0xFFCBD5E1), Color(0xFF64748B)));
+          const AccentPair(Color(0xFFC7C7CC), Color(0xFF8E8E93)));
       expect(t.accents['red'],
-          const AccentPair(Color(0xFFD06C60), Color(0xFFB0453A)));
+          const AccentPair(Color(0xFFFF6961), Color(0xFFFF3B30)));
       expect(t.accents['amber'],
-          const AccentPair(Color(0xFFD6C08B), Color(0xFF8A7534)));
+          const AccentPair(Color(0xFFFFB340), Color(0xFFFF9500)));
       expect(t.accents['green'],
-          const AccentPair(Color(0xFFAFC3A8), Color(0xFF6E8A65)));
+          const AccentPair(Color(0xFF63DA83), Color(0xFF34C759)));
       expect(t.accents['teal'],
-          const AccentPair(Color(0xFF8FC4BE), Color(0xFF3F7A73)));
+          const AccentPair(Color(0xFF5AC8E0), Color(0xFF30B0C7)));
       expect(t.accents['blue'],
-          const AccentPair(Color(0xFF9DBDD2), Color(0xFF4E7B95)));
+          const AccentPair(Color(0xFF4DA2FF), Color(0xFF007AFF)));
       expect(t.accents['violet'],
-          const AccentPair(Color(0xFFB8AED9), Color(0xFF6D5FA8)));
+          const AccentPair(Color(0xFF8886E0), Color(0xFF5856D6)));
       expect(t.accents['pink'],
-          const AccentPair(Color(0xFFE3AEBE), Color(0xFFB15C74)));
+          const AccentPair(Color(0xFFFF6482), Color(0xFFFF2D55)));
     });
 
     test('accent() falls back to slate for an unknown key', () {

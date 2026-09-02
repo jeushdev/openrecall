@@ -47,6 +47,7 @@ class AppTokens extends ThemeExtension<AppTokens> {
     required this.textPrimary,
     required this.textSecondary,
     required this.textTertiary,
+    required this.tint,
     required this.accents,
   });
 
@@ -71,6 +72,10 @@ class AppTokens extends ThemeExtension<AppTokens> {
   /// Placeholder / disabled (§3.1).
   final Color textTertiary;
 
+  /// Interactive / accent colour — primary buttons, links, selected tab, focus
+  /// ring (ui-spec-v5 §3).
+  final Color tint;
+
   /// Accent map keyed by the eight `courses.accent_color` enum values
   /// (§3.2). Guaranteed to contain exactly those keys.
   final Map<String, AccentPair> accents;
@@ -80,52 +85,53 @@ class AppTokens extends ThemeExtension<AppTokens> {
   /// throwing.
   AccentPair accent(String key) => accents[key] ?? accents['slate']!;
 
-  /// The light palette (v1 §3.1, §3.2).
+  /// The light palette (ui-spec-v5 §3) — iOS system surfaces on a grouped
+  /// `systemGroupedBackground` ground, `systemBlue` tint, and the iOS system
+  /// colours as the eight course accents.
   static const AppTokens light = AppTokens(
-    background: Color(0xFFFFFFFF),
+    background: Color(0xFFF2F2F7),
     cardFill: Color(0xFFFFFFFF),
-    mutedFill: Color(0xFFF7F7F5),
-    borderHairline: Color(0xFFEDEDED),
-    textPrimary: Color(0xFF1A1A1A),
-    textSecondary: Color(0xFF8A8A8A),
-    textTertiary: Color(0xFFB0B0B0),
+    mutedFill: Color(0xFFEFEFF4),
+    borderHairline: Color(0xFFC6C6C8),
+    textPrimary: Color(0xFF1C1C1E),
+    textSecondary: Color(0xFF8E8E93),
+    textTertiary: Color(0xFFC7C7CC),
+    tint: Color(0xFF007AFF),
     accents: <String, AccentPair>{
-      'slate': AccentPair(Color(0xFFCBD5E1), Color(0xFF64748B)),
-      'red': AccentPair(Color(0xFFD06C60), Color(0xFFB0453A)),
-      'amber': AccentPair(Color(0xFFD6C08B), Color(0xFF8A7534)),
-      'green': AccentPair(Color(0xFFAFC3A8), Color(0xFF6E8A65)),
-      'teal': AccentPair(Color(0xFF8FC4BE), Color(0xFF3F7A73)),
-      'blue': AccentPair(Color(0xFF9DBDD2), Color(0xFF4E7B95)),
-      'violet': AccentPair(Color(0xFFB8AED9), Color(0xFF6D5FA8)),
-      'pink': AccentPair(Color(0xFFE3AEBE), Color(0xFFB15C74)),
+      'slate': AccentPair(Color(0xFFC7C7CC), Color(0xFF8E8E93)),
+      'red': AccentPair(Color(0xFFFF6961), Color(0xFFFF3B30)),
+      'amber': AccentPair(Color(0xFFFFB340), Color(0xFFFF9500)),
+      'green': AccentPair(Color(0xFF63DA83), Color(0xFF34C759)),
+      'teal': AccentPair(Color(0xFF5AC8E0), Color(0xFF30B0C7)),
+      'blue': AccentPair(Color(0xFF4DA2FF), Color(0xFF007AFF)),
+      'violet': AccentPair(Color(0xFF8886E0), Color(0xFF5856D6)),
+      'pink': AccentPair(Color(0xFFFF6482), Color(0xFFFF2D55)),
     },
   );
 
-  /// The dark palette (`docs/spec-v5-dark-mode.md` §2, §3). Surface tokens are
-  /// the light ramp inverted — near-black grounds with two discernible
-  /// elevation steps and no shadow. Accent `fill`s are pushed slightly more
-  /// chromatic so a 40%-opacity tint still reads as a hue over `#1E1E1E`, and
-  /// accent `text`s are lightened from the light values to clear WCAG AA on the
-  /// dark `mutedFill` badge ground (contrast table in the spec). `red` is nudged
-  /// `#D06C60` → `#DA7C6F` so the fixed "Mastered" button's dark label stays
-  /// ≥ AA while remaining the same recognisable red.
+  /// The dark palette (ui-spec-v5 §3; `docs/spec-v5-dark-mode.md` §4 for the
+  /// theme-mode mechanism). True-black `systemBackground` with two raised
+  /// `systemGray6`/`systemGray5` steps and no shadow. Accent `fill`s are shared
+  /// with the light palette; accent `text`s move to the iOS dark system-colour
+  /// values so each label clears WCAG AA on the dark `mutedFill` badge ground.
   static const AppTokens dark = AppTokens(
-    background: Color(0xFF121212),
-    cardFill: Color(0xFF1E1E1E),
-    mutedFill: Color(0xFF262624),
-    borderHairline: Color(0xFF333333),
-    textPrimary: Color(0xFFECECEC),
-    textSecondary: Color(0xFF9A9A9A),
-    textTertiary: Color(0xFF6E6E6E),
+    background: Color(0xFF000000),
+    cardFill: Color(0xFF1C1C1E),
+    mutedFill: Color(0xFF2C2C2E),
+    borderHairline: Color(0xFF38383A),
+    textPrimary: Color(0xFFFFFFFF),
+    textSecondary: Color(0xFF98989F),
+    textTertiary: Color(0xFF48484A),
+    tint: Color(0xFF0A84FF),
     accents: <String, AccentPair>{
-      'slate': AccentPair(Color(0xFF7C8CA3), Color(0xFFAEBBCC)),
-      'red': AccentPair(Color(0xFFDA7C6F), Color(0xFFE88C80)),
-      'amber': AccentPair(Color(0xFFC9A961), Color(0xFFDCC078)),
-      'green': AccentPair(Color(0xFF8FB183), Color(0xFFA9C79E)),
-      'teal': AccentPair(Color(0xFF5FA69D), Color(0xFF82C6BD)),
-      'blue': AccentPair(Color(0xFF7FA8C4), Color(0xFFA0C6DE)),
-      'violet': AccentPair(Color(0xFF9C8FD1), Color(0xFFC0B4E8)),
-      'pink': AccentPair(Color(0xFFCE8098), Color(0xFFE3A7BC)),
+      'slate': AccentPair(Color(0xFF48484A), Color(0xFFAEAEB2)),
+      'red': AccentPair(Color(0xFFFF6961), Color(0xFFFF453A)),
+      'amber': AccentPair(Color(0xFFFFB340), Color(0xFFFF9F0A)),
+      'green': AccentPair(Color(0xFF63DA83), Color(0xFF30D158)),
+      'teal': AccentPair(Color(0xFF5AC8E0), Color(0xFF40C8E0)),
+      'blue': AccentPair(Color(0xFF4DA2FF), Color(0xFF0A84FF)),
+      'violet': AccentPair(Color(0xFF8886E0), Color(0xFF5E5CE6)),
+      'pink': AccentPair(Color(0xFFFF6482), Color(0xFFFF375F)),
     },
   );
 
@@ -138,6 +144,7 @@ class AppTokens extends ThemeExtension<AppTokens> {
     Color? textPrimary,
     Color? textSecondary,
     Color? textTertiary,
+    Color? tint,
     Map<String, AccentPair>? accents,
   }) {
     return AppTokens(
@@ -148,6 +155,7 @@ class AppTokens extends ThemeExtension<AppTokens> {
       textPrimary: textPrimary ?? this.textPrimary,
       textSecondary: textSecondary ?? this.textSecondary,
       textTertiary: textTertiary ?? this.textTertiary,
+      tint: tint ?? this.tint,
       accents: accents ?? this.accents,
     );
   }
@@ -163,6 +171,7 @@ class AppTokens extends ThemeExtension<AppTokens> {
       textPrimary: Color.lerp(textPrimary, other.textPrimary, t)!,
       textSecondary: Color.lerp(textSecondary, other.textSecondary, t)!,
       textTertiary: Color.lerp(textTertiary, other.textTertiary, t)!,
+      tint: Color.lerp(tint, other.tint, t)!,
       accents: <String, AccentPair>{
         for (final entry in accents.entries)
           entry.key: other.accents.containsKey(entry.key)
