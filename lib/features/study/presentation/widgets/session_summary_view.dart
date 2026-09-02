@@ -2,6 +2,8 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../../../../ui/common/app_card.dart';
+
 import '../../../../core/format/mastery_delta_label.dart';
 import '../../../../theme/app_geometry.dart';
 import '../../../../theme/app_haptics.dart';
@@ -115,7 +117,7 @@ class _SessionSummaryViewState extends State<SessionSummaryView>
                       fraction: (before + (after - before) * t) / 100,
                       percent: (before + (after - before) * t).round(),
                       trackColor: tokens.borderHairline,
-                      fillColor: tokens.accent('blue').fill,
+                      fillColor: tokens.tint,
                       labelColor: tokens.textPrimary,
                     ),
                   ),
@@ -280,16 +282,9 @@ class _SessionBlock extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return AppCard(
       padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: tokens.cardFill,
-        borderRadius: AppRadii.gridTileRadius,
-        border: Border.all(
-          color: tokens.borderHairline,
-          width: AppBorders.hairline,
-        ),
-      ),
+      radius: AppRadii.gridTile,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
