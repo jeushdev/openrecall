@@ -786,11 +786,11 @@ git commit -m "feat: CupertinoPage route transitions (ui-spec-v5 §5.4)"
 **Interfaces:**
 - Consumes: `LargeTitleScaffold`, `AppCard`, `AppType`, `CreateMenuSheet.show`, `Avatar`, `greetingName`.
 
-- [ ] **Step 1: Replace the `Scaffold`/`ListView` shell**
+- [x] **Step 1: Replace the `Scaffold`/`ListView` shell**
 
 Wrap the screen in `LargeTitleScaffold(title: 'Hello, ${greetingName(email)}', actions: [_CreateButton()], slivers: [SliverPadding(padding: const EdgeInsets.fromLTRB(16, 4, 16, 120), sliver: SliverList.list(children: [...]))])`. Delete the `_GreetingHeader` widget entirely (the greeting is now the large title; the "Pick up where you left off." subline moves to a `Padding` + `AppType.body`/`textSecondary` as the first sliver child, or is dropped — drop it, the large title carries the moment).
 
-- [ ] **Step 2: Add `_CreateButton`**
+- [x] **Step 2: Add `_CreateButton`**
 
 ```dart
 class _CreateButton extends StatelessWidget {
@@ -805,15 +805,15 @@ class _CreateButton extends StatelessWidget {
 }
 ```
 
-- [ ] **Step 3: Restyle section headers**
+- [x] **Step 3: Restyle section headers**
 
 `_SectionHeader` → `AppType.title` (Figtree 22) `tokens.textPrimary`, padding `EdgeInsets.only(bottom: 4)`. `_CardSkeleton` / `_SectionError` fills → `tokens.mutedFill`, radius `AppRadii.card`.
 
-- [ ] **Step 4: Cards → `AppCard`**
+- [x] **Step 4: Cards → `AppCard`**
 
 `OverallMasteryCard`, the unfinished-session strip cards, and the deck-stack tiles: wherever they build a `Container(decoration: BoxDecoration(color: cardFill, border: ...))`, replace with `AppCard(padding: ..., onTap: ..., child: ...)`. Remove the hairline `border:`.
 
-- [ ] **Step 5: Update Home tests**
+- [x] **Step 5: Update Home tests**
 
 In `test/features/home/*`: the greeting now appears as the `LargeTitleScaffold` title (`find.text('Hello, Jeush')` still works). Add:
 
@@ -826,12 +826,12 @@ testWidgets('the header + button opens the Create menu', (tester) async {
 });
 ```
 
-- [ ] **Step 6: Verify**
+- [x] **Step 6: Verify**
 
 Run: `flutter analyze && flutter test test/features/home/ test/routing/ -r expanded`
 Expected: clean + green.
 
-- [ ] **Step 7: Visual check + commit**
+- [x] **Step 7: Visual check + commit**
 
 Run `flutter run` on the emulator (Edge is only for web — this is Android). Confirm: greeting is the large Figtree title collapsing on scroll, `+` top-right in tint blue, cards have a soft shadow and no border, body text is visibly larger.
 
@@ -848,19 +848,19 @@ git commit -m "feat: Home tab on the v5 large-title + card system (ui-spec-v5 §
 - Modify: `lib/features/decks/presentation/decks_tab_screen.dart`, `lib/features/decks/presentation/widgets/deck_grid.dart`
 - Test: `test/features/decks/` — update header expectations; add `+` test.
 
-- [ ] **Step 1: Header → `LargeTitleScaffold`**
+- [x] **Step 1: Header → `LargeTitleScaffold`**
 
 Replace the `Scaffold` + `Column` + hand-rolled `Text('Decks', style: TextStyle(fontSize: 28, ...))` header with `LargeTitleScaffold(title: 'Decks', actions: [_DecksCreateButton(), const SyncStatusChip()], slivers: [...])`. The course accordion becomes the sliver content (wrap the existing `Expanded`-child list body in `SliverToBoxAdapter` or convert to a `SliverList`). `_DecksCreateButton` mirrors Home's `_CreateButton` (key `'decks-create'`).
 
-- [ ] **Step 2: Deck tiles → `AppCard`**
+- [x] **Step 2: Deck tiles → `AppCard`**
 
 In `deck_grid.dart`, each tile's outer `Container(decoration: BoxDecoration(borderRadius: AppRadii.gridTileRadius, border: ...))` → `AppCard(radius: AppRadii.gridTile, onTap: ..., child: ...)`. Keep the 4px accent bar. Remove the hairline border.
 
-- [ ] **Step 3: Update tests**
+- [x] **Step 3: Update tests**
 
 `find.text('Decks')` still resolves (now the large title). Add the `decks-create` → Create menu test. Fix any test asserting the old header `fontSize: 28` inline style.
 
-- [ ] **Step 4: Verify + commit**
+- [x] **Step 4: Verify + commit**
 
 Run: `flutter analyze && flutter test test/features/decks/ -r expanded`
 
