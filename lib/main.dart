@@ -25,13 +25,13 @@ Future<void> main() async {
     usePathUrlStrategy();
   }
 
-  // Attribute the bundled Fraunces / Inter faces (ui-spec-v3 §1) on the
+  // Attribute the bundled Figtree / Inter faces (ui-spec-v5 §1) on the
   // in-app licenses page. Lazily read — the SIL OFL text is only loaded if the
   // user opens that page.
   LicenseRegistry.addLicense(() async* {
     yield LicenseEntryWithLineBreaks(
-      const ['Fraunces'],
-      await rootBundle.loadString('assets/fonts/Fraunces-OFL.txt'),
+      const ['Figtree'],
+      await rootBundle.loadString('assets/fonts/Figtree-OFL.txt'),
     );
     yield LicenseEntryWithLineBreaks(
       const ['Inter'],
