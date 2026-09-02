@@ -1,0 +1,126 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+    a { color: #4A55C7; } a:hover { color: #3A44A8; }
+  </style>
+</helmet>
+
+<div style="width:390px;height:1080px;background:#F2F2F2;position:relative;overflow:hidden;">
+  <div style="padding:24px 20px 0;">
+    <h1 style="margin:0;font-size:28px;font-weight:800;color:#111111;letter-spacing:-0.3px;">More</h1>
+    <p style="margin:4px 0 20px;font-size:14px;color:#8A8A8E;">Manage your account</p>
+
+    <!-- Profile card -->
+    <div style="display:flex;align-items:center;gap:14px;background:#FFFFFF;border-radius:16px;padding:16px;margin-bottom:22px;">
+      <div style="width:52px;height:52px;border-radius:50%;background:{{accent}};display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+        <span style="font-size:18px;font-weight:800;color:#FFFFFF;">J</span>
+      </div>
+      <div style="flex:1;">
+        <div style="font-size:16px;font-weight:800;color:#111111;">John</div>
+        <div style="font-size:12px;color:#8A8A8E;margin-top:2px;">john@example.com</div>
+      </div>
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#B5B5B8" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>
+    </div>
+
+    <!-- Account -->
+    <h2 style="margin:0 0 8px;font-size:15px;font-weight:800;color:#111111;">Account</h2>
+    <div style="border-bottom:1.5px solid #111111;margin-bottom:2px;"></div>
+    <div style="background:#FFFFFF;border-radius:14px;margin-bottom:22px;overflow:hidden;">
+      <div style="display:flex;align-items:center;gap:12px;padding:14px 14px;border-bottom:1px solid #EFEFEF;">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#111111" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8.5" r="3.5"/><path d="M4.5 20a7.5 7.5 0 0 1 15 0"/></svg>
+        <span style="flex:1;font-size:14px;font-weight:600;color:#111111;">Edit profile</span>
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#B5B5B8" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px;padding:14px 14px;">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#B4383A" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4H6a1.5 1.5 0 0 0-1.5 1.5v13A1.5 1.5 0 0 0 6 20h3"/><path d="M14 8l4.5 4-4.5 4M18 12H9"/></svg>
+        <span style="flex:1;font-size:14px;font-weight:600;color:#B4383A;">Sign out</span>
+      </div>
+    </div>
+
+    <!-- Preferences -->
+    <h2 style="margin:0 0 8px;font-size:15px;font-weight:800;color:#111111;">Preferences</h2>
+    <div style="border-bottom:1.5px solid #111111;margin-bottom:2px;"></div>
+    <div style="background:#FFFFFF;border-radius:14px;margin-bottom:22px;overflow:hidden;">
+      <div style="display:flex;align-items:center;gap:12px;padding:14px 14px;border-bottom:1px solid #EFEFEF;">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#111111" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 10a6 6 0 0 1 12 0c0 3.2 1 4.5 1.5 5.5H4.5C5 14.5 6 13.2 6 10Z"/><path d="M10 18.5a2 2 0 0 0 4 0"/></svg>
+        <span style="flex:1;font-size:14px;font-weight:600;color:#111111;">Notifications</span>
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#B5B5B8" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px;padding:14px 14px;">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#111111" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 13.5a7.97 7.97 0 0 0 0-3l2-1.4-2-3.4-2.3.9a8 8 0 0 0-2.6-1.5L14 2h-4l-.5 2.1a8 8 0 0 0-2.6 1.5l-2.3-.9-2 3.4 2 1.4a7.97 7.97 0 0 0 0 3l-2 1.4 2 3.4 2.3-.9a8 8 0 0 0 2.6 1.5L10 22h4l.5-2.1a8 8 0 0 0 2.6-1.5l2.3.9 2-3.4-2-1.4Z"/></svg>
+        <span style="flex:1;font-size:14px;font-weight:600;color:#111111;">Study preferences</span>
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#B5B5B8" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>
+      </div>
+    </div>
+
+    <!-- Data -->
+    <h2 style="margin:0 0 8px;font-size:15px;font-weight:800;color:#111111;">Data</h2>
+    <div style="border-bottom:1.5px solid #111111;margin-bottom:2px;"></div>
+    <div style="background:#FFFFFF;border-radius:14px;margin-bottom:22px;overflow:hidden;">
+      <div style="display:flex;align-items:center;gap:12px;padding:14px 14px;border-bottom:1px solid #EFEFEF;">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#111111" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7 18a4.5 4.5 0 0 1-.7-8.94A5.5 5.5 0 0 1 17.2 8.1 4 4 0 0 1 17 18H7Z"/></svg>
+        <span style="flex:1;font-size:14px;font-weight:600;color:#111111;">Offline sync</span>
+        <span style="font-size:12px;color:#3C8C3C;font-weight:700;">Up to date</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px;padding:14px 14px;">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#111111" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M8 11l4 4 4-4"/><path d="M5 19h14"/></svg>
+        <span style="flex:1;font-size:14px;font-weight:600;color:#111111;">Export / import cards</span>
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#B5B5B8" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>
+      </div>
+    </div>
+
+    <!-- About -->
+    <h2 style="margin:0 0 8px;font-size:15px;font-weight:800;color:#111111;">About</h2>
+    <div style="border-bottom:1.5px solid #111111;margin-bottom:2px;"></div>
+    <div style="background:#FFFFFF;border-radius:14px;margin-bottom:22px;overflow:hidden;">
+      <div style="display:flex;align-items:center;gap:12px;padding:14px 14px;border-bottom:1px solid #EFEFEF;">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#111111" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 11v5.5M12 8v.01"/></svg>
+        <span style="flex:1;font-size:14px;font-weight:600;color:#111111;">Help &amp; feedback</span>
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#B5B5B8" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px;padding:14px 14px;">
+        <span style="flex:1;font-size:14px;font-weight:600;color:#111111;">Version</span>
+        <span style="font-size:12px;color:#8A8A8E;">1.0.0</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bottom tab bar -->
+  <div style="position:absolute;left:0;right:0;bottom:0;height:64px;background:#FFFFFF;border-top:1px solid #E2E2E4;display:flex;align-items:center;">
+    <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;">
+      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#9A9A9E" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10v9a1 1 0 0 0 1 1h11a1 1 0 0 0 1-1v-9"/><path d="M9.5 20v-6h5v6"/></svg>
+      <span style="font-size:10px;color:#9A9A9E;font-weight:600;">Home</span>
+    </div>
+    <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;">
+      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#9A9A9E" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12.5 12.5 20a1.5 1.5 0 0 1-2.12 0l-6.38-6.38a1.5 1.5 0 0 1 0-2.12L11.5 4H19a1 1 0 0 1 1 1v7.5Z"/><circle cx="15.5" cy="8.5" r="1.15"/></svg>
+      <span style="font-size:10px;color:#9A9A9E;font-weight:600;">Decks</span>
+    </div>
+    <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;">
+      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#9A9A9E" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>
+      <span style="font-size:10px;color:#9A9A9E;font-weight:600;">History</span>
+    </div>
+    <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;">
+      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="{{accent}}" stroke-width="1.9" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+      <span style="font-size:10px;color:{{accent}};font-weight:800;">More</span>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script data-dc-script data-props='{"accent":{"editor":"color","default":"#4A55C7","options":["#4A55C7","#1D8A7A","#B8722E","#946BC9"]}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return { accent: this.props.accent ?? '#4A55C7' };
+  }
+}
+</script>
+</body>
+</html>
