@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart' show CupertinoPage;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -37,6 +38,13 @@ import 'scaffold_with_nav_bar.dart';
 /// against the current session and [GoRouterRefreshStream] re-runs it whenever
 /// the session appears or clears. [SplashScreen] is a passive frame — the
 /// redirect resolves `/` to Login or `/home` on the first build.
+///
+/// Every top-level route wraps its screen in a [CupertinoPage] (via [_page]),
+/// which gives the horizontal push slide and the iOS edge-swipe-back gesture
+/// (ui-spec-v5 §5.4). The shell branches keep their own in-shell slide.
+CupertinoPage<void> _page(GoRouterState state, Widget child) =>
+    CupertinoPage<void>(key: state.pageKey, child: child);
+
 final appRouterProvider = Provider<GoRouter>((ref) {
   final auth = ref.watch(authRepositoryProvider);
   final refresh = GoRouterRefreshStream(auth.authStateChanges());
@@ -54,22 +62,22 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.splashPath,
         name: AppRoutes.splashName,
-        builder: (context, state) => const SplashScreen(),
+        pageBuilder: (context, state) => _page(state, const SplashScreen()),
       ),
       GoRoute(
         path: AppRoutes.loginPath,
         name: AppRoutes.loginName,
-        builder: (context, state) => const LoginScreen(),
+        pageBuilder: (context, state) => _page(state, const LoginScreen()),
       ),
       GoRoute(
         path: AppRoutes.signupPath,
         name: AppRoutes.signupName,
-        builder: (context, state) => const SignupScreen(),
+        pageBuilder: (context, state) => _page(state, const SignupScreen()),
       ),
       GoRoute(
         path: AppRoutes.forgotPasswordPath,
         name: AppRoutes.forgotPasswordName,
-        builder: (context, state) => const ForgotPasswordScreen(),
+        pageBuilder: (context, state) => _page(state, const ForgotPasswordScreen()),
       ),
       StatefulShellRoute(
         builder: (context, state, navigationShell) => navigationShell,
@@ -128,24 +136,28 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: AppRoutes.settingsPath,
         name: AppRoutes.settingsName,
         parentNavigatorKey: rootNavigatorKey,
-        builder: (context, state) => const SettingsTabScreen(),
+        pageBuilder: (context, state) => _page(state, const SettingsTabScreen()),
       ),
       GoRoute(
         path: AppRoutes.studySessionPath,
         name: AppRoutes.studySessionName,
         parentNavigatorKey: rootNavigatorKey,
-        builder: (context, state) {
+        pageBuilder: (context, state) {
           // The deck-detail mode picker passes its choice as `extra`; a direct
           // navigation with no `extra` leaves `requestedMode` null and the
           // screen falls back to its own in-screen picker.
           final args = state.extra as StudySessionArgs?;
-          return StudySessionScreen(
-            deckId: state.pathParameters['deckId']!,
-            // The Due view is retired (ui-spec-v2 §1): every session runs the
-            // whole deck. `CardScope` / `card_scope` stay as plumbing; the UI
-            // never chooses `due` anymore, so the route takes no `scope` param.
-            scope: CardScope.all,
-            requestedMode: args?.mode,
+          return _page(
+            state,
+            StudySessionScreen(
+              deckId: state.pathParameters['deckId']!,
+              // The Due view is retired (ui-spec-v2 §1): every session runs the
+              // whole deck. `CardScope` / `card_scope` stay as plumbing; the UI
+              // never chooses `due` anymore, so the route takes no `scope`
+              // param.
+              scope: CardScope.all,
+              requestedMode: args?.mode,
+            ),
           );
         },
       ),
@@ -153,34 +165,34 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: AppRoutes.deckCreatorPath,
         name: AppRoutes.deckCreatorName,
         parentNavigatorKey: rootNavigatorKey,
-        builder: (context, state) => const DeckCreatorScreen(),
+        pageBuilder: (context, state) => _page(state, const DeckCreatorScreen()),
       ),
       GoRoute(
         path: AppRoutes.courseCreatorPath,
         name: AppRoutes.courseCreatorName,
         parentNavigatorKey: rootNavigatorKey,
-        builder: (context, state) => const CourseCreatorScreen(),
+        pageBuilder: (context, state) => _page(state, const CourseCreatorScreen()),
       ),
       GoRoute(
         path: AppRoutes.deckDetailPath,
         name: AppRoutes.deckDetailName,
         parentNavigatorKey: rootNavigatorKey,
-        builder: (context, state) =>
-            DeckDetailScreen(deckId: state.pathParameters['deckId']!),
+        pageBuilder: (context, state) => _page(
+            state, DeckDetailScreen(deckId: state.pathParameters['deckId']!)),
       ),
       GoRoute(
         path: AppRoutes.importCardsPath,
         name: AppRoutes.importCardsName,
         parentNavigatorKey: rootNavigatorKey,
-        builder: (context, state) =>
-            ImportCardsScreen(deckId: state.pathParameters['deckId']!),
+        pageBuilder: (context, state) => _page(
+            state, ImportCardsScreen(deckId: state.pathParameters['deckId']!)),
       ),
       GoRoute(
         path: AppRoutes.cardListPath,
         name: AppRoutes.cardListName,
         parentNavigatorKey: rootNavigatorKey,
-        builder: (context, state) =>
-            CardListScreen(deckId: state.pathParameters['deckId']!),
+        pageBuilder: (context, state) => _page(
+            state, CardListScreen(deckId: state.pathParameters['deckId']!)),
       ),
     ],
   );
