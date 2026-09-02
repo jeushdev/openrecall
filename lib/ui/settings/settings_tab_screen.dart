@@ -7,6 +7,7 @@ import '../../features/settings/data/study_appearance_preferences.dart';
 import '../../features/study/application/feynman_timer_providers.dart';
 import '../../theme/app_tokens.dart';
 import 'collapsible_settings_section.dart';
+import 'feedback_info_dialog.dart';
 import 'settings_segmented_control.dart';
 
 // Stable ids for the collapsible sections — decoupled from the display titles
@@ -178,7 +179,7 @@ class _SettingsTabScreenState extends ConsumerState<SettingsTabScreen> {
               children: [
                 _LinkRow(
                   label: 'Send feedback',
-                  onTap: () => _showFeedbackInfo(context),
+                  onTap: () => showFeedbackInfo(context),
                 ),
                 Divider(
                   height: 1,
@@ -201,24 +202,6 @@ class _SettingsTabScreenState extends ConsumerState<SettingsTabScreen> {
     );
   }
 
-  void _showFeedbackInfo(BuildContext context) {
-    showDialog<void>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Feedback link coming soon'),
-        content: const Text(
-          'A form will be shared with beta testers. Thanks for helping test '
-          'ActiveRecall.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('OK'),
-          ),
-        ],
-      ),
-    );
-  }
 }
 
 class _AppearanceRow extends StatelessWidget {
