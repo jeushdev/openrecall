@@ -58,10 +58,11 @@ void main() {
     // No Supabase in the widget-test graph, so `userIdentityProvider` yields a
     // null email and the identity block renders its signed-out fallback.
     expect(find.text('Not signed in'), findsOneWidget);
-    expect(find.text('Account'), findsOneWidget);
-    expect(find.text('Preferences'), findsOneWidget);
-    expect(find.text('Data'), findsOneWidget);
-    expect(find.text('About'), findsOneWidget);
+    // IosSection headers render uppercased.
+    expect(find.text('ACCOUNT'), findsOneWidget);
+    expect(find.text('PREFERENCES'), findsOneWidget);
+    expect(find.text('DATA'), findsOneWidget);
+    expect(find.text('ABOUT'), findsOneWidget);
     expect(find.text('Sign out'), findsOneWidget);
     expect(find.text('1.2.3+4'), findsOneWidget);
   });

@@ -4,105 +4,119 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/sync/sync_providers.dart';
 import '../../../routing/app_routes.dart';
-import '../../../theme/app_tokens.dart';
-import '../../../theme/app_type.dart';
 import '../../../ui/common/avatar.dart';
-import '../../../ui/profile/sign_out_button.dart';
+import '../../../ui/common/ios_list.dart';
+import '../../../ui/common/large_title_scaffold.dart';
+import '../../../ui/profile/sign_out_dialog.dart';
 import '../../../ui/settings/feedback_info_dialog.dart';
 import '../../profile/application/profile_providers.dart';
 import '../application/settings_providers.dart';
 
-/// The More tab (`/more`, ui-spec-v4-navigation §5) — replaces the retired
-/// Profile tab and is the entry point into the pushed `/settings` route.
+/// The More tab (`/more`, ui-spec-v4-navigation §5; restyled ui-spec-v5 §6.6) —
+/// replaces the retired Profile tab and is the entry point into the pushed
+/// `/settings` route.
 ///
-/// Top to bottom: an identity-only profile block, then four grouped sections —
-/// Account (sign out), Preferences and Data (rows that push `/settings`), and
-/// About (feedback dialog + app version). The streak / mastery stat blocks that
-/// used to live on Profile are retired: that data is now on Home's Overall
-/// Mastery card and History's log. "Delete account" stays inside the Settings
-/// screen — this screen never duplicates the destructive path.
+/// A large-title shell over iOS grouped-inset lists: a single tappable identity
+/// row that pushes `/settings`, then Account (sign out), Preferences and Data
+/// (rows that push `/settings`), and About (feedback dialog + app version). The
+/// streak / mastery stat blocks that used to live on Profile are retired — that
+/// data is now on Home's Overall Mastery card and History's log. "Delete
+/// account" stays inside the Settings screen; this screen never duplicates the
+/// destructive path.
 class MoreTabScreen extends ConsumerWidget {
   const MoreTabScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final tokens = Theme.of(context).extension<AppTokens>()!;
     final email = ref.watch(userIdentityProvider).email;
     final version = ref.watch(appVersionProvider);
     final pending = ref.watch(pendingSyncCountProvider);
 
     void openSettings() => context.push(AppRoutes.settingsPath);
 
-    return Scaffold(
-      backgroundColor: tokens.background,
-      body: SafeArea(
-        bottom: false,
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 120),
-          children: [
-            Text(
-              'More',
-              style: AppType.headline.copyWith(color: tokens.textPrimary),
-            ),
-            const SizedBox(height: 20),
+    return LargeTitleScaffold(
+      title: 'More',
+      contentPadding: EdgeInsets.zero,
+      slivers: [
+        SliverToBoxAdapter(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const SizedBox(height: 8),
 
-            _ProfileBlock(email: email),
-            const SizedBox(height: 28),
-
-            _Group(
-              title: 'Account',
-              child: const Padding(
-                padding: EdgeInsets.all(16),
-                child: SignOutButton(),
-              ),
-            ),
-            const SizedBox(height: 20),
-
-            _Group(
-              title: 'Preferences',
-              child: Column(
+              // Identity. There is no display name in the schema, so the row
+              // shows the greeting token Home derives from the email with the
+              // address itself as the trailing value. The chevron is legit —
+              // it goes to Settings.
+              IosSection(
                 children: [
-                  _NavRow(label: 'Notifications', onTap: openSettings),
-                  _RowDivider(),
-                  _NavRow(label: 'Study preferences', onTap: openSettings),
+                  IosRow(
+                    leading: Avatar(email: email, size: 28),
+                    title: email == null ? 'Not signed in' : greetingName(email),
+                    trailingValue: email,
+                    showChevron: true,
+                    onTap: openSettings,
+                  ),
                 ],
               ),
-            ),
-            const SizedBox(height: 20),
+              const SizedBox(height: 28),
 
-            _Group(
-              title: 'Data',
-              child: Column(
+              const IosSection(
+                header: 'Account',
+                children: [_SignOutRow()],
+              ),
+              const SizedBox(height: 20),
+
+              IosSection(
+                header: 'Preferences',
                 children: [
-                  _StatusRow(
-                    label: 'Offline sync',
-                    value: pending.when(
+                  IosRow(
+                    title: 'Notifications',
+                    showChevron: true,
+                    onTap: openSettings,
+                  ),
+                  IosRow(
+                    title: 'Study preferences',
+                    showChevron: true,
+                    onTap: openSettings,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+
+              IosSection(
+                header: 'Data',
+                children: [
+                  IosRow(
+                    title: 'Offline sync',
+                    trailingValue: pending.when(
                       data: (n) => n == 0 ? 'Up to date' : '$n waiting to sync',
                       loading: () => '…',
                       error: (_, _) => 'Unknown',
                     ),
                   ),
-                  _RowDivider(),
                   // No standalone import route exists (import is always scoped
                   // to a deck); fall back to the Settings screen per §5.3.
-                  _NavRow(label: 'Export / import cards', onTap: openSettings),
+                  IosRow(
+                    title: 'Export / import cards',
+                    showChevron: true,
+                    onTap: openSettings,
+                  ),
                 ],
               ),
-            ),
-            const SizedBox(height: 20),
+              const SizedBox(height: 20),
 
-            _Group(
-              title: 'About',
-              child: Column(
+              IosSection(
+                header: 'About',
                 children: [
-                  _NavRow(
-                    label: 'Help & feedback',
+                  IosRow(
+                    title: 'Help & feedback',
+                    showChevron: true,
                     onTap: () => showFeedbackInfo(context),
                   ),
-                  _RowDivider(),
-                  _StatusRow(
-                    label: 'Version',
-                    value: version.when(
+                  IosRow(
+                    title: 'Version',
+                    trailingValue: version.when(
                       data: (v) => v,
                       loading: () => '…',
                       error: (_, _) => 'unknown',
@@ -110,164 +124,39 @@ class MoreTabScreen extends ConsumerWidget {
                   ),
                 ],
               ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// Avatar + identity lines. There is no display name in the schema, so the
-/// primary line is the same greeting token Home derives from the email and the
-/// email itself sits below it. No chevron — there is no edit-profile flow to
-/// wire it to yet, and a dead affordance is worse than none (§5.1).
-class _ProfileBlock extends StatelessWidget {
-  const _ProfileBlock({required this.email});
-
-  final String? email;
-
-  @override
-  Widget build(BuildContext context) {
-    final tokens = Theme.of(context).extension<AppTokens>()!;
-    final signedIn = email != null;
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: tokens.cardFill,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: tokens.borderHairline),
-      ),
-      child: Row(
-        children: [
-          Avatar(email: email, size: 48),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  signedIn ? greetingName(email) : 'Not signed in',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: AppType.title.copyWith(color: tokens.textPrimary),
-                ),
-                if (signedIn) ...[
-                  const SizedBox(height: 2),
-                  Text(
-                    email!,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: AppType.body.copyWith(color: tokens.textSecondary),
-                  ),
-                ],
-              ],
-            ),
+              const SizedBox(height: 120),
+            ],
           ),
-        ],
-      ),
-    );
-  }
-}
-
-/// A titled section: a small heading above a hairline-bordered card holding the
-/// section's rows (or, for Account, the sign-out button).
-class _Group extends StatelessWidget {
-  const _Group({required this.title, required this.child});
-
-  final String title;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    final tokens = Theme.of(context).extension<AppTokens>()!;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(left: 4, bottom: 10),
-          child: Text(
-            title,
-            style: AppType.label.copyWith(color: tokens.textSecondary),
-          ),
-        ),
-        Container(
-          decoration: BoxDecoration(
-            color: tokens.cardFill,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: tokens.borderHairline),
-          ),
-          child: child,
         ),
       ],
     );
   }
 }
 
-class _RowDivider extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    final tokens = Theme.of(context).extension<AppTokens>()!;
-    return Divider(height: 1, thickness: 0.5, color: tokens.borderHairline);
-  }
-}
-
-/// A tappable row with a trailing chevron.
-class _NavRow extends StatelessWidget {
-  const _NavRow({required this.label, required this.onTap});
-
-  final String label;
-  final VoidCallback onTap;
+/// "Sign out" as a grouped-list row. Carries the same confirm flow the old
+/// `SignOutButton` did: [SignOutDialog] warns when `pendingSyncProvider` reports
+/// unsynced local writes, and confirming calls `accountActionsProvider.signOut()`
+/// — the router's auth redirect handles navigation to `/login`.
+class _SignOutRow extends ConsumerWidget {
+  const _SignOutRow();
 
   @override
-  Widget build(BuildContext context) {
-    final tokens = Theme.of(context).extension<AppTokens>()!;
-    return InkWell(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-        child: Row(
-          children: [
-            Expanded(
-              child: Text(
-                label,
-                style: AppType.body.copyWith(color: tokens.textPrimary),
-              ),
-            ),
-            Icon(Icons.chevron_right, size: 20, color: tokens.textTertiary),
-          ],
-        ),
-      ),
-    );
-  }
-}
+  Widget build(BuildContext context, WidgetRef ref) {
+    final busy = ref.watch(accountActionsProvider).isLoading;
+    final hasUnsynced = ref.watch(pendingSyncProvider).asData?.value ?? false;
 
-/// A read-only row: a label on the left, a status value on the right.
-class _StatusRow extends StatelessWidget {
-  const _StatusRow({required this.label, required this.value});
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    final tokens = Theme.of(context).extension<AppTokens>()!;
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              label,
-              style: AppType.body.copyWith(color: tokens.textPrimary),
-            ),
-          ),
-          Text(
-            value,
-            style: AppType.caption.copyWith(color: tokens.textSecondary),
-          ),
-        ],
-      ),
+    return IosRow(
+      title: 'Sign out',
+      onTap: busy
+          ? null
+          : () async {
+              final confirmed = await SignOutDialog.show(
+                context,
+                hasUnsyncedWrites: hasUnsynced,
+              );
+              if (confirmed != true) return;
+              await ref.read(accountActionsProvider.notifier).signOut();
+            },
     );
   }
 }
