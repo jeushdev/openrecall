@@ -339,8 +339,11 @@ right and adopt the new shared widgets"; only 6 is a structural rebuild.
 
 ## 8. Follow-up (not this milestone)
 
-Editable username and user-uploaded profile pictures: add a `username` (and
-`avatar_url`) column to `profiles`, a Supabase Storage `avatars` bucket with
-owner-scoped RLS, an `image_picker` dependency, an edit screen pushed from the
-More profile row, and a client-side downscale/compress before upload. Scoped and
-built in its own session on top of v5.
+**Editable username — done** (`docs/superpowers/specs/2026-09-03-editable-username-design.md`):
+a nullable `profiles.username`, edited from the More identity row, replacing the
+email-derived name everywhere.
+
+User-uploaded profile pictures — still deferred: add an `avatar_url` column to
+`profiles`, a Supabase Storage `avatars` bucket with owner-scoped RLS, an
+`image_picker` dependency, and a client-side downscale/compress before upload.
+Its own session on top of v5.

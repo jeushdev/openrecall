@@ -1,6 +1,6 @@
 # Editable Username — Design
 
-**Status:** approved, ready for implementation planning
+**Status:** implemented 2026-09-03
 **Date:** 2026-09-03
 **Supersedes:** the username half of `docs/ui-spec-v5-native-ios.md` §8 (profile
 pictures remain deferred there).
