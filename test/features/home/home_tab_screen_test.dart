@@ -87,17 +87,15 @@ void main() {
     expect(find.text('Overall mastery'), findsOneWidget);
   });
 
-  testWidgets('the + action opens the Create menu', (tester) async {
+  testWidgets('carries no create action — that lives only on the Decks tab',
+      (tester) async {
     await pumpHome(
       tester,
       decks: [_deck('d1', courseId: 'c1')],
       stats: FakeStatsRepository(),
     );
 
-    await tester.tap(find.byKey(const ValueKey('home-create')));
-    await tester.pumpAndSettle();
-
-    expect(find.text('Create deck'), findsOneWidget);
+    expect(find.byKey(const ValueKey('home-create')), findsNothing);
   });
 
   testWidgets('shows an unfinished-session card with its deck name and percent',

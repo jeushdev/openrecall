@@ -12,7 +12,6 @@ import '../../../ui/common/app_card.dart';
 import '../../../ui/common/avatar.dart';
 import '../../../ui/common/large_title_scaffold.dart';
 import '../../../ui/mastery/overall_mastery_card.dart';
-import '../../decks/presentation/widgets/create_menu_sheet.dart';
 import '../../profile/application/profile_providers.dart';
 import '../../stats/application/stats_providers.dart';
 import '../../study/presentation/study_session_args.dart';
@@ -21,8 +20,8 @@ import '../application/home_providers.dart';
 /// The Home tab (`/home`, ui-spec-v4-navigation §3) — the shell's default
 /// branch.
 ///
-/// The greeting is the collapsing large title (ui-spec-v5 §5.2); a `+` action
-/// opens the Create menu. Below: the reused Overall Mastery card, a horizontal
+/// The greeting is the collapsing large title (ui-spec-v5 §5.2). Below: the
+/// reused Overall Mastery card, a horizontal
 /// strip of unfinished sessions (tap resumes), and a layered stack of the
 /// most-reviewed decks (tap opens deck detail). Every value comes from a
 /// provider that degrades cleanly offline; nothing here is on the study path.
@@ -38,7 +37,6 @@ class HomeTabScreen extends ConsumerWidget {
 
     return LargeTitleScaffold(
       title: 'Hello, ${greetingName(email)}',
-      actions: const [_CreateButton()],
       slivers: [
         SliverPadding(
           padding: const EdgeInsets.fromLTRB(16, 4, 16, 120),
@@ -83,18 +81,6 @@ class HomeTabScreen extends ConsumerWidget {
       ],
     );
   }
-}
-
-class _CreateButton extends StatelessWidget {
-  const _CreateButton();
-
-  @override
-  Widget build(BuildContext context) => IconButton(
-        key: const ValueKey('home-create'),
-        icon: const Icon(Icons.add, size: 26),
-        color: Theme.of(context).extension<AppTokens>()!.tint,
-        onPressed: () => CreateMenuSheet.show(context),
-      );
 }
 
 class _SectionHeader extends StatelessWidget {
