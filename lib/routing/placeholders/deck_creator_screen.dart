@@ -6,7 +6,6 @@ import '../../features/courses/application/course_providers.dart';
 import '../../features/decks/application/deck_creator_controller.dart';
 import '../../features/decks/application/decks_tab_view.dart';
 import '../../features/decks/presentation/widgets/course_selector.dart';
-import '../../theme/app_geometry.dart';
 import '../../theme/app_tokens.dart';
 import '../app_routes.dart';
 
@@ -91,26 +90,7 @@ class _DeckCreatorScreenState extends ConsumerState<DeckCreatorScreen> {
                       if (form.canSubmit) _create();
                     },
                     style: TextStyle(color: tokens.textPrimary),
-                    decoration: InputDecoration(
-                      labelText: 'Deck name',
-                      labelStyle: TextStyle(color: tokens.textSecondary),
-                      floatingLabelStyle:
-                          TextStyle(color: tokens.textSecondary),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: AppRadii.inputRadius,
-                        borderSide: BorderSide(
-                          color: tokens.borderHairline,
-                          width: AppBorders.hairline,
-                        ),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: AppRadii.inputRadius,
-                        borderSide: BorderSide(
-                          color: tokens.textSecondary,
-                          width: AppBorders.hairline,
-                        ),
-                      ),
-                    ),
+                    decoration: const InputDecoration(labelText: 'Deck name'),
                   ),
                   const SizedBox(height: 24),
                   Text(
