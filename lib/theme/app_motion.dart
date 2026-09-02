@@ -29,6 +29,9 @@ abstract final class AppMotion {
   /// The Session Summary reveal — count-ups and the mastery arc.
   static const Duration slow = Duration(milliseconds: 520);
 
+  /// Route push / pop — matches `CupertinoPageTransition` (ui-spec-v5 §5.4).
+  static const Duration page = Duration(milliseconds: 350);
+
   /// Standard easing for expand / collapse and directional slides.
   static const Curve standard = Curves.easeOutCubic;
 
@@ -39,6 +42,9 @@ abstract final class AppMotion {
   /// A small overshoot, used only where it reads as physical weight — the card
   /// settling after a flip, a rating button releasing.
   static const Curve emphasized = Curves.easeOutBack;
+
+  /// Alias of [emphasized]. The iOS "weight" overshoot; preferred name in v5.
+  static const Curve spring = emphasized;
 
   // ---------------------------------------------------------------------------
   // Back-compat aliases for call sites that predate the v3 vocabulary.

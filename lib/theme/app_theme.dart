@@ -10,14 +10,12 @@ import 'app_type.dart';
 /// `MaterialApp.themeMode` (see `themeModeProvider`); the dark palette and the
 /// System/Light/Dark selector are speced in `docs/spec-v5-dark-mode.md`.
 ///
-/// `_build` now also installs a [TextTheme] (`AppType`) and a full set of
-/// component themes (ui-spec-v3 §4). Before v3 the only theming here was a
-/// `ColorScheme.fromSeed` with no component themes, so every un-tokened Material
-/// surface — `AppBar`, `Card`, `FilledButton`, `Dialog`, `Switch`, `SnackBar`,
-/// `BottomSheet` — painted in M3's seeded grey. Every value below routes through
-/// [AppTokens] / [AppRadii] / [AppBorders]; there is **no `BoxShadow`** anywhere
-/// (app-wide ban), so every elevation is `0` and depth stays faked with borders
-/// and offset fills.
+/// `_build` installs a [TextTheme] (`AppType`) and a full set of component
+/// themes (ui-spec-v5 §4). Every value routes through [AppTokens] / [AppRadii] /
+/// [AppBorders]; `ColorScheme.primary` is `tokens.tint` (iOS `systemBlue`) so
+/// stock Material controls pick up the tint. Flutter `elevation` stays `0`
+/// everywhere — the v5 soft elevation is drawn at the widget layer by `AppCard`
+/// / `AppShadows`, and sheets & dialogs get their depth from the scrim.
 abstract final class AppTheme {
   const AppTheme._();
 
@@ -26,7 +24,7 @@ abstract final class AppTheme {
 
   static ThemeData _build(Brightness brightness, AppTokens tokens) {
     final scheme = ColorScheme.fromSeed(
-      seedColor: tokens.textPrimary,
+      seedColor: tokens.tint,
       brightness: brightness,
     ).copyWith(
       surface: tokens.background,
@@ -39,10 +37,10 @@ abstract final class AppTheme {
       onSurfaceVariant: tokens.textSecondary,
       outline: tokens.borderHairline,
       outlineVariant: tokens.borderHairline,
-      // The app's "primary action" is a solid near-ink button with an inverted
-      // label — deliberate, and consistent light/dark.
-      primary: tokens.textPrimary,
-      onPrimary: tokens.background,
+      // The app's "primary action" is a solid tint button with a white label
+      // (ui-spec-v5 §4) — deliberate, and consistent light/dark.
+      primary: tokens.tint,
+      onPrimary: Colors.white,
       error: tokens.accent('red').text,
       onError: tokens.background,
       surfaceTint: Colors.transparent,
@@ -66,7 +64,7 @@ abstract final class AppTheme {
         elevation: 0,
         scrolledUnderElevation: 0,
         centerTitle: false,
-        titleTextStyle: AppType.title.copyWith(color: tokens.textPrimary),
+        titleTextStyle: AppType.headline.copyWith(color: tokens.textPrimary),
       ),
 
       cardTheme: CardThemeData(
@@ -74,19 +72,15 @@ abstract final class AppTheme {
         elevation: 0,
         margin: EdgeInsets.zero,
         clipBehavior: Clip.antiAlias,
-        shape: RoundedRectangleBorder(
-          borderRadius: AppRadii.gridTileRadius,
-          side: BorderSide(
-            color: tokens.borderHairline,
-            width: AppBorders.hairline,
-          ),
+        shape: const RoundedRectangleBorder(
+          borderRadius: AppRadii.cardRadius,
         ),
       ),
 
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
-          backgroundColor: tokens.textPrimary,
-          foregroundColor: tokens.background,
+          backgroundColor: tokens.tint,
+          foregroundColor: Colors.white,
           disabledBackgroundColor: tokens.mutedFill,
           disabledForegroundColor: tokens.textTertiary,
           elevation: 0,
@@ -95,21 +89,21 @@ abstract final class AppTheme {
           // infinite minimum width, which breaks any button in an unbounded row
           // or app-bar action slot; callers that want a full-width CTA stretch
           // it themselves.
-          minimumSize: const Size(64, 52),
-          textStyle: AppType.label.copyWith(fontSize: 15),
+          minimumSize: const Size(64, 50),
+          textStyle: AppType.bodyLarge.copyWith(fontWeight: FontWeight.w600),
           shape: const RoundedRectangleBorder(
-            borderRadius: AppRadii.inputRadius,
+            borderRadius: AppRadii.buttonRadius,
           ),
         ),
       ),
 
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
-          foregroundColor: tokens.textSecondary,
+          foregroundColor: tokens.tint,
           minimumSize: const Size(48, 44),
-          textStyle: AppType.label.copyWith(fontSize: 14),
+          textStyle: AppType.bodyLarge,
           shape: const RoundedRectangleBorder(
-            borderRadius: AppRadii.inputRadius,
+            borderRadius: AppRadii.buttonRadius,
           ),
         ),
       ),
@@ -117,14 +111,14 @@ abstract final class AppTheme {
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
           foregroundColor: tokens.textPrimary,
-          minimumSize: const Size(64, 52),
-          textStyle: AppType.label.copyWith(fontSize: 15),
+          minimumSize: const Size(64, 50),
+          textStyle: AppType.bodyLarge.copyWith(fontWeight: FontWeight.w600),
           side: BorderSide(
             color: tokens.borderHairline,
             width: AppBorders.hairline,
           ),
           shape: const RoundedRectangleBorder(
-            borderRadius: AppRadii.inputRadius,
+            borderRadius: AppRadii.buttonRadius,
           ),
         ),
       ),
@@ -136,23 +130,17 @@ abstract final class AppTheme {
         labelStyle: AppType.body.copyWith(color: tokens.textSecondary),
         contentPadding:
             const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        border: OutlineInputBorder(
+        border: const OutlineInputBorder(
           borderRadius: AppRadii.inputRadius,
-          borderSide: BorderSide(
-            color: tokens.borderHairline,
-            width: AppBorders.hairline,
-          ),
+          borderSide: BorderSide.none,
         ),
-        enabledBorder: OutlineInputBorder(
+        enabledBorder: const OutlineInputBorder(
           borderRadius: AppRadii.inputRadius,
-          borderSide: BorderSide(
-            color: tokens.borderHairline,
-            width: AppBorders.hairline,
-          ),
+          borderSide: BorderSide.none,
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: AppRadii.inputRadius,
-          borderSide: BorderSide(color: tokens.textPrimary, width: 1),
+          borderSide: BorderSide(color: tokens.tint, width: 1),
         ),
         errorStyle: AppType.caption.copyWith(color: tokens.accent('red').text),
       ),
@@ -161,12 +149,8 @@ abstract final class AppTheme {
         backgroundColor: tokens.cardFill,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
-        shape: RoundedRectangleBorder(
+        shape: const RoundedRectangleBorder(
           borderRadius: AppRadii.cardRadius,
-          side: BorderSide(
-            color: tokens.borderHairline,
-            width: AppBorders.hairline,
-          ),
         ),
         titleTextStyle: AppType.title.copyWith(color: tokens.textPrimary),
         contentTextStyle:
@@ -179,22 +163,20 @@ abstract final class AppTheme {
         elevation: 0,
         modalElevation: 0,
         showDragHandle: true,
-        dragHandleColor: tokens.borderHairline,
+        dragHandleColor: tokens.textTertiary,
         shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadii.card)),
         ),
       ),
 
       switchTheme: SwitchThemeData(
-        thumbColor: WidgetStateProperty.resolveWith((states) =>
-            states.contains(WidgetState.selected)
-                ? tokens.background
-                : tokens.cardFill),
+        // iOS green track when on — the one non-tint accent (ui-spec-v5 §4).
+        thumbColor: WidgetStateProperty.all(Colors.white),
         trackColor: WidgetStateProperty.resolveWith((states) =>
             states.contains(WidgetState.selected)
-                ? tokens.textPrimary
+                ? const Color(0xFF34C759)
                 : tokens.mutedFill),
-        trackOutlineColor: WidgetStateProperty.all(tokens.borderHairline),
+        trackOutlineColor: WidgetStateProperty.all(Colors.transparent),
       ),
 
       dividerTheme: DividerThemeData(
@@ -232,12 +214,15 @@ abstract final class AppTheme {
             color: tokens.borderHairline,
             width: AppBorders.hairline,
           ),
+          shape: const RoundedRectangleBorder(
+            borderRadius: BorderRadius.all(Radius.circular(AppRadii.control)),
+          ),
           textStyle: AppType.label,
         ),
       ),
 
       progressIndicatorTheme: ProgressIndicatorThemeData(
-        color: tokens.textPrimary,
+        color: tokens.tint,
         linearTrackColor: tokens.borderHairline,
         circularTrackColor: tokens.borderHairline,
       ),
@@ -254,7 +239,7 @@ abstract final class AppTheme {
     statusBarColor: Color(0x00000000),
     statusBarBrightness: Brightness.light, // iOS
     statusBarIconBrightness: Brightness.dark, // Android
-    systemNavigationBarColor: Color(0xFFFFFFFF),
+    systemNavigationBarColor: Color(0xFFF2F2F7),
     systemNavigationBarDividerColor: Color(0x00000000),
     systemNavigationBarIconBrightness: Brightness.dark,
   );
@@ -263,7 +248,7 @@ abstract final class AppTheme {
     statusBarColor: Color(0x00000000),
     statusBarBrightness: Brightness.dark, // iOS
     statusBarIconBrightness: Brightness.light, // Android
-    systemNavigationBarColor: Color(0xFF121212),
+    systemNavigationBarColor: Color(0xFF000000),
     systemNavigationBarDividerColor: Color(0x00000000),
     systemNavigationBarIconBrightness: Brightness.light,
   );
