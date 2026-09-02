@@ -41,10 +41,7 @@ class _EmailPasswordFieldsState extends State<EmailPasswordFields> {
           autofillHints: const [AutofillHints.email],
           keyboardType: TextInputType.emailAddress,
           textInputAction: TextInputAction.next,
-          decoration: const InputDecoration(
-            labelText: 'Email',
-            border: OutlineInputBorder(),
-          ),
+          decoration: const InputDecoration(labelText: 'Email'),
           validator: (value) => emailError(value ?? ''),
         ),
         const SizedBox(height: 16),
@@ -58,7 +55,6 @@ class _EmailPasswordFieldsState extends State<EmailPasswordFields> {
           decoration: InputDecoration(
             labelText: 'Password',
             helperText: widget.passwordHint,
-            border: const OutlineInputBorder(),
             suffixIcon: IconButton(
               icon: Icon(_obscure ? Icons.visibility : Icons.visibility_off),
               tooltip: _obscure ? 'Show password' : 'Hide password',

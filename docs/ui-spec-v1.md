@@ -54,6 +54,8 @@ assumptions if it sees them in chat history or old notes.
 
 ## 3. Visual identity & tokens
 
+> **Superseded by `docs/ui-spec-v5-native-ios.md`** (typography, elevation, nav chrome).
+
 ### 3.1 Palette
 
 > **Superseded (milestone UX6):** dark mode is now designed.

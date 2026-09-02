@@ -33,6 +33,8 @@ the user has already earned — a card flip, a rating landing, a session finishi
 
 ## 1. Typography
 
+> **Superseded by `docs/ui-spec-v5-native-ios.md`** (typography, elevation, nav chrome).
+
 **Pairing: editorial serif + sans.**
 
 | Role | Family | Notes |
@@ -100,6 +102,8 @@ synchronously regardless of animation status (`ui-spec-v1.md` §2).
 | `AppHaptics.sessionComplete()` | `mediumImpact` then, after 60ms, `lightImpact` | The Session Summary appearing |
 
 ## 4. Component themes
+
+> **Superseded by `docs/ui-spec-v5-native-ios.md`** (typography, elevation, nav chrome).
 
 `AppTheme._build` gains a `textTheme` and component themes so nothing falls back
 to seeded M3. All values route through `AppTokens` / `AppRadii` / `AppBorders`;
