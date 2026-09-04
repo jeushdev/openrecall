@@ -1,5 +1,4 @@
-import 'dart:math' as math;
-
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -11,9 +10,7 @@ import '../../../theme/app_type.dart';
 import '../../../ui/common/app_card.dart';
 import '../../../ui/common/avatar.dart';
 import '../../../ui/common/large_title_scaffold.dart';
-import '../../../ui/mastery/overall_mastery_card.dart';
 import '../../profile/application/profile_providers.dart';
-import '../../stats/application/stats_providers.dart';
 import '../../study/presentation/study_session_args.dart';
 import '../application/home_providers.dart';
 
@@ -32,37 +29,27 @@ class HomeTabScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final email = ref.watch(userIdentityProvider).email;
     final username = ref.watch(profileProvider).asData?.value?.username;
-    final overall = ref.watch(overallMasteryProvider);
     final active = ref.watch(activeSessionsProvider);
     final mostReviewed = ref.watch(mostReviewedDecksProvider);
-
+  
     return LargeTitleScaffold(
-      title: 'Hello, ${displayNameOr(username, email)}',
+      title: 'Hello, ${displayNameOr(username, email)}!',
       slivers: [
         SliverPadding(
-          padding: const EdgeInsets.fromLTRB(16, 4, 16, 120),
+          padding: const EdgeInsets.fromLTRB(24, 4, 24, 120),
           sliver: SliverList.list(
             children: [
-              overall.when(
-                data: (percent) => OverallMasteryCard(percent: percent),
-                loading: () => const _CardSkeleton(height: 132),
-                error: (_, _) => _SectionError(
-                  onRetry: () => ref.invalidate(overallMasteryProvider),
-                ),
-              ),
-
+              const _WelcomeSubheader(),
               // Unfinished sessions — hidden entirely when there are none, so
               // the screen doesn't carry an empty heading.
               ...active.maybeWhen(
                 orElse: () => const <Widget>[],
-                data: (sessions) => sessions.isEmpty
-                    ? const <Widget>[]
-                    : [
-                        const SizedBox(height: 28),
-                        _SectionHeader('Unfinished sessions'),
-                        const SizedBox(height: 12),
-                        _UnfinishedStrip(sessions: sessions),
-                      ],
+                data: (sessions) => [
+                  const SizedBox(height: 28),
+                  _SectionHeader('Pick up where you left off'),
+                  const SizedBox(height: 12),
+                  _UnfinishedStrip(sessions: sessions),
+                ],
               ),
 
               ...mostReviewed.maybeWhen(
@@ -85,21 +72,37 @@ class HomeTabScreen extends ConsumerWidget {
 }
 
 class _SectionHeader extends StatelessWidget {
-  const _SectionHeader(this.text);
+  const _SectionHeader(this.text, {this.style});
 
   final String text;
+  final TextStyle? style;
 
   @override
   Widget build(BuildContext context) {
     final tokens = Theme.of(context).extension<AppTokens>()!;
     return Padding(
       padding: const EdgeInsets.only(bottom: 4),
-      child:
-          Text(text, style: AppType.title.copyWith(color: tokens.textPrimary)),
+      child: Text(text, style: (style ?? AppType.title).copyWith(color: tokens.textPrimary)),
     );
   }
 }
 
+
+class _WelcomeSubheader extends StatelessWidget {
+  const _WelcomeSubheader();
+
+  @override
+  Widget build(BuildContext context) {
+    final tokens = Theme.of(context).extension<AppTokens>()!;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Text(
+        'What would you like to do today?',
+        style: AppType.body.copyWith(color: tokens.textSecondary),
+      ),
+    );
+  }
+}
 /// Horizontally scrolling list of in-progress sessions. Tapping a card resumes
 /// that deck's session in its mode (the study route re-queues the deck's
 /// unmastered cards and the session-conflict rule retires the stale row).
@@ -108,15 +111,38 @@ class _UnfinishedStrip extends StatelessWidget {
 
   final List<UnfinishedSession> sessions;
 
+  static const int _maxSlots = 3;
+  static const double _rowHeight = 56;
+  static const double _rowGap = 8;
+  static const double fixedHeight =
+      _maxSlots * _rowHeight + (_maxSlots - 1) * _rowGap;
+
   @override
   Widget build(BuildContext context) {
+    final tokens = Theme.of(context).extension<AppTokens>()!;
+
+    if (sessions.isEmpty) {
+      return SizedBox(
+        height: fixedHeight,
+        child: Center(
+          child: Text(
+            'No pending session',
+            style: AppType.body.copyWith(color: tokens.textSecondary),
+          ),
+        ),
+      );
+    }
+
+    final shown = sessions.take(_maxSlots).toList();
     return SizedBox(
-      height: 92,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        itemCount: sessions.length,
-        separatorBuilder: (_, _) => const SizedBox(width: 12),
-        itemBuilder: (context, i) => _UnfinishedCard(session: sessions[i]),
+      height: fixedHeight,
+      child: Column(
+        children: [
+          for (var i = 0; i < shown.length; i++) ...[
+            if (i > 0) const SizedBox(height: _rowGap),
+            _UnfinishedCard(session: shown[i]),
+          ],
+        ],
       ),
     );
   }
@@ -142,48 +168,60 @@ class _UnfinishedCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tokens = Theme.of(context).extension<AppTokens>()!;
-    final blue = tokens.accent('blue');
+    final accent = tokens.accent('blue');
     final fraction = (session.percentComplete / 100).clamp(0.0, 1.0);
 
     return AppCard(
       radius: AppRadii.gridTile,
       onTap: () => _resume(context),
-      padding: const EdgeInsets.all(14),
+      padding: EdgeInsets.zero,
       child: SizedBox(
-        width: 180,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        height: 56,
+        child: Row(
           children: [
-            Text(
-              session.deckName,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: AppType.label.copyWith(color: tokens.textPrimary),
-            ),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Expanded(
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(3),
-                    child: Container(
-                      height: 4,
-                      color: tokens.borderHairline,
-                      child: FractionallySizedBox(
-                        widthFactor: fraction,
-                        alignment: Alignment.centerLeft,
-                        child: Container(color: blue.fill),
+            Container(width: 7, color: accent.fill),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                child: Row(
+                  children: [
+                    Expanded(
+                      flex: 2,
+                      child: Text(
+                        session.deckName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppType.label.copyWith(color: tokens.textPrimary),
                       ),
                     ),
-                  ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      flex: 3,
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(3),
+                        child: Container(
+                          height: 4,
+                          color: tokens.borderHairline,
+                          child: FractionallySizedBox(
+                            widthFactor: fraction,
+                            alignment: Alignment.centerLeft,
+                            child: Container(color: accent.fill),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    SizedBox(
+                      width: 34,
+                      child: Text(
+                        '${session.percentComplete}%',
+                        textAlign: TextAlign.right,
+                        style: AppType.numeric.copyWith(color: tokens.textSecondary),
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 10),
-                Text(
-                  '${session.percentComplete}%',
-                  style: AppType.numeric.copyWith(color: tokens.textSecondary),
-                ),
-              ],
+              ),
             ),
           ],
         ),
@@ -206,44 +244,73 @@ class _DeckStack extends StatefulWidget {
 }
 
 class _DeckStackState extends State<_DeckStack> {
-  int _front = 0;
+  late final PageController _controller;
 
-  void _advance() {
-    setState(() => _front = (_front + 1) % widget.decks.length);
+  @override
+  void initState() {
+    super.initState();
+    final middleIndex = (widget.decks.length - 1) ~/ 2;
+    _controller = PageController(
+      viewportFraction: 0.82,
+      initialPage: middleIndex,
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    // Cards to render, front last so it paints on top. Show at most 3.
-    final count = math.min(3, widget.decks.length);
-    final ordered = [
-      for (var depth = count - 1; depth >= 0; depth--)
-        (depth, widget.decks[(_front + depth) % widget.decks.length]),
-    ];
+    if (widget.decks.isEmpty) return const SizedBox.shrink();
 
     return SizedBox(
-      height: 184,
-      child: GestureDetector(
-        onTap: widget.decks.length > 1 ? _advance : null,
-        behavior: HitTestBehavior.opaque,
-        child: Stack(
-          children: [
-            for (final (depth, deck) in ordered)
-              Positioned(
-                left: 0,
-                right: 0,
-                top: 0,
-                child: Transform.translate(
-                  offset: Offset(depth * 10.0, depth * 8.0),
-                  child: Transform.rotate(
-                    angle: depth == 0 ? 0 : depth * 0.02,
-                    alignment: Alignment.topCenter,
-                    child: _DeckCard(deck: deck, isFront: depth == 0),
+      height: 260,
+      child: PageView.builder(
+        controller: _controller,
+        clipBehavior: Clip.none,
+        itemCount: widget.decks.length,
+        itemBuilder: (context, index) {
+          return AnimatedBuilder(
+            animation: _controller,
+            builder: (context, child) {
+              final page = _controller.hasClients && _controller.page != null
+                  ? _controller.page!
+                  : index.toDouble();
+              final distance = (page - index).abs().clamp(0.0, 1.0);
+
+              final scale = 1 - (distance * 0.12);
+              final opacity = (1 - (distance * 0.35)).clamp(0.0, 1.0);
+              final blurSigma = distance * 6.0;
+
+              Widget card = _DeckCard(
+                deck: widget.decks[index],
+                isFront: distance < 0.5,
+              );
+
+              if (blurSigma > 0.01) {
+                card = ImageFiltered(
+                  imageFilter:
+                      ui.ImageFilter.blur(sigmaX: blurSigma, sigmaY: blurSigma),
+                  child: card,
+                );
+              }
+
+              return Transform.scale(
+                scale: scale,
+                child: Opacity(
+                  opacity: opacity,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    child: card,
                   ),
                 ),
-              ),
-          ],
-        ),
+              );
+            },
+          );
+        },
       ),
     );
   }
@@ -263,29 +330,35 @@ class _DeckCard extends StatelessWidget {
     return AppCard(
       radius: 18,
       padding: const EdgeInsets.all(18),
-      child: SizedBox(
-        height: 132,
+      child: AspectRatio(
+        aspectRatio: 0.72,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            if (deck.courseName != null) ...[
-              Text(
-                deck.courseName!.toUpperCase(),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: AppType.overline.copyWith(color: accent.text),
-              ),
-              const SizedBox(height: 3),
-              Container(width: 28, height: 2, color: accent.fill),
-              const SizedBox(height: 10),
-            ],
-            Text(
-              deck.deckName,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: AppType.title.copyWith(color: tokens.textPrimary),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (deck.courseName != null) ...[
+                  Text(
+                    deck.courseName!.toUpperCase(),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppType.overline.copyWith(color: accent.text),
+                  ),
+                  const SizedBox(height: 3),
+                  Container(width: 28, height: 2, color: accent.fill),
+                  const SizedBox(height: 10),
+                ],
+                Text(
+                  deck.deckName,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppType.title.copyWith(color: tokens.textPrimary),
+                ),
+              ],
             ),
-            const Spacer(),
             Row(
               children: [
                 Text(

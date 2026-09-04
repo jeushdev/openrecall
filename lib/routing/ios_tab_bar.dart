@@ -33,6 +33,8 @@ class IosTabBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tokens = Theme.of(context).extension<AppTokens>()!;
+    final screenHeight = MediaQuery.of(context).size.height;
+    final barHeight = (screenHeight * 0.09).clamp(64.0, 88.0);
 
     return ClipRect(
       child: BackdropFilter(
@@ -41,16 +43,13 @@ class IosTabBar extends StatelessWidget {
           decoration: BoxDecoration(
             color: tokens.cardFill.withValues(alpha: 0.92),
             border: Border(
-              top: BorderSide(
-                color: tokens.borderHairline,
-                width: AppBorders.hairline,
-              ),
+              top: BorderSide(color: tokens.borderHairline, width: AppBorders.hairline),
             ),
           ),
           child: SafeArea(
             top: false,
             child: SizedBox(
-              height: 49,
+              height: barHeight,
               child: Row(
                 children: [
                   for (var i = 0; i < _items.length; i++)
@@ -62,6 +61,7 @@ class IosTabBar extends StatelessWidget {
                         selected: i == currentIndex,
                         onTap: () => onSelectTab(i),
                         tokens: tokens,
+                        height: barHeight,
                       ),
                     ),
                 ],
@@ -82,6 +82,7 @@ class _TabItem extends StatelessWidget {
     required this.selected,
     required this.onTap,
     required this.tokens,
+    required this.height,
   });
 
   final Key itemKey;
@@ -90,6 +91,7 @@ class _TabItem extends StatelessWidget {
   final bool selected;
   final VoidCallback onTap;
   final AppTokens tokens;
+  final double height;
 
   @override
   Widget build(BuildContext context) {
@@ -99,17 +101,20 @@ class _TabItem extends StatelessWidget {
       onTap: onTap,
       radius: 28,
       child: SizedBox(
-        height: 49,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, size: 24, semanticLabel: label, color: color),
-            const SizedBox(height: 2),
-            Text(
-              label,
-              style: AppType.caption.copyWith(fontSize: 10, height: 1.0, color: color),
-            ),
-          ],
+        height: height,
+        child: Padding(
+          padding: const EdgeInsets.only(top: 18),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.start,
+            children: [
+              Icon(icon, size: 28, semanticLabel: label, color: color),
+              const SizedBox(height: 4),
+              Text(
+                label,
+                style: AppType.caption.copyWith(fontSize: 12, height: 1.0, color: color),
+              ),
+            ],
+          ),
         ),
       ),
     );

@@ -17,6 +17,7 @@ class LargeTitleScaffold extends StatelessWidget {
     this.actions = const [],
     required this.slivers,
     this.leading,
+    this.headerBackground,
     this.contentPadding = const EdgeInsets.fromLTRB(16, 8, 16, 120),
   });
 
@@ -24,6 +25,7 @@ class LargeTitleScaffold extends StatelessWidget {
   final List<Widget> actions;
   final List<Widget> slivers;
   final Widget? leading;
+  final Widget? headerBackground;
   final EdgeInsets contentPadding;
 
   @override
@@ -40,12 +42,13 @@ class LargeTitleScaffold extends StatelessWidget {
             elevation: 0,
             scrolledUnderElevation: 0,
             pinned: true,
-            expandedHeight: 96,
+            expandedHeight: 84,
             leading: leading,
             actions: actions,
             flexibleSpace: FlexibleSpaceBar(
-              titlePadding: const EdgeInsets.only(left: 16, bottom: 14),
-              expandedTitleScale: 34 / 28,
+              background: headerBackground,
+              titlePadding: const EdgeInsets.only(left: 24, bottom: 0),
+              expandedTitleScale: 46 / 28,
               title: Text(title, style: AppType.headline),
             ),
           ),

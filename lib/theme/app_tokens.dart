@@ -85,27 +85,27 @@ class AppTokens extends ThemeExtension<AppTokens> {
   /// throwing.
   AccentPair accent(String key) => accents[key] ?? accents['slate']!;
 
-  /// The light palette (ui-spec-v5 §3) — iOS system surfaces on a grouped
-  /// `systemGroupedBackground` ground, `systemBlue` tint, and the iOS system
-  /// colours as the eight course accents.
+  /// The light palette (ui-spec-v5 §3) — warm neutral surfaces on a cream
+  /// background, spicy-mix 600 tint, and a muted eight-color accent set for
+  /// course identification.
   static const AppTokens light = AppTokens(
-    background: Color(0xFFF2F2F7),
-    cardFill: Color(0xFFFFFFFF),
-    mutedFill: Color(0xFFEFEFF4),
-    borderHairline: Color(0xFFC6C6C8),
-    textPrimary: Color(0xFF1C1C1E),
-    textSecondary: Color(0xFF8E8E93),
-    textTertiary: Color(0xFFC7C7CC),
-    tint: Color(0xFF007AFF),
+    background: Color(0xFFF9F6F1),      // spicy-mix 50 — warm off-white page bg
+    cardFill: Color(0xFFFFFFFF),         // pure white — distinct surface above the cream bg
+    mutedFill: Color(0xFFEEE6D7),        // spicy-mix 100 — stat blocks, inactive track
+    borderHairline: Color(0xFFE3DED2),   // warm neutral hairline border
+    textPrimary: Color(0xFF2F2B27),      // warm dark gray, not pure black
+    textSecondary: Color(0xFF787774),    // muted metadata/caption gray
+    textTertiary: Color(0xFFB0AFAA),     // placeholder / disabled
+    tint: Color(0xFF9C6443),             // spicy-mix 600 — your one accent
     accents: <String, AccentPair>{
-      'slate': AccentPair(Color(0xFFC7C7CC), Color(0xFF8E8E93)),
-      'red': AccentPair(Color(0xFFFF6961), Color(0xFFFF3B30)),
-      'amber': AccentPair(Color(0xFFFFB340), Color(0xFFFF9500)),
-      'green': AccentPair(Color(0xFF63DA83), Color(0xFF34C759)),
-      'teal': AccentPair(Color(0xFF5AC8E0), Color(0xFF30B0C7)),
-      'blue': AccentPair(Color(0xFF4DA2FF), Color(0xFF007AFF)),
-      'violet': AccentPair(Color(0xFF8886E0), Color(0xFF5856D6)),
-      'pink': AccentPair(Color(0xFFFF6482), Color(0xFFFF2D55)),
+      'slate': AccentPair(Color(0xFF6B7A8C), Color(0xFF4C5866)),
+      'red': AccentPair(Color(0xFFB37C82), Color(0xFF8A5A5F)),   // dusty rose
+      'amber': AccentPair(Color(0xFFC79A55), Color(0xFF8F6E3B)), // dusty gold
+      'green': AccentPair(Color(0xFF7C9473), Color(0xFF58705A)), // sage green
+      'teal': AccentPair(Color(0xFF5E8B87), Color(0xFF3E5F5C)),
+      'blue': AccentPair(Color(0xFF6B85A6), Color(0xFF4A6080)),  // dusty blue
+      'violet': AccentPair(Color(0xFF8C6B94), Color(0xFF6B4F72)), // muted plum
+      'pink': AccentPair(Color(0xFFC98F7C), Color(0xFF93604C)),  // warm coral — distinct from rose/amber
     },
   );
 
@@ -114,6 +114,10 @@ class AppTokens extends ThemeExtension<AppTokens> {
   /// `systemGray6`/`systemGray5` steps and no shadow. Accent `fill`s are shared
   /// with the light palette; accent `text`s move to the iOS dark system-colour
   /// values so each label clears WCAG AA on the dark `mutedFill` badge ground.
+  ///
+  /// NOTE: still the old iOS dark palette — not yet redesigned to match the
+  /// warm light palette above. Deferred until dark mode is designed
+  /// deliberately (see class-level doc).
   static const AppTokens dark = AppTokens(
     background: Color(0xFF000000),
     cardFill: Color(0xFF1C1C1E),
