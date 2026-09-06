@@ -19,16 +19,15 @@ DeckSummary _deck(
   String name = 'Cell structure',
   String? courseId,
   int cards = 0,
-}) =>
-    DeckSummary(
-      id: id,
-      name: name,
-      courseId: courseId,
-      lastStudiedAt: null,
-      totalCards: cards,
-      dueCards: 0,
-      masteryPercent: 0,
-    );
+}) => DeckSummary(
+  id: id,
+  name: name,
+  courseId: courseId,
+  lastStudiedAt: null,
+  totalCards: cards,
+  dueCards: 0,
+  masteryPercent: 0,
+);
 
 FlashCard _card({
   String id = 'card-1',
@@ -36,19 +35,18 @@ FlashCard _card({
   String back = 'Paris',
   List<String> keywords = const [],
   bool isConcept = false,
-}) =>
-    FlashCard(
-      id: id,
-      deckId: 'deck-1',
-      front: front,
-      back: back,
-      keywords: keywords,
-      isConcept: isConcept,
-      masteryLevel: 0,
-      failCount: 0,
-      createdAt: DateTime.utc(2026),
-      updatedAt: DateTime.utc(2026),
-    );
+}) => FlashCard(
+  id: id,
+  deckId: 'deck-1',
+  front: front,
+  back: back,
+  keywords: keywords,
+  isConcept: isConcept,
+  masteryLevel: 0,
+  failCount: 0,
+  createdAt: DateTime.utc(2026),
+  updatedAt: DateTime.utc(2026),
+);
 
 class _Recorder {
   String? location;
@@ -65,9 +63,9 @@ void _configurePhone(WidgetTester tester, Size size) {
 }
 
 List<Course> _courses() => [
-      fakeCourse(id: 'c-default', name: 'Uncategorized', isDefault: true),
-      fakeCourse(id: 'c-bio', name: 'Biology'),
-    ];
+  fakeCourse(id: 'c-default', name: 'Uncategorized', isDefault: true),
+  fakeCourse(id: 'c-bio', name: 'Biology'),
+];
 
 /// Pumps [DeckDetailScreen] for `deck-1`, pushed on top of a `/` stub so
 /// `context.pop()` (delete) has a target. Returns the router so a test can keep
@@ -77,11 +75,15 @@ Future<GoRouter> _pump(
   _Recorder rec, {
   required FakeDeckRepository decks,
   FakeCourseRepository? courses,
+  double textScale = 1,
 }) async {
   final router = GoRouter(
     initialLocation: '/',
     routes: [
-      GoRoute(path: '/', builder: (_, _) => const Scaffold(body: Text('home'))),
+      GoRoute(
+        path: '/',
+        builder: (_, _) => const Scaffold(body: Text('home')),
+      ),
       GoRoute(
         path: AppRoutes.deckDetailPath,
         name: AppRoutes.deckDetailName,
@@ -115,15 +117,25 @@ Future<GoRouter> _pump(
     ],
   );
 
-  await tester.pumpWidget(ProviderScope(
-    overrides: [
-      deckRepositoryProvider.overrideWithValue(decks),
-      courseRepositoryProvider.overrideWithValue(
-        courses ?? FakeCourseRepository(courses: _courses()),
+  await tester.pumpWidget(
+    ProviderScope(
+      overrides: [
+        deckRepositoryProvider.overrideWithValue(decks),
+        courseRepositoryProvider.overrideWithValue(
+          courses ?? FakeCourseRepository(courses: _courses()),
+        ),
+      ],
+      child: MaterialApp.router(
+        theme: AppTheme.light,
+        routerConfig: router,
+        builder: (context, child) => MediaQuery(
+          data: MediaQuery.of(context)
+              .copyWith(textScaler: TextScaler.linear(textScale)),
+          child: child!,
+        ),
       ),
-    ],
-    child: MaterialApp.router(theme: AppTheme.light, routerConfig: router),
-  ));
+    ),
+  );
   router.push('/deck/deck-1');
   await tester.pumpAndSettle();
   return router;
@@ -141,7 +153,9 @@ void main() {
     await _pump(
       tester,
       _Recorder(),
-      decks: FakeDeckRepository(decks: [_deck('deck-1', name: 'Cell structure')]),
+      decks: FakeDeckRepository(
+        decks: [_deck('deck-1', name: 'Cell structure')],
+      ),
     );
 
     expect(
@@ -153,10 +167,15 @@ void main() {
     );
   });
 
-  testWidgets('the Import action routes to /deck/:deckId/import', (tester) async {
+  testWidgets('the Import action routes to /deck/:deckId/import', (
+    tester,
+  ) async {
     final rec = _Recorder();
-    await _pump(tester, rec,
-        decks: FakeDeckRepository(decks: [_deck('deck-1')], cards: [_card()]));
+    await _pump(
+      tester,
+      rec,
+      decks: FakeDeckRepository(decks: [_deck('deck-1')], cards: [_card()]),
+    );
 
     await tester.tap(find.byIcon(Icons.file_download_outlined));
     await tester.pumpAndSettle();
@@ -164,11 +183,15 @@ void main() {
     expect(rec.location, '/deck/deck-1/import');
   });
 
-  testWidgets('picking a study mode starts a session for the deck',
-      (tester) async {
+  testWidgets('picking a study mode starts a session for the deck', (
+    tester,
+  ) async {
     final rec = _Recorder();
-    await _pump(tester, rec,
-        decks: FakeDeckRepository(decks: [_deck('deck-1')], cards: [_card()]));
+    await _pump(
+      tester,
+      rec,
+      decks: FakeDeckRepository(decks: [_deck('deck-1')], cards: [_card()]),
+    );
 
     await tester.tap(find.text('Flip & Rate'));
     await tester.pumpAndSettle();
@@ -176,15 +199,19 @@ void main() {
     expect(rec.location, '/study/deck-1');
   });
 
-  testWidgets('the View cards row shows the count and opens the card list',
-      (tester) async {
+  testWidgets('the View cards row shows the count and opens the card list', (
+    tester,
+  ) async {
     final rec = _Recorder();
     await _pump(
       tester,
       rec,
       decks: FakeDeckRepository(
         decks: [_deck('deck-1')],
-        cards: [_card(), _card(id: 'card-2')],
+        cards: [
+          _card(),
+          _card(id: 'card-2'),
+        ],
       ),
     );
 
@@ -196,11 +223,15 @@ void main() {
     expect(rec.location, '/deck/deck-1/cards');
   });
 
-  testWidgets('an empty deck offers an Add cards CTA into import',
-      (tester) async {
+  testWidgets('an empty deck offers an Add cards CTA into import', (
+    tester,
+  ) async {
     final rec = _Recorder();
-    await _pump(tester, rec,
-        decks: FakeDeckRepository(decks: [_deck('deck-1')]));
+    await _pump(
+      tester,
+      rec,
+      decks: FakeDeckRepository(decks: [_deck('deck-1')]),
+    );
 
     await tester.tap(find.text('Add cards'));
     await tester.pumpAndSettle();
@@ -208,8 +239,9 @@ void main() {
     expect(rec.location, '/deck/deck-1/import');
   });
 
-  testWidgets('Edit deck renames the deck through DecksController',
-      (tester) async {
+  testWidgets('Edit deck renames the deck through DecksController', (
+    tester,
+  ) async {
     final decks = FakeDeckRepository(
       decks: [_deck('deck-1', name: 'Old name', courseId: 'c-default')],
       cards: [_card()],
@@ -228,8 +260,9 @@ void main() {
     );
   });
 
-  testWidgets('Edit deck stays reachable above the keyboard at 360x640',
-      (tester) async {
+  testWidgets('Edit deck stays reachable above the keyboard at 360x640', (
+    tester,
+  ) async {
     _configurePhone(tester, const Size(360, 640));
     final decks = FakeDeckRepository(
       decks: [_deck('deck-1', name: 'Old name', courseId: 'c-default')],
@@ -247,10 +280,12 @@ void main() {
     await tester.scrollUntilVisible(
       save,
       120,
-      scrollable: find.descendant(
-        of: find.byKey(const ValueKey('bounded-bottom-sheet-scroll')),
-        matching: find.byType(Scrollable),
-      ).first,
+      scrollable: find
+          .descendant(
+            of: find.byKey(const ValueKey('bounded-bottom-sheet-scroll')),
+            matching: find.byType(Scrollable),
+          )
+          .first,
     );
     expect(save.hitTestable(), findsOneWidget);
     expect(tester.getBottomRight(save).dy, lessThanOrEqualTo(360));
@@ -259,8 +294,57 @@ void main() {
 
     expect(
       decks.calls,
+      contains('updateDeck(id=deck-1, name=Responsive deck, course=c-default)'),
+    );
+  });
+
+  testWidgets('Edit deck keeps a long selected course readable at 2x text', (
+    tester,
+  ) async {
+    _configurePhone(tester, const Size(320, 568));
+    const courseName = 'Advanced cellular and molecular biology';
+    final decks = FakeDeckRepository(
+      decks: [_deck('deck-1', name: 'Old name', courseId: 'course-long')],
+      cards: [_card()],
+    );
+    await _pump(
+      tester,
+      _Recorder(),
+      decks: decks,
+      courses: FakeCourseRepository(
+        courses: [fakeCourse(id: 'course-long', name: courseName)],
+      ),
+      textScale: 2,
+    );
+    // The underlying detail screen has an existing scale-2 overflow in its
+    // pre-session content (Milestone 5). Clear it before isolating this sheet.
+    tester.takeException();
+
+    await _openOverflow(tester, 'Edit deck');
+    tester.view.viewInsets = const FakeViewPadding(bottom: 240);
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'Responsive deck');
+    final sheetScroll = find.descendant(
+      of: find.byKey(const ValueKey('bounded-bottom-sheet-scroll')),
+      matching: find.byType(Scrollable),
+    );
+    await tester.scrollUntilVisible(
+      find.text(courseName),
+      100,
+      scrollable: sheetScroll.first,
+    );
+    expect(tester.widget<Text>(find.text(courseName)).maxLines, isNull);
+    expect(tester.takeException(), isNull);
+
+    final save = find.widgetWithText(FilledButton, 'Save');
+    await tester.scrollUntilVisible(save, 100, scrollable: sheetScroll.first);
+    expect(save.hitTestable(), findsOneWidget);
+    await tester.tap(save);
+    await tester.pumpAndSettle();
+    expect(
+      decks.calls,
       contains(
-        'updateDeck(id=deck-1, name=Responsive deck, course=c-default)',
+        'updateDeck(id=deck-1, name=Responsive deck, course=course-long)',
       ),
     );
   });
@@ -284,8 +368,9 @@ void main() {
     );
   });
 
-  testWidgets('Delete deck confirms, calls deleteDeck, then pops to the tab',
-      (tester) async {
+  testWidgets('Delete deck confirms, calls deleteDeck, then pops to the tab', (
+    tester,
+  ) async {
     final decks = FakeDeckRepository(
       decks: [_deck('deck-1')],
       cards: [_card()],

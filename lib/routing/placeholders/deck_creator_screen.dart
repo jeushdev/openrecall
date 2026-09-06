@@ -42,8 +42,9 @@ class _DeckCreatorScreenState extends ConsumerState<DeckCreatorScreen> {
   }
 
   Future<void> _create() async {
-    final deckId =
-        await ref.read(deckCreatorControllerProvider.notifier).submit();
+    final deckId = await ref
+        .read(deckCreatorControllerProvider.notifier)
+        .submit();
     if (deckId == null || !mounted) return;
     // The Decks tab's grid reads its own provider (not `decksProvider`), and the
     // shell stays mounted underneath this route — refresh it so the new deck is
@@ -158,32 +159,41 @@ class _Header extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.fromLTRB(8, 4, 8, 4),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          TextButton(
-            onPressed: isSubmitting ? null : onCancel,
-            child: Text(
-              'Cancel',
-              style: TextStyle(color: tokens.textSecondary),
+          Expanded(
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton(
+                onPressed: isSubmitting ? null : onCancel,
+                child: Text(
+                  'Cancel',
+                  style: TextStyle(color: tokens.textSecondary),
+                ),
+              ),
             ),
           ),
-          TextButton(
-            onPressed: createEnabled ? onCreate : null,
-            child: isSubmitting
-                ? const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : Text(
-                    'Create',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w600,
-                      color: createEnabled
-                          ? tokens.textPrimary
-                          : tokens.textTertiary,
-                    ),
-                  ),
+          Expanded(
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: TextButton(
+                onPressed: createEnabled ? onCreate : null,
+                child: isSubmitting
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : Text(
+                        'Create',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          color: createEnabled
+                              ? tokens.textPrimary
+                              : tokens.textTertiary,
+                        ),
+                      ),
+              ),
+            ),
           ),
         ],
       ),

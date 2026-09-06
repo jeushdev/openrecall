@@ -89,10 +89,12 @@ List<_LogSection> _dayGroups(List<HistoryEntry> entries) {
       entry.completedAt.month,
       entry.completedAt.day,
     );
-    byDay.putIfAbsent(day, () {
-      order.add(day);
-      return <HistoryEntry>[];
-    }).add(entry);
+    byDay
+        .putIfAbsent(day, () {
+          order.add(day);
+          return <HistoryEntry>[];
+        })
+        .add(entry);
   }
   return [
     for (final day in order)
@@ -101,8 +103,18 @@ List<_LogSection> _dayGroups(List<HistoryEntry> entries) {
 }
 
 const _monthNames = [
-  'January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December',
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
 ];
 
 String _dayLabel(DateTime day, {DateTime? now}) {
@@ -135,8 +147,10 @@ class _LogRow extends StatelessWidget {
     return IosRow(
       leading: IosRowIcon(icon: _modeIcon(entry.studyMode), color: accent.fill),
       title: showDeckName ? entry.deckName : detail.toString(),
-      trailing: Row(
-        mainAxisSize: MainAxisSize.min,
+      trailing: Wrap(
+        spacing: 8,
+        runSpacing: 2,
+        crossAxisAlignment: WrapCrossAlignment.center,
         children: [
           if (showDeckName)
             Text(
@@ -144,7 +158,6 @@ class _LogRow extends StatelessWidget {
               style: AppType.caption.copyWith(color: tokens.textSecondary),
             ),
           if (delta != null) ...[
-            if (showDeckName) const SizedBox(width: 8),
             Text(
               masteryDeltaLabel(delta),
               style: AppType.caption.copyWith(
@@ -159,14 +172,14 @@ class _LogRow extends StatelessWidget {
   }
 
   static String _modeLabel(StudyMode mode) => switch (mode) {
-        StudyMode.flip => 'Flip',
-        StudyMode.cloze => 'Cloze',
-        StudyMode.feynman => 'Feynman',
-      };
+    StudyMode.flip => 'Flip',
+    StudyMode.cloze => 'Cloze',
+    StudyMode.feynman => 'Feynman',
+  };
 
   static IconData _modeIcon(StudyMode mode) => switch (mode) {
-        StudyMode.flip => Icons.style_outlined,
-        StudyMode.cloze => Icons.keyboard_outlined,
-        StudyMode.feynman => Icons.mic_none_outlined,
-      };
+    StudyMode.flip => Icons.style_outlined,
+    StudyMode.cloze => Icons.keyboard_outlined,
+    StudyMode.feynman => Icons.mic_none_outlined,
+  };
 }

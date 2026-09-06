@@ -15,25 +15,28 @@ import '../../support/fake_course_repository.dart';
 import '../../support/fake_deck_repository.dart';
 import '../../support/fake_stats_repository.dart';
 
-DeckSummary _deck(String id, {String? courseId}) => DeckSummary(
-      id: id,
-      name: 'Deck $id',
-      lastStudiedAt: null,
-      totalCards: 6,
-      dueCards: 6,
-      masteryPercent: 0,
-      courseId: courseId,
-    );
+DeckSummary _deck(String id, {String? courseId, String? name}) => DeckSummary(
+  id: id,
+  name: name ?? 'Deck $id',
+  lastStudiedAt: null,
+  totalCards: 6,
+  dueCards: 6,
+  masteryPercent: 0,
+  courseId: courseId,
+);
 
 Future<void> _pump(
   WidgetTester tester, {
   required FakeStatsRepository stats,
   List<DeckSummary>? decks,
+  FakeCourseRepository? courses,
+  Size viewport = const Size(1200, 4000),
+  double textScale = 1,
 }) async {
   // A tall surface so the whole scroll view (calendar grid + toggle + log)
   // is laid out — the default 600px viewport clips the log off the bottom of
   // the lazily-built list.
-  tester.view.physicalSize = const Size(1200, 4000);
+  tester.view.physicalSize = viewport;
   tester.view.devicePixelRatio = 1.0;
   addTearDown(tester.view.resetPhysicalSize);
   addTearDown(tester.view.resetDevicePixelRatio);
@@ -45,13 +48,21 @@ Future<void> _pump(
           FakeDeckRepository(decks: decks ?? [_deck('d1', courseId: 'c1')]),
         ),
         courseRepositoryProvider.overrideWithValue(
-          FakeCourseRepository(
-            courses: [fakeCourse(id: 'c1', name: 'Biology', accentColor: 'green')],
-          ),
+          courses ??
+              FakeCourseRepository(
+                courses: [
+                  fakeCourse(id: 'c1', name: 'Biology', accentColor: 'green'),
+                ],
+              ),
         ),
       ],
       child: MaterialApp(
         theme: AppTheme.light,
+        builder: (context, child) => MediaQuery(
+          data: MediaQuery.of(context)
+              .copyWith(textScaler: TextScaler.linear(textScale)),
+          child: child!,
+        ),
         home: const HistoryTabScreen(),
       ),
     ),
@@ -60,6 +71,38 @@ Future<void> _pump(
 }
 
 void main() {
+  testWidgets(
+    'long session metadata remains reachable at 320x568 and 2x text',
+    (tester) async {
+      const deckName = 'Advanced cellular respiration and molecular biology';
+      final stats = FakeStatsRepository(
+        recentCompletedSessions: [
+          CompletedSessionActivity(
+            deckId: 'd1',
+            completedAt: DateTime(2026, 8, 20),
+            masteryDelta: 987,
+            studyMode: StudyMode.feynman,
+            cardsReviewed: 123456,
+          ),
+        ],
+      );
+      await _pump(
+        tester,
+        stats: stats,
+        decks: [_deck('d1', courseId: 'c1', name: deckName)],
+        viewport: const Size(320, 568),
+        textScale: 2,
+      );
+
+      final detail = find.text('Feynman · 123456 cards');
+      await tester.ensureVisible(detail);
+      await tester.pumpAndSettle();
+      expect(detail.hitTestable(), findsOneWidget);
+      expect(find.text('+987%'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets('renders the heatmap month label and the toggle', (tester) async {
     await _pump(tester, stats: FakeStatsRepository());
 
@@ -70,8 +113,9 @@ void main() {
     expect(find.text('W'), findsOneWidget);
   });
 
-  testWidgets('shows an empty-state line when there are no sessions',
-      (tester) async {
+  testWidgets('shows an empty-state line when there are no sessions', (
+    tester,
+  ) async {
     await _pump(tester, stats: FakeStatsRepository());
 
     expect(
@@ -80,8 +124,9 @@ void main() {
     );
   });
 
-  testWidgets('renders a session row and switches to By Deck grouping',
-      (tester) async {
+  testWidgets('renders a session row and switches to By Deck grouping', (
+    tester,
+  ) async {
     final stats = FakeStatsRepository(
       recentCompletedSessions: [
         CompletedSessionActivity(

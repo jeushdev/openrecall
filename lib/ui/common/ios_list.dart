@@ -29,12 +29,14 @@ class IosSection extends StatelessWidget {
     for (var i = 0; i < children.length; i++) {
       rows.add(children[i]);
       if (i != children.length - 1) {
-        rows.add(Divider(
-          height: 1,
-          thickness: 1,
-          indent: 52,
-          color: tokens.borderHairline,
-        ));
+        rows.add(
+          Divider(
+            height: 1,
+            thickness: 1,
+            indent: 52,
+            color: tokens.borderHairline,
+          ),
+        );
       }
     }
 
@@ -118,27 +120,35 @@ class IosRow extends StatelessWidget {
             const SizedBox(width: 12),
           ],
           Expanded(
-            child: Text(
-              title,
-              style: AppType.bodyLarge.copyWith(
-                color: destructive ? tokens.accent('red').text : null,
-              ),
+            child: Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 8,
+              runSpacing: 2,
+              children: [
+                Text(
+                  title,
+                  style: AppType.bodyLarge.copyWith(
+                    color: destructive ? tokens.accent('red').text : null,
+                  ),
+                ),
+                if (trailingValue != null)
+                  Text(
+                    trailingValue!,
+                    style: AppType.body.copyWith(color: tokens.textSecondary),
+                  ),
+                ?trailing,
+              ],
             ),
           ),
-          if (trailingValue != null)
-            Padding(
-              padding: const EdgeInsets.only(left: 8),
-              child: Text(
-                trailingValue!,
-                style: AppType.body.copyWith(color: tokens.textSecondary),
-              ),
-            ),
-          if (trailing != null)
-            Padding(padding: const EdgeInsets.only(left: 8), child: trailing),
           if (showChevron)
             Padding(
               padding: const EdgeInsets.only(left: 6),
-              child: Icon(Icons.chevron_right, size: 18, color: tokens.textTertiary),
+              child: Icon(
+                Icons.chevron_right,
+                size: 18,
+                color: tokens.textTertiary,
+              ),
             ),
         ],
       ),

@@ -9,6 +9,7 @@ import 'package:open_recall/features/settings/presentation/widgets/delete_accoun
 import 'package:open_recall/features/study/application/feynman_timer_providers.dart';
 import 'package:open_recall/features/study/data/feynman_timer_preference.dart';
 import 'package:open_recall/theme/app_theme.dart';
+import 'package:open_recall/ui/settings/settings_segmented_control.dart';
 import 'package:open_recall/ui/settings/settings_tab_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -20,6 +21,8 @@ Future<StudyAppearancePreferences> _pump(
   Map<String, Object> initialPrefs = const {},
   FakeAccountRepository? account,
   FakeNotificationService? notifications,
+  Size viewport = const Size(1000, 3200),
+  double textScale = 1,
 }) async {
   SharedPreferences.setMockInitialValues(initialPrefs);
   final sp = await SharedPreferences.getInstance();
@@ -27,7 +30,7 @@ Future<StudyAppearancePreferences> _pump(
 
   // The Settings list is now fully expanded (no section-collapse); give it
   // plenty of room so the lower sections build without every test scrolling.
-  tester.view.physicalSize = const Size(1000, 3200);
+  tester.view.physicalSize = viewport;
   tester.view.devicePixelRatio = 1.0;
   addTearDown(tester.view.resetPhysicalSize);
   addTearDown(tester.view.resetDevicePixelRatio);
@@ -37,16 +40,24 @@ Future<StudyAppearancePreferences> _pump(
       overrides: [
         studyAppearancePreferencesProvider.overrideWithValue(appearance),
         themeModePreferenceProvider.overrideWithValue(ThemeModePreference(sp)),
-        feynmanTimerPreferenceProvider
-            .overrideWithValue(FeynmanTimerPreference(sp)),
+        feynmanTimerPreferenceProvider.overrideWithValue(
+          FeynmanTimerPreference(sp),
+        ),
         appVersionProvider.overrideWith((ref) async => '1.2.3+4'),
-        accountRepositoryProvider
-            .overrideWithValue(account ?? FakeAccountRepository()),
-        notificationServiceProvider
-            .overrideWithValue(notifications ?? FakeNotificationService()),
+        accountRepositoryProvider.overrideWithValue(
+          account ?? FakeAccountRepository(),
+        ),
+        notificationServiceProvider.overrideWithValue(
+          notifications ?? FakeNotificationService(),
+        ),
       ],
       child: MaterialApp(
         theme: AppTheme.light,
+        builder: (context, child) => MediaQuery(
+          data: MediaQuery.of(context)
+              .copyWith(textScaler: TextScaler.linear(textScale)),
+          child: child!,
+        ),
         home: const SettingsTabScreen(),
       ),
     ),
@@ -56,6 +67,35 @@ Future<StudyAppearancePreferences> _pump(
 }
 
 void main() {
+  testWidgets('long segment labels fit on a narrow screen at 2x text', (
+    tester,
+  ) async {
+    final prefs = await _pump(
+      tester,
+      viewport: const Size(320, 568),
+      textScale: 2,
+    );
+
+    final label = find.text('Fade & slide');
+    expect(label, findsOneWidget);
+    final control = find.ancestor(
+      of: label,
+      matching: find.byType(SettingsSegmentedControl<CardTransition>),
+    );
+    final controlRect = tester.getRect(control);
+    final labelRect = tester.getRect(label);
+    expect(controlRect.contains(labelRect.topLeft), isTrue);
+    expect(controlRect.contains(labelRect.bottomRight), isTrue);
+    expect(tester.takeException(), isNull);
+
+    await tester.ensureVisible(label);
+    await tester.pumpAndSettle();
+    expect(label.hitTestable(), findsOneWidget);
+    await tester.tap(label);
+    await tester.pumpAndSettle();
+    expect(await prefs.cardTransition(), CardTransition.fade);
+  });
+
   testWidgets('renders both toggles and the section titles', (tester) async {
     await _pump(tester);
 
@@ -83,7 +123,9 @@ void main() {
     expect(await prefs.cardTransition(), CardTransition.fade);
   });
 
-  testWidgets('the card text size control toggles and persists', (tester) async {
+  testWidgets('the card text size control toggles and persists', (
+    tester,
+  ) async {
     final prefs = await _pump(tester);
     expect(await prefs.cardFontSize(), CardFontSize.medium);
 
@@ -93,8 +135,9 @@ void main() {
     expect(await prefs.cardFontSize(), CardFontSize.xlarge);
   });
 
-  testWidgets('the card text size control reflects a stored preset',
-      (tester) async {
+  testWidgets('the card text size control reflects a stored preset', (
+    tester,
+  ) async {
     await _pump(tester, initialPrefs: {'card_font_size': 'large'});
 
     final selected = tester.widget<Text>(find.text('L'));
@@ -102,8 +145,9 @@ void main() {
     expect(selected.style?.color, isNot(medium.style?.color));
   });
 
-  testWidgets('Feynman row shows the "not yet" copy with no stored preset',
-      (tester) async {
+  testWidgets('Feynman row shows the "not yet" copy with no stored preset', (
+    tester,
+  ) async {
     await _pump(tester);
     expect(
       find.textContaining("haven't timed a Feynman session"),
@@ -111,12 +155,10 @@ void main() {
     );
   });
 
-  testWidgets('Feynman row shows the last-used preset when one is stored',
-      (tester) async {
-    await _pump(
-      tester,
-      initialPrefs: {'feynman_timer_seconds_last_used': 90},
-    );
+  testWidgets('Feynman row shows the last-used preset when one is stored', (
+    tester,
+  ) async {
+    await _pump(tester, initialPrefs: {'feynman_timer_seconds_last_used': 90});
     expect(find.textContaining('Last used timer: 90s'), findsOneWidget);
   });
 
@@ -125,8 +167,9 @@ void main() {
     expect(find.text('1.2.3+4'), findsOneWidget);
   });
 
-  testWidgets('renders the Appearance section with the theme selector',
-      (tester) async {
+  testWidgets('renders the Appearance section with the theme selector', (
+    tester,
+  ) async {
     await _pump(tester);
 
     expect(find.text('APPEARANCE'), findsOneWidget);
@@ -155,8 +198,9 @@ void main() {
     expect(selected.style?.color, isNot(other.style?.color));
   });
 
-  testWidgets('the reminders toggle reflects and persists the preference',
-      (tester) async {
+  testWidgets('the reminders toggle reflects and persists the preference', (
+    tester,
+  ) async {
     final notifications = FakeNotificationService();
     await _pump(tester, notifications: notifications);
 
@@ -171,8 +215,9 @@ void main() {
     expect(sp.getBool('notifications_enabled'), isFalse);
   });
 
-  testWidgets('the reminders toggle reflects a stored "off" preference',
-      (tester) async {
+  testWidgets('the reminders toggle reflects a stored "off" preference', (
+    tester,
+  ) async {
     await _pump(tester, initialPrefs: {'notifications_enabled': false});
 
     expect(tester.widget<Switch>(find.byType(Switch)).value, isFalse);
@@ -200,8 +245,9 @@ void main() {
     expect(account.deleteAccountCalls, 1);
   });
 
-  testWidgets('cancelling the delete dialog leaves the account untouched',
-      (tester) async {
+  testWidgets('cancelling the delete dialog leaves the account untouched', (
+    tester,
+  ) async {
     final account = FakeAccountRepository();
     await _pump(tester, account: account);
 

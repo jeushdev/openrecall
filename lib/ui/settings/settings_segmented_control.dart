@@ -29,24 +29,27 @@ class SettingsSegmentedControl<T> extends StatelessWidget {
   Widget build(BuildContext context) {
     final tokens = Theme.of(context).extension<AppTokens>()!;
     return Container(
-      height: 40,
+      constraints: const BoxConstraints(minHeight: 40),
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
         color: tokens.mutedFill,
         borderRadius: AppRadii.gridTileRadius,
       ),
-      child: Row(
-        children: [
-          for (final option in options)
-            Expanded(
-              child: _Segment(
-                label: option.label,
-                selected: option.value == value,
-                onTap: () => onChanged(option.value),
-                tokens: tokens,
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            for (final option in options)
+              Expanded(
+                child: _Segment(
+                  label: option.label,
+                  selected: option.value == value,
+                  onTap: () => onChanged(option.value),
+                  tokens: tokens,
+                ),
               ),
-            ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -73,6 +76,7 @@ class _Segment extends StatelessWidget {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 150),
         alignment: Alignment.center,
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
         decoration: BoxDecoration(
           color: selected ? tokens.cardFill : null,
           borderRadius: BorderRadius.circular(12),
@@ -85,6 +89,7 @@ class _Segment extends StatelessWidget {
         ),
         child: Text(
           label,
+          textAlign: TextAlign.center,
           style: TextStyle(
             fontSize: 13,
             fontWeight: FontWeight.w600,

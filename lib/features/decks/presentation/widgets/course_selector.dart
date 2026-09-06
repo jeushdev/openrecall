@@ -4,6 +4,8 @@ import '../../../../theme/app_geometry.dart';
 import '../../../../theme/app_tokens.dart';
 import '../../../courses/domain/course.dart';
 
+const _courseLabelStyle = TextStyle(fontSize: 13, fontWeight: FontWeight.w600);
+
 /// Single-select row of course chips for the Deck Creator (ui-spec-v1 §4).
 ///
 /// Reuses the Mastery-tab course-rollup chip language (§6.3): a card-fill
@@ -24,6 +26,7 @@ class CourseSelector extends StatelessWidget {
 
   static const double _chipWidth = 148;
   static const double _chipHeight = 56;
+  static const double _labelWidth = _chipWidth - 4 - 20 - 22;
 
   @override
   Widget build(BuildContext context) {
@@ -36,23 +39,54 @@ class CourseSelector extends StatelessWidget {
       );
     }
 
-    return SizedBox(
-      height: _chipHeight,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        padding: EdgeInsets.zero,
-        itemCount: courses.length,
-        separatorBuilder: (_, _) => const SizedBox(width: 10),
-        itemBuilder: (_, i) {
-          final course = courses[i];
-          return _CourseChip(
-            course: course,
-            selected: course.id == selectedId,
-            width: _chipWidth,
-            onTap: () => onSelected(course.id),
-          );
-        },
-      ),
+    final textScaler = MediaQuery.textScalerOf(context);
+    final textDirection = Directionality.of(context);
+    final labelStyle = DefaultTextStyle.of(context).style
+        .merge(_courseLabelStyle);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final maxChipWidth =
+            constraints.hasBoundedWidth && constraints.maxWidth > _chipWidth
+            ? constraints.maxWidth
+            : _chipWidth;
+        final chipWidths = <double>[];
+        var requiredHeight = _chipHeight;
+
+        for (final course in courses) {
+          final painter = TextPainter(
+            text: TextSpan(text: course.name, style: labelStyle),
+            textScaler: textScaler,
+            textDirection: textDirection,
+          )..layout();
+          final width = (painter.width + (_chipWidth - _labelWidth))
+              .clamp(_chipWidth, maxChipWidth)
+              .toDouble();
+          painter.layout(maxWidth: width - (_chipWidth - _labelWidth));
+          chipWidths.add(width);
+          if (painter.height + 16 > requiredHeight) {
+            requiredHeight = painter.height + 16;
+          }
+        }
+
+        return SizedBox(
+          height: requiredHeight,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            padding: EdgeInsets.zero,
+            itemCount: courses.length,
+            separatorBuilder: (_, _) => const SizedBox(width: 10),
+            itemBuilder: (_, i) {
+              final course = courses[i];
+              return _CourseChip(
+                course: course,
+                selected: course.id == selectedId,
+                width: chipWidths[i],
+                onTap: () => onSelected(course.id),
+              );
+            },
+          ),
+        );
+      },
     );
   }
 }
@@ -102,19 +136,24 @@ class _CourseChip extends StatelessWidget {
                       Expanded(
                         child: Text(
                           course.name,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
+                          style: _courseLabelStyle.copyWith(
                             color: tokens.textPrimary,
                           ),
                         ),
                       ),
-                      if (selected) ...[
-                        const SizedBox(width: 6),
-                        Icon(Icons.check, size: 16, color: accent.text),
-                      ],
+                      SizedBox(
+                        width: 22,
+                        child: selected
+                            ? Align(
+                                alignment: Alignment.centerRight,
+                                child: Icon(
+                                  Icons.check,
+                                  size: 16,
+                                  color: accent.text,
+                                ),
+                              )
+                            : null,
+                      ),
                     ],
                   ),
                 ),
