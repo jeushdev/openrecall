@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../routing/app_routes.dart';
 import '../../../theme/app_geometry.dart';
 import '../../../theme/app_tokens.dart';
+import '../../../ui/common/bounded_bottom_sheet.dart';
 import '../../courses/application/course_providers.dart';
 import '../../study/domain/study_session.dart';
 import '../../study/presentation/study_session_args.dart';
@@ -180,6 +181,7 @@ class _DeckEditSheet extends ConsumerStatefulWidget {
     return showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
       backgroundColor: tokens.cardFill,
       elevation: 0,
       shape: RoundedRectangleBorder(
@@ -239,15 +241,9 @@ class _DeckEditSheetState extends ConsumerState<_DeckEditSheet> {
     final courses = ref.watch(coursesProvider);
     final busy = ref.watch(decksControllerProvider).isLoading;
 
-    return SafeArea(
-      top: false,
+    return BoundedBottomSheetBody(
       child: Padding(
-        padding: EdgeInsets.fromLTRB(
-          20,
-          12,
-          20,
-          20 + MediaQuery.viewInsetsOf(context).bottom,
-        ),
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,

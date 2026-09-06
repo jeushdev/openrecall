@@ -62,6 +62,16 @@ class _Recorder {
   String? location;
 }
 
+void _configurePhone(WidgetTester tester, Size size) {
+  tester.view.physicalSize = size;
+  tester.view.devicePixelRatio = 1;
+  tester.view.viewPadding = const FakeViewPadding(top: 24, bottom: 24);
+  addTearDown(tester.view.resetPhysicalSize);
+  addTearDown(tester.view.resetDevicePixelRatio);
+  addTearDown(tester.view.resetViewPadding);
+  addTearDown(tester.view.resetViewInsets);
+}
+
 Widget _host(
   _Recorder recorder, {
   required FakeDeckRepository decks,
@@ -492,6 +502,51 @@ void main() {
       expect(
         courses.calls,
         contains('updateCourse(id=c-bio, name=Bio 101, accent=red)'),
+      );
+    });
+
+    testWidgets('Edit course stays reachable above the keyboard at 320x568',
+        (tester) async {
+      _configurePhone(tester, const Size(320, 568));
+      final courses = FakeCourseRepository(courses: _courses());
+      await pumpTab(tester, courses);
+
+      await tester.tap(bioMenu());
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Edit course'));
+      tester.view.viewInsets = const FakeViewPadding(bottom: 280);
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      expect(
+        tester.getTopLeft(find.byKey(const ValueKey('accent-pink'))).dy,
+        greaterThan(
+          tester.getTopLeft(find.byKey(const ValueKey('accent-slate'))).dy,
+        ),
+      );
+      await tester.enterText(find.byType(TextField), 'Responsive Biology');
+      final scrollable = find.descendant(
+        of: find.byKey(const ValueKey('bounded-bottom-sheet-scroll')),
+        matching: find.byType(Scrollable),
+      ).first;
+      await tester.scrollUntilVisible(
+        find.byKey(const ValueKey('accent-red')),
+        120,
+        scrollable: scrollable,
+      );
+      await tester.tap(find.byKey(const ValueKey('accent-red')));
+      final save = find.widgetWithText(FilledButton, 'Save');
+      await tester.scrollUntilVisible(save, 120, scrollable: scrollable);
+      expect(save.hitTestable(), findsOneWidget);
+      expect(tester.getBottomRight(save).dy, lessThanOrEqualTo(288));
+      await tester.tap(save);
+      await tester.pumpAndSettle();
+
+      expect(
+        courses.calls,
+        contains(
+          'updateCourse(id=c-bio, name=Responsive Biology, accent=red)',
+        ),
       );
     });
 

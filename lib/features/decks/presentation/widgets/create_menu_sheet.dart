@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../routing/app_routes.dart';
 import '../../../../theme/app_geometry.dart';
 import '../../../../theme/app_tokens.dart';
+import '../../../../ui/common/bounded_bottom_sheet.dart';
 import '../../application/deck_providers.dart';
 
 /// The Create menu (ui-spec-v2 §6.1) — the bottom sheet the shell's centre
@@ -24,6 +25,8 @@ class CreateMenuSheet extends ConsumerStatefulWidget {
     final tokens = Theme.of(context).extension<AppTokens>()!;
     return showModalBottomSheet<void>(
       context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
       backgroundColor: tokens.cardFill,
       elevation: 0,
       shape: RoundedRectangleBorder(
@@ -83,8 +86,7 @@ class _CreateMenuSheetState extends ConsumerState<CreateMenuSheet> {
     final tokens = Theme.of(context).extension<AppTokens>()!;
     final decks = ref.watch(decksProvider);
 
-    return SafeArea(
-      top: false,
+    return BoundedBottomSheetBody(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -199,7 +201,6 @@ class _MenuRow extends StatelessWidget {
             Expanded(
               child: Text(
                 label,
-                overflow: TextOverflow.ellipsis,
                 style: TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w500,

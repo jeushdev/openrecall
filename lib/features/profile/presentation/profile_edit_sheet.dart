@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../theme/app_geometry.dart';
 import '../../../theme/app_tokens.dart';
 import '../../../theme/app_type.dart';
+import '../../../ui/common/bounded_bottom_sheet.dart';
 import '../application/profile_providers.dart';
 
 /// Edit the user's display name (spec:
@@ -22,6 +23,7 @@ class ProfileEditSheet extends ConsumerStatefulWidget {
     return showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
       backgroundColor: tokens.cardFill,
       elevation: 0,
       shape: RoundedRectangleBorder(
@@ -75,15 +77,9 @@ class _ProfileEditSheetState extends ConsumerState<ProfileEditSheet> {
     final tokens = Theme.of(context).extension<AppTokens>()!;
     final busy = ref.watch(profileControllerProvider).isLoading;
 
-    return SafeArea(
-      top: false,
+    return BoundedBottomSheetBody(
       child: Padding(
-        padding: EdgeInsets.fromLTRB(
-          20,
-          12,
-          20,
-          20 + MediaQuery.viewInsetsOf(context).bottom,
-        ),
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,

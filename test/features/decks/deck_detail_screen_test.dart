@@ -54,6 +54,16 @@ class _Recorder {
   String? location;
 }
 
+void _configurePhone(WidgetTester tester, Size size) {
+  tester.view.physicalSize = size;
+  tester.view.devicePixelRatio = 1;
+  tester.view.viewPadding = const FakeViewPadding(top: 24, bottom: 24);
+  addTearDown(tester.view.resetPhysicalSize);
+  addTearDown(tester.view.resetDevicePixelRatio);
+  addTearDown(tester.view.resetViewPadding);
+  addTearDown(tester.view.resetViewInsets);
+}
+
 List<Course> _courses() => [
       fakeCourse(id: 'c-default', name: 'Uncategorized', isDefault: true),
       fakeCourse(id: 'c-bio', name: 'Biology'),
@@ -215,6 +225,43 @@ void main() {
     expect(
       decks.calls,
       contains('updateDeck(id=deck-1, name=New name, course=c-default)'),
+    );
+  });
+
+  testWidgets('Edit deck stays reachable above the keyboard at 360x640',
+      (tester) async {
+    _configurePhone(tester, const Size(360, 640));
+    final decks = FakeDeckRepository(
+      decks: [_deck('deck-1', name: 'Old name', courseId: 'c-default')],
+      cards: [_card()],
+    );
+    await _pump(tester, _Recorder(), decks: decks);
+
+    await _openOverflow(tester, 'Edit deck');
+    tester.view.viewInsets = const FakeViewPadding(bottom: 280);
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+    await tester.enterText(find.byType(TextField), 'Responsive deck');
+    final save = find.widgetWithText(FilledButton, 'Save');
+    await tester.scrollUntilVisible(
+      save,
+      120,
+      scrollable: find.descendant(
+        of: find.byKey(const ValueKey('bounded-bottom-sheet-scroll')),
+        matching: find.byType(Scrollable),
+      ).first,
+    );
+    expect(save.hitTestable(), findsOneWidget);
+    expect(tester.getBottomRight(save).dy, lessThanOrEqualTo(360));
+    await tester.tap(save);
+    await tester.pumpAndSettle();
+
+    expect(
+      decks.calls,
+      contains(
+        'updateDeck(id=deck-1, name=Responsive deck, course=c-default)',
+      ),
     );
   });
 

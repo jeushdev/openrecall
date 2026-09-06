@@ -69,6 +69,44 @@ Future<void> _openSheet(WidgetTester tester) async {
 }
 
 void main() {
+  testWidgets('expanded imports scroll to the final deck on a short phone',
+      (tester) async {
+    tester.view.physicalSize = const Size(320, 568);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final decks = List.generate(
+      20,
+      (index) => _deck(
+        'deck-$index',
+        'A deliberately long deck name for import target number $index',
+      ),
+    );
+    await _pump(tester, decks: FakeDeckRepository(decks: decks));
+    await _openSheet(tester);
+
+    await tester.tap(find.text('Import card'));
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+    final lastTarget =
+        find.byKey(const ValueKey('create-menu-import-deck-19'));
+    final sheetScrollable = find.descendant(
+      of: find.byType(BottomSheet),
+      matching: find.byType(Scrollable),
+    );
+    await tester.scrollUntilVisible(
+      lastTarget,
+      300,
+      scrollable: sheetScrollable,
+    );
+    await tester.tap(lastTarget);
+    await tester.pumpAndSettle();
+
+    expect(find.text('import-stub deck-19'), findsOneWidget);
+  });
+
   testWidgets('the sheet lists the three create options', (tester) async {
     await _pump(tester, decks: FakeDeckRepository());
     await _openSheet(tester);

@@ -6,6 +6,7 @@ import '../../../core/reorder.dart';
 import '../../../routing/app_routes.dart';
 import '../../../theme/app_geometry.dart';
 import '../../../theme/app_tokens.dart';
+import '../../../ui/common/bounded_bottom_sheet.dart';
 import '../../../ui/common/large_title_scaffold.dart';
 import '../../courses/application/course_providers.dart';
 import '../../courses/domain/course.dart';
@@ -422,6 +423,7 @@ class _CourseEditSheet extends ConsumerStatefulWidget {
     return showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
       backgroundColor: tokens.cardFill,
       elevation: 0,
       shape: RoundedRectangleBorder(
@@ -469,15 +471,9 @@ class _CourseEditSheetState extends ConsumerState<_CourseEditSheet> {
     final tokens = Theme.of(context).extension<AppTokens>()!;
     final busy = ref.watch(courseControllerProvider).isLoading;
 
-    return SafeArea(
-      top: false,
+    return BoundedBottomSheetBody(
       child: Padding(
-        padding: EdgeInsets.fromLTRB(
-          20,
-          12,
-          20,
-          20 + MediaQuery.viewInsetsOf(context).bottom,
-        ),
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
