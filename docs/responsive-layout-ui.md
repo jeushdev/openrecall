@@ -73,6 +73,51 @@ Add regression coverage with each fix. The final testing milestone consolidates 
 - Profile validation and Save remain reachable with enlarged text and keyboard insets.
 - No content overlaps system UI, no double keyboard padding appears, and sheet dismissal/selection behavior is unchanged.
 
+### Implementation plan — prepared 2026-09-07
+
+**Execution gate:** Planning only. Do not run this sequence, change application code or tests, or begin another milestone until the user gives a go signal.
+
+**Current baseline:** This milestone is already recorded as complete on 2026-09-06. Static inspection confirms `BoundedBottomSheetBody` and all four caller integrations exist, along with focused regression tests. Preserve that status and historical execution log; their recorded results have not been rerun during planning. The next authorized execution should verify the existing implementation and fix only reproduced gaps, rather than recreate it. The working tree was clean at planning time; inspect it again before execution.
+
+#### Layout ownership and boundaries
+
+- Retain `lib/ui/common/bounded_bottom_sheet.dart` as the shared sheet body. The modal route owns available outer height and top/side safe areas; the body owns bottom safe clearance, keyboard clearance, and scrolling. Verify effective nested safe-area behavior so each inset is consumed once.
+- Retain `isScrollControlled: true`, `useSafeArea: true`, the existing modal shape, handle placement, theme tokens, and naturally sized short content. Keep a single bounded vertical scroll area; do not introduce fixed full-screen heights or nested scrolling without reproduction evidence.
+- Create Menu already uses wrapping labels inside `Expanded`; course, deck, and profile editors already use the shared body. Preserve field order, autofocus, swatch selection, course assignment, validation, busy/error handling, Save behavior, and navigation/dismissal semantics.
+- Limit production changes to the four scope files above and the shared body. Navigation, collapsing headers, grids, selectors outside these sheets, and business behavior remain outside this execution.
+
+#### Execution sequence after the go signal
+
+1. **Establish the current baseline.** Inspect working-tree changes, the four modal entry points, the shared body, and their tests. Run the existing five focused test files listed below. Treat the historical 999-pixel Create Menu overflow as historical evidence, not a newly reproduced failure. If the current implementation passes, retain it.
+
+2. **Verify the strongest stress cases before making changes.** Open the real Create Menu modal at 320×568 with scale 2.0, a large import collection, and long deck names; scroll to and select the last deck. Open each editor at 320×568 and 360×640 with enlarged text and keyboard insets. Exercise wrapped course swatches, long course choices in deck editing, profile length validation, and supported save-error states. Add a focused failing regression only when a new defect is confirmed; otherwise identify missing acceptance coverage without inventing a failure.
+
+3. **Resolve only confirmed layout gaps.** If height or inset tests fail, correct ownership in the shared body or modal configuration first. Keep keyboard padding outside the scrollable content so the visible scroll viewport ends above the keyboard. Allow content to wrap and grow while keeping short sheets compact. Apply caller-local constraints only where the shared correction cannot address the reproduced issue. Do not change validation rules, controller calls, routes, or data handling.
+
+4. **Complete targeted regression coverage.** Reuse existing test/provider helpers and the shared-body matrix. Add only missing sheet-specific geometry and interaction checks. Verify that scrolling reaches full labels and actionable controls, then tap them and check the existing outcomes. Check keyboard opening and closing, focus visibility, import expansion/collapse, and dismissal without saving. Reset viewport, device-pixel ratio, scaling, and inset configuration between cases. Leave broad harness consolidation to Milestone 6.
+
+5. **Validate and record this execution.** Run the focused suites and analysis appropriate to any changed code, inspect representative light/dark renders, and perform an Android smoke pass if a target is available. Append dated verification/fix evidence and remaining limitations to the execution log without replacing historical results. If no production fix is needed, report verification-only completion. Stop after Milestone 1.
+
+#### Validation and review checklist
+
+| Area | Cases and required evidence |
+| --- | --- |
+| Shared sizing | All six viewport pairs in the validation contract × scales 1.0, 1.3, 1.5, and 2.0. Include zero and representative system insets, keyboard closed/open, and short/long content. Verify modal bounds, reachable bottom controls, natural short-sheet height, and no doubled bottom clearance. Load bundled fonts where text geometry matters. |
+| Create Menu | Exercise all target widths with long populated content; include loading, error, empty fallback, and expanded/collapsed states. Verify the last import label can be read and its row tapped, the correct import route opens, and Create course/Create deck still route correctly. |
+| Course and deck editors | Exercise all target widths, prioritizing both short viewports with keyboard open and scale 2.0. Verify full field/action bounds, wrapped swatches, long course choices, reachable Save, rename/recolor/move results, and unchanged supported validation/error behavior. |
+| Profile editor | Exercise all target widths and short/tall heights with enlarged text. Verify overlength feedback and disabled Save, valid submission, clearing a name, busy state, and failure feedback while the sheet remains usable above the keyboard. |
+| Appearance and interactions | Inspect default-scale light/dark rendering and narrow scale-2.0 rendering. Verify handles, rounding, colors, text roles, focus/autofocus, drag-to-dismiss-keyboard behavior, barrier/back dismissal, and absence of unintended saves. Distinguish automated renders from Android system font/keyboard validation. |
+
+Expected test touchpoints:
+
+- `test/ui/common/bounded_bottom_sheet_test.dart`
+- `test/features/decks/create_menu_sheet_test.dart`
+- `test/features/decks/decks_tab_screen_test.dart`
+- `test/features/decks/deck_detail_screen_test.dart`
+- `test/features/profile/profile_edit_sheet_test.dart`
+
+Completion requires the original acceptance criteria plus geometry/reachability and interaction evidence. Record unrelated screen failures separately instead of expanding scope or masking them with oversized test viewports. The previously unavailable Android smoke pass remains unverified until an actual device/emulator check is performed.
+
 ## Milestone 2 — Navigation, collapsing headers, and bottom clearance
 
 **Status:** Complete
