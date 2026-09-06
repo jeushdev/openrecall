@@ -25,8 +25,10 @@ class HistoryTabScreen extends ConsumerStatefulWidget {
 }
 
 class _HistoryTabScreenState extends ConsumerState<HistoryTabScreen> {
-  late DateTime _visibleMonth =
-      DateTime(DateTime.now().year, DateTime.now().month);
+  late DateTime _visibleMonth = DateTime(
+    DateTime.now().year,
+    DateTime.now().month,
+  );
   HistoryFilter _filter = HistoryFilter.all;
 
   @override
@@ -36,7 +38,6 @@ class _HistoryTabScreenState extends ConsumerState<HistoryTabScreen> {
 
     return LargeTitleScaffold(
       title: 'History',
-      contentPadding: EdgeInsets.zero,
       slivers: [
         SliverToBoxAdapter(
           child: Column(
@@ -51,8 +52,7 @@ class _HistoryTabScreenState extends ConsumerState<HistoryTabScreen> {
                   child: CalendarHeatmap(
                     counts: counts,
                     visibleMonth: _visibleMonth,
-                    onMonthChanged: (m) =>
-                        setState(() => _visibleMonth = m),
+                    onMonthChanged: (m) => setState(() => _visibleMonth = m),
                   ),
                 ),
               ),
@@ -75,7 +75,6 @@ class _HistoryTabScreenState extends ConsumerState<HistoryTabScreen> {
                 builder: (entries) =>
                     SessionLogList(entries: entries, filter: _filter),
               ),
-              const SizedBox(height: 120),
             ],
           ),
         ),

@@ -47,7 +47,6 @@ class DecksTabScreen extends ConsumerWidget {
     return LargeTitleScaffold(
       title: 'Decks',
       actions: const [_DecksCreateButton(), SyncStatusChip()],
-      contentPadding: EdgeInsets.zero,
       slivers: [
         groups.when(
           loading: () => const SliverFillRemaining(
@@ -73,11 +72,11 @@ class _DecksCreateButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => IconButton(
-        key: const ValueKey('decks-create'),
-        icon: const Icon(Icons.add, size: 26),
-        color: Theme.of(context).extension<AppTokens>()!.tint,
-        onPressed: () => CreateMenuSheet.show(context),
-      );
+    key: const ValueKey('decks-create'),
+    icon: const Icon(Icons.add, size: 26),
+    color: Theme.of(context).extension<AppTokens>()!.tint,
+    onPressed: () => CreateMenuSheet.show(context),
+  );
 }
 
 /// The list of collapsible course sections. A course is expanded when the user
@@ -144,35 +143,34 @@ class _Accordion extends ConsumerWidget {
     WidgetRef ref,
     CourseDeckGroup group, {
     int? dragIndex,
-  }) =>
-      _CourseSection(
-        key: ValueKey(group.course.id),
-        group: group,
-        expanded: _isExpanded(group.course),
-        onToggle: () => _toggle(ref, group.course),
-        // A long-press on the header drags the course to reorder it
-        // (milestone B) — only when the list is genuinely reorderable.
-        dragIndex: dragIndex,
-        // The synthetic fallback course (userId == '') is only shown while
-        // the course list is still loading / failed — it has no real id to
-        // write against, so it carries no menu.
-        onEditCourse: group.course.userId.isEmpty
-            ? null
-            : () => _editCourse(context, group.course),
-        // The default course is never deletable (ui-spec-v2 §3.1 / §7).
-        onDeleteCourse: group.course.userId.isEmpty || group.course.isDefault
-            ? null
-            : () => _deleteCourse(context, ref, group.course),
-      );
+  }) => _CourseSection(
+    key: ValueKey(group.course.id),
+    group: group,
+    expanded: _isExpanded(group.course),
+    onToggle: () => _toggle(ref, group.course),
+    // A long-press on the header drags the course to reorder it
+    // (milestone B) — only when the list is genuinely reorderable.
+    dragIndex: dragIndex,
+    // The synthetic fallback course (userId == '') is only shown while
+    // the course list is still loading / failed — it has no real id to
+    // write against, so it carries no menu.
+    onEditCourse: group.course.userId.isEmpty
+        ? null
+        : () => _editCourse(context, group.course),
+    // The default course is never deletable (ui-spec-v2 §3.1 / §7).
+    onDeleteCourse: group.course.userId.isEmpty || group.course.isDefault
+        ? null
+        : () => _deleteCourse(context, ref, group.course),
+  );
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    const padding = EdgeInsets.fromLTRB(16, 0, 16, 120);
+    const padding = EdgeInsets.fromLTRB(16, 0, 16, 0);
 
     // Reorder is only offered once there is a real, multi-item course list to
     // reorder — never over the single synthetic loading-state group.
-    final reorderable = groups.length > 1 &&
-        groups.every((g) => g.course.userId.isNotEmpty);
+    final reorderable =
+        groups.length > 1 && groups.every((g) => g.course.userId.isNotEmpty);
 
     if (!reorderable) {
       return ListView(
@@ -347,8 +345,10 @@ class _CourseHeader extends StatelessWidget {
                     const SizedBox(width: 8),
                     Text(
                       _deckCountLabel(deckCount),
-                      style:
-                          TextStyle(fontSize: 13, color: tokens.textSecondary),
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: tokens.textSecondary,
+                      ),
                     ),
                   ],
                 ),
@@ -367,8 +367,10 @@ class _CourseHeader extends StatelessWidget {
                         tooltip: 'Course options',
                         child: Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 4),
-                          child: Icon(Icons.more_vert,
-                              color: tokens.textSecondary),
+                          child: Icon(
+                            Icons.more_vert,
+                            color: tokens.textSecondary,
+                          ),
                         ),
                         onSelected: (action) => switch (action) {
                           _CourseAction.edit => onEditCourse!(),
@@ -442,8 +444,9 @@ class _CourseEditSheet extends ConsumerStatefulWidget {
 }
 
 class _CourseEditSheetState extends ConsumerState<_CourseEditSheet> {
-  late final TextEditingController _name =
-      TextEditingController(text: widget.course.name);
+  late final TextEditingController _name = TextEditingController(
+    text: widget.course.name,
+  );
   late String _accentKey = widget.course.accentColor;
 
   @override
@@ -457,7 +460,9 @@ class _CourseEditSheetState extends ConsumerState<_CourseEditSheet> {
   Future<void> _save() async {
     final name = _name.text.trim();
     if (name.isEmpty) return;
-    final course = await ref.read(courseControllerProvider.notifier).updateCourse(
+    final course = await ref
+        .read(courseControllerProvider.notifier)
+        .updateCourse(
           id: widget.course.id,
           name: name,
           accentColor: _accentKey,
@@ -597,8 +602,7 @@ class _AccentPicker extends StatelessWidget {
                     : null,
               ),
               child: key == selected
-                  ? Icon(Icons.check,
-                      size: 20, color: tokens.accent(key).text)
+                  ? Icon(Icons.check, size: 20, color: tokens.accent(key).text)
                   : null,
             ),
           ),

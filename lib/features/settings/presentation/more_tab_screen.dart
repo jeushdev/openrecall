@@ -38,7 +38,6 @@ class MoreTabScreen extends ConsumerWidget {
 
     return LargeTitleScaffold(
       title: 'More',
-      contentPadding: EdgeInsets.zero,
       slivers: [
         SliverToBoxAdapter(
           child: Column(
@@ -65,10 +64,7 @@ class MoreTabScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 28),
 
-              const IosSection(
-                header: 'Account',
-                children: [_SignOutRow()],
-              ),
+              const IosSection(header: 'Account', children: [_SignOutRow()]),
               const SizedBox(height: 20),
 
               IosSection(
@@ -128,7 +124,6 @@ class MoreTabScreen extends ConsumerWidget {
                   ),
                 ],
               ),
-              const SizedBox(height: 120),
             ],
           ),
         ),

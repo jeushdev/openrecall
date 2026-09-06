@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:reorderable_grid_view/reorderable_grid_view.dart';
+import 'package:open_recall/core/connectivity/connectivity_service.dart';
+import 'package:open_recall/core/sync/sync_providers.dart';
 import 'package:open_recall/features/courses/application/course_providers.dart';
 import 'package:open_recall/features/courses/domain/course.dart';
 import 'package:open_recall/features/decks/application/deck_providers.dart';
@@ -15,12 +17,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../support/fake_course_repository.dart';
 import '../../support/fake_deck_repository.dart';
 
-DeckSummary _deck(
-  String id, {
-  String? name,
-  String? courseId,
-  int cards = 0,
-}) =>
+DeckSummary _deck(String id, {String? name, String? courseId, int cards = 0}) =>
     DeckSummary(
       id: id,
       name: name ?? id,
@@ -37,26 +34,27 @@ Course _course(
   bool isDefault = false,
   DateTime? createdAt,
   int position = 0,
-}) =>
-    Course(
-      id: id,
-      userId: 'user-1',
-      name: name,
-      accentColor: 'slate',
-      isDefault: isDefault,
-      createdAt: createdAt ?? DateTime.utc(2026),
-      updatedAt: DateTime.utc(2026),
-      position: position,
-    );
+}) => Course(
+  id: id,
+  userId: 'user-1',
+  name: name,
+  accentColor: 'slate',
+  isDefault: isDefault,
+  createdAt: createdAt ?? DateTime.utc(2026),
+  updatedAt: DateTime.utc(2026),
+  position: position,
+);
 
 /// A default "Uncategorized" course (created first) plus "Biology".
 List<Course> _courses() => [
-      _course('c-default',
-          name: 'Uncategorized',
-          isDefault: true,
-          createdAt: DateTime.utc(2026, 1)),
-      _course('c-bio', name: 'Biology', createdAt: DateTime.utc(2026, 2)),
-    ];
+  _course(
+    'c-default',
+    name: 'Uncategorized',
+    isDefault: true,
+    createdAt: DateTime.utc(2026, 1),
+  ),
+  _course('c-bio', name: 'Biology', createdAt: DateTime.utc(2026, 2)),
+];
 
 class _Recorder {
   String? location;
@@ -76,6 +74,9 @@ Widget _host(
   _Recorder recorder, {
   required FakeDeckRepository decks,
   FakeCourseRepository? courses,
+  bool online = true,
+  int pendingSyncCount = 0,
+  double textScale = 1,
 }) {
   final router = GoRouter(
     initialLocation: '/decks',
@@ -106,26 +107,42 @@ Widget _host(
   return ProviderScope(
     overrides: [
       deckRepositoryProvider.overrideWithValue(decks),
+      onlineStatusProvider.overrideWith((ref) => Stream.value(online)),
+      pendingSyncCountProvider.overrideWith((ref) async => pendingSyncCount),
       courseRepositoryProvider.overrideWithValue(
         courses ?? FakeCourseRepository(courses: _courses()),
       ),
     ],
-    child: MaterialApp.router(theme: AppTheme.light, routerConfig: router),
+    child: MaterialApp.router(
+      theme: AppTheme.light,
+      routerConfig: router,
+      builder: (context, child) => MediaQuery(
+        data: MediaQuery.of(context)
+            .copyWith(textScaler: TextScaler.linear(textScale)),
+        child: child!,
+      ),
+    ),
   );
 }
 
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues(<String, Object>{}));
 
-  testWidgets('renders a header per course with its deck count', (tester) async {
-    await tester.pumpWidget(_host(
-      _Recorder(),
-      decks: FakeDeckRepository(decks: [
-        _deck('d1', name: 'Cell structure', courseId: 'c-bio'),
-        _deck('d2', name: 'Photosynthesis', courseId: 'c-bio'),
-        _deck('d3', name: 'Shopping list', courseId: 'c-default'),
-      ]),
-    ));
+  testWidgets('renders a header per course with its deck count', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _host(
+        _Recorder(),
+        decks: FakeDeckRepository(
+          decks: [
+            _deck('d1', name: 'Cell structure', courseId: 'c-bio'),
+            _deck('d2', name: 'Photosynthesis', courseId: 'c-bio'),
+            _deck('d3', name: 'Shopping list', courseId: 'c-default'),
+          ],
+        ),
+      ),
+    );
     await tester.pumpAndSettle();
 
     expect(find.text('Uncategorized'), findsOneWidget);
@@ -135,10 +152,12 @@ void main() {
   });
 
   testWidgets('the + action opens the Create menu', (tester) async {
-    await tester.pumpWidget(_host(
-      _Recorder(),
-      decks: FakeDeckRepository(decks: [_deck('d1', courseId: 'c-bio')]),
-    ));
+    await tester.pumpWidget(
+      _host(
+        _Recorder(),
+        decks: FakeDeckRepository(decks: [_deck('d1', courseId: 'c-bio')]),
+      ),
+    );
     await tester.pumpAndSettle();
 
     await tester.tap(find.byKey(const ValueKey('decks-create')));
@@ -147,27 +166,58 @@ void main() {
     expect(find.text('Create deck'), findsOneWidget);
   });
 
+  testWidgets('Decks title and offline actions fit at 320x568 and scale 2', (
+    tester,
+  ) async {
+    _configurePhone(tester, const Size(320, 568));
+    await tester.pumpWidget(
+      _host(
+        _Recorder(),
+        decks: FakeDeckRepository(),
+        courses: FakeCourseRepository(),
+        online: false,
+        pendingSyncCount: 99999,
+        textScale: 2,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final title = tester.getRect(find.byKey(const ValueKey('large-title')));
+    final create = tester.getRect(find.byKey(const ValueKey('decks-create')));
+    final sync = tester.getRect(find.text('offline · 99999'));
+    expect(title.overlaps(create), isFalse);
+    expect(title.overlaps(sync), isFalse);
+    expect(create.right, lessThanOrEqualTo(320));
+    expect(sync.right, lessThanOrEqualTo(320));
+  });
+
   testWidgets('the chevron lines up whether or not the header carries a ⋮ menu '
       '(milestone R2)', (tester) async {
     // A course with a menu (real) and one without (the synthetic fallback shown
     // while courses load) must place the expand chevron at the same offset from
     // the right edge — the header reserves a fixed-width trailing menu slot.
-    await tester.pumpWidget(_host(
-      _Recorder(),
-      decks: FakeDeckRepository(decks: [_deck('d1', courseId: 'c-bio')]),
-    ));
+    await tester.pumpWidget(
+      _host(
+        _Recorder(),
+        decks: FakeDeckRepository(decks: [_deck('d1', courseId: 'c-bio')]),
+      ),
+    );
     await tester.pumpAndSettle();
     final withMenu = tester.getRect(find.byIcon(Icons.expand_more).first).right;
 
-    await tester.pumpWidget(_host(
-      _Recorder(),
-      decks: FakeDeckRepository(decks: [_deck('d1')]),
-      courses: FakeCourseRepository()..throwOnNextCall = StateError('offline'),
-    ));
+    await tester.pumpWidget(
+      _host(
+        _Recorder(),
+        decks: FakeDeckRepository(decks: [_deck('d1')]),
+        courses: FakeCourseRepository()
+          ..throwOnNextCall = StateError('offline'),
+      ),
+    );
     await tester.pumpAndSettle();
     expect(find.byIcon(Icons.more_vert), findsNothing);
-    final withoutMenu =
-        tester.getRect(find.byIcon(Icons.expand_more).first).right;
+    final withoutMenu = tester
+        .getRect(find.byIcon(Icons.expand_more).first)
+        .right;
 
     expect(withoutMenu, withMenu);
   });
@@ -175,13 +225,15 @@ void main() {
   testWidgets('a long course name wraps to two lines with a tooltip '
       '(milestone R2)', (tester) async {
     const longName = 'Organic Chemistry and Biochemistry Fundamentals II';
-    await tester.pumpWidget(_host(
-      _Recorder(),
-      decks: FakeDeckRepository(decks: [_deck('d1', courseId: 'c-long')]),
-      courses: FakeCourseRepository(courses: [
-        _course('c-long', name: longName, isDefault: true),
-      ]),
-    ));
+    await tester.pumpWidget(
+      _host(
+        _Recorder(),
+        decks: FakeDeckRepository(decks: [_deck('d1', courseId: 'c-long')]),
+        courses: FakeCourseRepository(
+          courses: [_course('c-long', name: longName, isDefault: true)],
+        ),
+      ),
+    );
     await tester.pumpAndSettle();
 
     final text = tester.widget<Text>(find.text(longName));
@@ -194,13 +246,17 @@ void main() {
   });
 
   testWidgets('only the default course starts expanded', (tester) async {
-    await tester.pumpWidget(_host(
-      _Recorder(),
-      decks: FakeDeckRepository(decks: [
-        _deck('d1', name: 'Cell structure', courseId: 'c-bio'),
-        _deck('d3', name: 'Shopping list', courseId: 'c-default'),
-      ]),
-    ));
+    await tester.pumpWidget(
+      _host(
+        _Recorder(),
+        decks: FakeDeckRepository(
+          decks: [
+            _deck('d1', name: 'Cell structure', courseId: 'c-bio'),
+            _deck('d3', name: 'Shopping list', courseId: 'c-default'),
+          ],
+        ),
+      ),
+    );
     await tester.pumpAndSettle();
 
     expect(find.text('Shopping list'), findsOneWidget); // default → expanded
@@ -208,12 +264,14 @@ void main() {
   });
 
   testWidgets('tapping a course header toggles its body', (tester) async {
-    await tester.pumpWidget(_host(
-      _Recorder(),
-      decks: FakeDeckRepository(decks: [
-        _deck('d1', name: 'Cell structure', courseId: 'c-bio'),
-      ]),
-    ));
+    await tester.pumpWidget(
+      _host(
+        _Recorder(),
+        decks: FakeDeckRepository(
+          decks: [_deck('d1', name: 'Cell structure', courseId: 'c-bio')],
+        ),
+      ),
+    );
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('Biology'));
@@ -226,28 +284,37 @@ void main() {
   });
 
   testWidgets('the deck badge shows the card count', (tester) async {
-    await tester.pumpWidget(_host(
-      _Recorder(),
-      decks: FakeDeckRepository(decks: [
-        _deck('d1', name: 'Full deck', courseId: 'c-default', cards: 3),
-        _deck('d2', name: 'Fresh deck', courseId: 'c-default'),
-      ]),
-    ));
+    await tester.pumpWidget(
+      _host(
+        _Recorder(),
+        decks: FakeDeckRepository(
+          decks: [
+            _deck('d1', name: 'Full deck', courseId: 'c-default', cards: 3),
+            _deck('d2', name: 'Fresh deck', courseId: 'c-default'),
+          ],
+        ),
+      ),
+    );
     await tester.pumpAndSettle();
 
     expect(find.text('3 cards'), findsOneWidget);
     expect(find.text('no cards yet'), findsOneWidget);
   });
 
-  testWidgets('tapping a deck routes to /deck/:deckId (deck detail)',
-      (tester) async {
+  testWidgets('tapping a deck routes to /deck/:deckId (deck detail)', (
+    tester,
+  ) async {
     final recorder = _Recorder();
-    await tester.pumpWidget(_host(
-      recorder,
-      decks: FakeDeckRepository(decks: [
-        _deck('deck-1', name: 'Cell structure', courseId: 'c-default'),
-      ]),
-    ));
+    await tester.pumpWidget(
+      _host(
+        recorder,
+        decks: FakeDeckRepository(
+          decks: [
+            _deck('deck-1', name: 'Cell structure', courseId: 'c-default'),
+          ],
+        ),
+      ),
+    );
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('Cell structure'));
@@ -258,12 +325,14 @@ void main() {
 
   testWidgets('the Create tile routes to /deck-creator', (tester) async {
     final recorder = _Recorder();
-    await tester.pumpWidget(_host(
-      recorder,
-      decks: FakeDeckRepository(decks: [
-        _deck('deck-1', courseId: 'c-default'),
-      ]),
-    ));
+    await tester.pumpWidget(
+      _host(
+        recorder,
+        decks: FakeDeckRepository(
+          decks: [_deck('deck-1', courseId: 'c-default')],
+        ),
+      ),
+    );
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('Create'));
@@ -287,19 +356,28 @@ void main() {
   });
 
   group('drag-to-reorder (milestone B)', () {
-    testWidgets('reordering a course row changes the visible course order',
-        (tester) async {
-      final courses = FakeCourseRepository(courses: [
-        _course('c-a',
-            name: 'Alpha', isDefault: true, createdAt: DateTime.utc(2026, 1)),
-        _course('c-b', name: 'Bravo', createdAt: DateTime.utc(2026, 2)),
-        _course('c-c', name: 'Charlie', createdAt: DateTime.utc(2026, 3)),
-      ]);
-      await tester.pumpWidget(_host(
-        _Recorder(),
-        decks: FakeDeckRepository(decks: [_deck('d1', courseId: 'c-a')]),
-        courses: courses,
-      ));
+    testWidgets('reordering a course row changes the visible course order', (
+      tester,
+    ) async {
+      final courses = FakeCourseRepository(
+        courses: [
+          _course(
+            'c-a',
+            name: 'Alpha',
+            isDefault: true,
+            createdAt: DateTime.utc(2026, 1),
+          ),
+          _course('c-b', name: 'Bravo', createdAt: DateTime.utc(2026, 2)),
+          _course('c-c', name: 'Charlie', createdAt: DateTime.utc(2026, 3)),
+        ],
+      );
+      await tester.pumpWidget(
+        _host(
+          _Recorder(),
+          decks: FakeDeckRepository(decks: [_deck('d1', courseId: 'c-a')]),
+          courses: courses,
+        ),
+      );
       await tester.pumpAndSettle();
 
       expect(
@@ -322,13 +400,16 @@ void main() {
       );
     });
 
-    testWidgets('reordering deck tiles persists the new deck order',
-        (tester) async {
-      final decks = FakeDeckRepository(decks: [
-        _deck('d1', name: 'One', courseId: 'c-default'),
-        _deck('d2', name: 'Two', courseId: 'c-default'),
-        _deck('d3', name: 'Three', courseId: 'c-default'),
-      ]);
+    testWidgets('reordering deck tiles persists the new deck order', (
+      tester,
+    ) async {
+      final decks = FakeDeckRepository(
+        decks: [
+          _deck('d1', name: 'One', courseId: 'c-default'),
+          _deck('d2', name: 'Two', courseId: 'c-default'),
+          _deck('d3', name: 'Three', courseId: 'c-default'),
+        ],
+      );
       await tester.pumpWidget(_host(_Recorder(), decks: decks));
       await tester.pumpAndSettle();
 
@@ -347,12 +428,15 @@ void main() {
     });
   });
 
-  testWidgets('renders nothing from the retired segmented control',
-      (tester) async {
-    await tester.pumpWidget(_host(
-      _Recorder(),
-      decks: FakeDeckRepository(decks: [_deck('d1', courseId: 'c-default')]),
-    ));
+  testWidgets('renders nothing from the retired segmented control', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _host(
+        _Recorder(),
+        decks: FakeDeckRepository(decks: [_deck('d1', courseId: 'c-default')]),
+      ),
+    );
     await tester.pumpAndSettle();
 
     expect(find.text('Due'), findsNothing);
@@ -366,20 +450,28 @@ void main() {
     Finder defaultMenu() => find.byIcon(Icons.more_vert).first;
     Finder bioMenu() => find.byIcon(Icons.more_vert).last;
 
-    Future<void> pumpTab(WidgetTester tester, FakeCourseRepository courses) async {
-      await tester.pumpWidget(_host(
-        _Recorder(),
-        decks: FakeDeckRepository(decks: [
-          _deck('d1', name: 'Cell structure', courseId: 'c-bio'),
-          _deck('d2', name: 'Shopping list', courseId: 'c-default'),
-        ]),
-        courses: courses,
-      ));
+    Future<void> pumpTab(
+      WidgetTester tester,
+      FakeCourseRepository courses,
+    ) async {
+      await tester.pumpWidget(
+        _host(
+          _Recorder(),
+          decks: FakeDeckRepository(
+            decks: [
+              _deck('d1', name: 'Cell structure', courseId: 'c-bio'),
+              _deck('d2', name: 'Shopping list', courseId: 'c-default'),
+            ],
+          ),
+          courses: courses,
+        ),
+      );
       await tester.pumpAndSettle();
     }
 
-    testWidgets('a non-default course header offers Edit and Delete',
-        (tester) async {
+    testWidgets('a non-default course header offers Edit and Delete', (
+      tester,
+    ) async {
       await pumpTab(tester, FakeCourseRepository(courses: _courses()));
 
       await tester.tap(bioMenu());
@@ -389,8 +481,9 @@ void main() {
       expect(find.text('Delete course'), findsOneWidget);
     });
 
-    testWidgets('the default course header offers Edit but not Delete',
-        (tester) async {
+    testWidgets('the default course header offers Edit but not Delete', (
+      tester,
+    ) async {
       await pumpTab(tester, FakeCourseRepository(courses: _courses()));
 
       await tester.tap(defaultMenu());
@@ -400,8 +493,9 @@ void main() {
       expect(find.text('Delete course'), findsNothing);
     });
 
-    testWidgets('Delete course confirms, then calls deleteCourse',
-        (tester) async {
+    testWidgets('Delete course confirms, then calls deleteCourse', (
+      tester,
+    ) async {
       final courses = FakeCourseRepository(courses: _courses());
       await pumpTab(tester, courses);
 
@@ -418,56 +512,71 @@ void main() {
     });
 
     testWidgets(
-        'deleting a course keeps the Decks tab mounted and removes the row '
-        '(regression: the dialog must pop its own navigator, not the shell '
-        'branch)', (tester) async {
-      final courses = FakeCourseRepository(courses: _courses());
-      final router = GoRouter(
-        initialLocation: '/decks',
-        routes: [
-          StatefulShellRoute.indexedStack(
-            builder: (_, _, shell) => shell,
-            branches: [
-              StatefulShellBranch(routes: [
-                GoRoute(
-                  path: '/decks',
-                  builder: (_, _) => const DecksTabScreen(),
+      'deleting a course keeps the Decks tab mounted and removes the row '
+      '(regression: the dialog must pop its own navigator, not the shell '
+      'branch)',
+      (tester) async {
+        final courses = FakeCourseRepository(courses: _courses());
+        final router = GoRouter(
+          initialLocation: '/decks',
+          routes: [
+            StatefulShellRoute.indexedStack(
+              builder: (_, _, shell) => shell,
+              branches: [
+                StatefulShellBranch(
+                  routes: [
+                    GoRoute(
+                      path: '/decks',
+                      builder: (_, _) => const DecksTabScreen(),
+                    ),
+                  ],
                 ),
-              ]),
-              StatefulShellBranch(routes: [
-                GoRoute(
-                  path: '/other',
-                  builder: (_, _) => const Scaffold(body: Text('other')),
+                StatefulShellBranch(
+                  routes: [
+                    GoRoute(
+                      path: '/other',
+                      builder: (_, _) => const Scaffold(body: Text('other')),
+                    ),
+                  ],
                 ),
-              ]),
+              ],
+            ),
+          ],
+        );
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              deckRepositoryProvider.overrideWithValue(
+                FakeDeckRepository(
+                  decks: [
+                    _deck('d1', name: 'Cell structure', courseId: 'c-bio'),
+                    _deck('d2', name: 'Shopping list', courseId: 'c-default'),
+                  ],
+                ),
+              ),
+              courseRepositoryProvider.overrideWithValue(courses),
             ],
+            child: MaterialApp.router(
+              theme: AppTheme.light,
+              routerConfig: router,
+            ),
           ),
-        ],
-      );
-      await tester.pumpWidget(ProviderScope(
-        overrides: [
-          deckRepositoryProvider.overrideWithValue(FakeDeckRepository(decks: [
-            _deck('d1', name: 'Cell structure', courseId: 'c-bio'),
-            _deck('d2', name: 'Shopping list', courseId: 'c-default'),
-          ])),
-          courseRepositoryProvider.overrideWithValue(courses),
-        ],
-        child: MaterialApp.router(theme: AppTheme.light, routerConfig: router),
-      ));
-      await tester.pumpAndSettle();
+        );
+        await tester.pumpAndSettle();
 
-      await tester.tap(bioMenu());
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Delete course'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.widgetWithText(FilledButton, 'Delete'));
-      await tester.pumpAndSettle();
+        await tester.tap(bioMenu());
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Delete course'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.widgetWithText(FilledButton, 'Delete'));
+        await tester.pumpAndSettle();
 
-      expect(find.byType(DecksTabScreen), findsOneWidget);
-      expect(find.text('Decks'), findsOneWidget);
-      expect(find.text('Biology'), findsNothing);
-      expect(courses.calls, contains('deleteCourse(c-bio)'));
-    });
+        expect(find.byType(DecksTabScreen), findsOneWidget);
+        expect(find.text('Decks'), findsOneWidget);
+        expect(find.text('Biology'), findsNothing);
+        expect(courses.calls, contains('deleteCourse(c-bio)'));
+      },
+    );
 
     testWidgets('Delete course can be cancelled', (tester) async {
       final courses = FakeCourseRepository(courses: _courses());
@@ -483,8 +592,9 @@ void main() {
       expect(courses.calls.where((c) => c.startsWith('deleteCourse')), isEmpty);
     });
 
-    testWidgets('Edit course renames and recolors through CourseController',
-        (tester) async {
+    testWidgets('Edit course renames and recolors through CourseController', (
+      tester,
+    ) async {
       final courses = FakeCourseRepository(courses: _courses());
       await pumpTab(tester, courses);
 
@@ -505,8 +615,9 @@ void main() {
       );
     });
 
-    testWidgets('Edit course stays reachable above the keyboard at 320x568',
-        (tester) async {
+    testWidgets('Edit course stays reachable above the keyboard at 320x568', (
+      tester,
+    ) async {
       _configurePhone(tester, const Size(320, 568));
       final courses = FakeCourseRepository(courses: _courses());
       await pumpTab(tester, courses);
@@ -525,10 +636,12 @@ void main() {
         ),
       );
       await tester.enterText(find.byType(TextField), 'Responsive Biology');
-      final scrollable = find.descendant(
-        of: find.byKey(const ValueKey('bounded-bottom-sheet-scroll')),
-        matching: find.byType(Scrollable),
-      ).first;
+      final scrollable = find
+          .descendant(
+            of: find.byKey(const ValueKey('bounded-bottom-sheet-scroll')),
+            matching: find.byType(Scrollable),
+          )
+          .first;
       await tester.scrollUntilVisible(
         find.byKey(const ValueKey('accent-red')),
         120,
@@ -544,17 +657,20 @@ void main() {
 
       expect(
         courses.calls,
-        contains(
-          'updateCourse(id=c-bio, name=Responsive Biology, accent=red)',
-        ),
+        contains('updateCourse(id=c-bio, name=Responsive Biology, accent=red)'),
       );
     });
 
-    testWidgets('the synthetic fallback course (courses still loading) has no menu',
-        (tester) async {
-      await pumpTab(tester, FakeCourseRepository()..throwOnNextCall = StateError('offline'));
+    testWidgets(
+      'the synthetic fallback course (courses still loading) has no menu',
+      (tester) async {
+        await pumpTab(
+          tester,
+          FakeCourseRepository()..throwOnNextCall = StateError('offline'),
+        );
 
-      expect(find.byIcon(Icons.more_vert), findsNothing);
-    });
+        expect(find.byIcon(Icons.more_vert), findsNothing);
+      },
+    );
   });
 }

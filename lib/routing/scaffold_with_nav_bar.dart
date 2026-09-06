@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../core/ui/offline_banner.dart';
+import '../ui/common/navigation_obstruction.dart';
 import 'ios_tab_bar.dart';
 
 /// The shell chrome wrapped around the four tab branches
@@ -130,6 +131,13 @@ class _ScaffoldWithNavBarState extends ConsumerState<ScaffoldWithNavBar>
 
   @override
   Widget build(BuildContext context) {
+    final mediaQuery = MediaQuery.of(context);
+    final tabBarContentHeight = IosTabBar.contentHeightFor(
+      context,
+      mediaQuery.size.width,
+    );
+    final navigationObstruction =
+        tabBarContentHeight + mediaQuery.viewPadding.bottom;
     final tabs = Stack(
       children: [
         for (var i = 0; i < widget.children.length; i++)
@@ -154,10 +162,13 @@ class _ScaffoldWithNavBarState extends ConsumerState<ScaffoldWithNavBar>
           children: [
             const OfflineBanner(),
             Expanded(
-              child: MediaQuery.removePadding(
-                context: context,
-                removeTop: true,
-                child: tabs,
+              child: NavigationObstruction(
+                bottom: navigationObstruction,
+                child: MediaQuery.removePadding(
+                  context: context,
+                  removeTop: true,
+                  child: tabs,
+                ),
               ),
             ),
           ],
@@ -166,6 +177,7 @@ class _ScaffoldWithNavBarState extends ConsumerState<ScaffoldWithNavBar>
       bottomNavigationBar: IosTabBar(
         currentIndex: widget.navigationShell.currentIndex,
         onSelectTab: _goBranch,
+        contentHeight: tabBarContentHeight,
       ),
     );
   }

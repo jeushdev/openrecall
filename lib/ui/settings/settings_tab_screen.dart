@@ -49,7 +49,8 @@ class SettingsTabScreen extends ConsumerWidget {
     final themeMode =
         ref.watch(themeModeProvider).asData?.value ?? ThemeMode.system;
     final themeController = ref.read(themeModeProvider.notifier);
-    final appearance = ref.watch(studyAppearanceProvider).asData?.value ??
+    final appearance =
+        ref.watch(studyAppearanceProvider).asData?.value ??
         StudyAppearance.defaults;
     final controller = ref.read(studyAppearanceProvider.notifier);
     final lastFeynman = ref.watch(lastFeynmanTimerProvider);
@@ -60,7 +61,6 @@ class SettingsTabScreen extends ConsumerWidget {
 
     return LargeTitleScaffold(
       title: 'Settings',
-      contentPadding: EdgeInsets.zero,
       slivers: [
         SliverToBoxAdapter(
           child: Column(
@@ -113,7 +113,7 @@ class SettingsTabScreen extends ConsumerWidget {
                       options: const [
                         (
                           value: ProgressIndicatorStyle.hairline,
-                          label: 'Hairline'
+                          label: 'Hairline',
                         ),
                         (value: ProgressIndicatorStyle.pill, label: 'Pill'),
                       ],
@@ -168,14 +168,15 @@ class SettingsTabScreen extends ConsumerWidget {
                   children: [
                     _ToggleRow(
                       label: 'Study reminders',
-                      caption: 'Nudge me a few hours after I leave cards '
+                      caption:
+                          'Nudge me a few hours after I leave cards '
                           'unfinished or parked.',
                       value: reminders.asData?.value ?? true,
                       onChanged: reminders.isLoading
                           ? null
                           : (v) => ref
-                              .read(notificationsEnabledProvider.notifier)
-                              .setEnabled(v),
+                                .read(notificationsEnabledProvider.notifier)
+                                .setEnabled(v),
                     ),
                   ],
                 ),
@@ -208,11 +209,12 @@ class SettingsTabScreen extends ConsumerWidget {
                   IosRow(
                     title: 'Delete account',
                     destructive: true,
-                    onTap: accountBusy ? null : () => _confirmDelete(context, ref),
+                    onTap: accountBusy
+                        ? null
+                        : () => _confirmDelete(context, ref),
                   ),
                 ],
               ),
-              const SizedBox(height: 120),
             ],
           ),
         ),

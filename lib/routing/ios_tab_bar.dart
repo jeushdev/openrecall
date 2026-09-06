@@ -18,10 +18,18 @@ class IosTabBar extends StatelessWidget {
     super.key,
     required this.currentIndex,
     required this.onSelectTab,
+    this.contentHeight,
   });
 
   final int currentIndex;
   final void Function(int index) onSelectTab;
+  final double? contentHeight;
+
+  static const double minimumContentHeight = 64;
+  static const double _topPadding = 18;
+  static const double _iconSize = 28;
+  static const double _iconLabelGap = 4;
+  static const double _horizontalLabelPadding = 8;
 
   static const _items = <({String key, IconData icon, String label})>[
     (key: 'nav-home', icon: Icons.home_outlined, label: 'Home'),
@@ -30,46 +38,77 @@ class IosTabBar extends StatelessWidget {
     (key: 'nav-more', icon: Icons.more_horiz, label: 'More'),
   ];
 
+  static TextStyle get _labelStyle =>
+      AppType.caption.copyWith(fontSize: 12, height: 1.0);
+
+  static double contentHeightFor(BuildContext context, double availableWidth) {
+    final itemWidth = availableWidth / _items.length;
+    var labelHeight = 0.0;
+    for (final item in _items) {
+      final painter = TextPainter(
+        text: TextSpan(text: item.label, style: _labelStyle),
+        textAlign: TextAlign.center,
+        textDirection: Directionality.of(context),
+        textScaler: MediaQuery.textScalerOf(context),
+        maxLines: 2,
+      )..layout(maxWidth: itemWidth - (_horizontalLabelPadding * 2));
+      labelHeight = labelHeight < painter.height ? painter.height : labelHeight;
+    }
+    return (_topPadding + _iconSize + _iconLabelGap + labelHeight).clamp(
+      minimumContentHeight,
+      double.infinity,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final tokens = Theme.of(context).extension<AppTokens>()!;
-    final screenHeight = MediaQuery.of(context).size.height;
-    final barHeight = (screenHeight * 0.09).clamp(64.0, 88.0);
+    final mediaQuery = MediaQuery.of(context);
 
-    return ClipRect(
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            color: tokens.cardFill.withValues(alpha: 0.92),
-            border: Border(
-              top: BorderSide(color: tokens.borderHairline, width: AppBorders.hairline),
-            ),
-          ),
-          child: SafeArea(
-            top: false,
-            child: SizedBox(
-              height: barHeight,
-              child: Row(
-                children: [
-                  for (var i = 0; i < _items.length; i++)
-                    Expanded(
-                      child: _TabItem(
-                        itemKey: ValueKey(_items[i].key),
-                        icon: _items[i].icon,
-                        label: _items[i].label,
-                        selected: i == currentIndex,
-                        onTap: () => onSelectTab(i),
-                        tokens: tokens,
-                        height: barHeight,
-                      ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final barHeight =
+            contentHeight ?? contentHeightFor(context, constraints.maxWidth);
+        final bottomInset = mediaQuery.viewPadding.bottom;
+        return SizedBox(
+          height: barHeight + bottomInset,
+          child: ClipRect(
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: tokens.cardFill.withValues(alpha: 0.92),
+                  border: Border(
+                    top: BorderSide(
+                      color: tokens.borderHairline,
+                      width: AppBorders.hairline,
                     ),
-                ],
+                  ),
+                ),
+                child: Padding(
+                  padding: EdgeInsets.only(bottom: bottomInset),
+                  child: Row(
+                    children: [
+                      for (var i = 0; i < _items.length; i++)
+                        Expanded(
+                          child: _TabItem(
+                            itemKey: ValueKey(_items[i].key),
+                            icon: _items[i].icon,
+                            label: _items[i].label,
+                            selected: i == currentIndex,
+                            onTap: () => onSelectTab(i),
+                            tokens: tokens,
+                            height: barHeight,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
               ),
             ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 }
@@ -103,15 +142,22 @@ class _TabItem extends StatelessWidget {
       child: SizedBox(
         height: height,
         child: Padding(
-          padding: const EdgeInsets.only(top: 18),
+          padding: const EdgeInsets.only(top: IosTabBar._topPadding),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.start,
             children: [
-              Icon(icon, size: 28, semanticLabel: label, color: color),
-              const SizedBox(height: 4),
+              Icon(
+                icon,
+                size: IosTabBar._iconSize,
+                semanticLabel: label,
+                color: color,
+              ),
+              const SizedBox(height: IosTabBar._iconLabelGap),
               Text(
                 label,
-                style: AppType.caption.copyWith(fontSize: 12, height: 1.0, color: color),
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                style: IosTabBar._labelStyle.copyWith(color: color),
               ),
             ],
           ),

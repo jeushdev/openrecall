@@ -75,7 +75,7 @@ Add regression coverage with each fix. The final testing milestone consolidates 
 
 ## Milestone 2 — Navigation, collapsing headers, and bottom clearance
 
-**Status:** Not started
+**Status:** Complete
 
 **Depends on:** None; execute after Milestone 1 for the recommended priority order.
 
@@ -100,6 +100,48 @@ Add regression coverage with each fix. The final testing milestone consolidates 
 - Long Home greetings and Decks actions do not overlap in expanded, intermediate, or collapsed header states, including visible offline/pending-sync indicators.
 - Last content and actions can scroll clear of navigation with representative Android bottom insets.
 - Standalone Settings does not reserve nonexistent tab-bar space, and tab screens do not acquire duplicate bottom gaps.
+
+### Implementation plan — prepared 2026-09-06
+
+**Execution:** Completed 2026-09-06. The sequence below is retained as the implementation record; reproduced failures and validation results are recorded in the execution log.
+
+#### Baseline and boundaries
+
+- Preserve the current uncommitted edits in `home_tab_screen.dart` and `large_title_scaffold.dart`: Home's decorative circles, the `backgroundDecoration` API and background stack, and transparent app-bar background. Reinspect the diff when execution starts.
+- The tab items currently require 18 pixels of top padding, a 28-pixel icon, a 4-pixel gap, and a scaled 12-pixel label. Their height is constrained by a viewport-derived 64–88-pixel bar. At scale 2.0 the nominal single-line total is already 74 pixels, making a short viewport the first reproduction candidate.
+- The header currently uses an 84-pixel expanded extent and a `46 / 28` title transform. Home supplies a dynamic greeting; Decks supplies Create and a conditionally visible `SyncStatusChip`. The chip's width changes with connectivity and pending count.
+- `ScaffoldWithNavBar` extends content behind the bar, wraps branches in nested scaffolds, and removes top padding using its build context. Inspect the resulting descendant `MediaQuery` values before relying on Flutter's extended-body padding; do not assume the navigation inset survives that wrapping.
+- Settings is a root-navigator route outside the tab shell. All five `LargeTitleScaffold` callers own their slivers; the scaffold's `contentPadding` field is unused.
+- Keep row metadata, segmented controls, Home cards, deck grids, and study layouts in their later milestones. Record any unrelated failure exposed by the matrix with its reproduction conditions.
+
+#### Execution sequence
+
+1. **Capture the baseline and reproduce failures.** Extend the existing tab-bar and large-title widget tests with 320×568 at scale 2.0, a long greeting, and Decks actions with offline/pending-sync content. Check title/action rectangles at expanded, intermediate, and collapsed scroll positions. Add a shell-level last-action fixture to establish actual bottom inset behavior. Record failures before layout changes; also capture representative default-scale light/dark appearance.
+
+2. **Make tab height content-driven.** Replace the screen-height percentage with a shared layout calculation based on local usable width, the current text scaler, actual label style, icon extent, and existing spacing. Preserve the 64-pixel minimum, increase height to fit the tallest label, and allow wrapping if the allotted tab width requires it. Do not cap growth at 88 pixels. Keep all four targets equal-width and retain keys, colors, blur, order, tap behavior, and adequate hit areas. Account for the Android bottom safe inset exactly once, outside the item content height. Validate the intentional height difference from the old percentage rule on taller screens.
+
+3. **Establish one bottom-clearance owner.** Have the shell provide the navigation obstruction extent to its branch subtree using the same metrics as the rendered bar; avoid a second independent height formula or a route-name heuristic. `LargeTitleScaffold` will consume that extent once as trailing scroll clearance, plus a small shared visual gap. Outside the shell, it will use only the applicable system bottom inset and that gap. Choose the precise inherited-metrics mechanism after the baseline confirms nested-scaffold inset behavior. Preserve `extendBody` and scrolling behind the blur. Ensure a short `SliverFillRemaining` loading/error screen also keeps its actions reachable.
+
+4. **Migrate caller padding and remove the unused API.** Remove `contentPadding` from `LargeTitleScaffold` and its callers, since callers already own content slivers and horizontal/top spacing. Replace only the bottom 120-pixel reservation in Home's content padding, Decks' accordion padding, and the trailing spacers in History, More, and Settings with the shared clearance convention. Preserve all other content spacing, including unrelated 120-pixel dimensions. Test both long and short content to catch duplicate gaps or excess scrolling.
+
+5. **Constrain the collapsing header.** Keep the existing expanded/collapsed typography roles and default styling. Measure titles using the effective text scaler and locally available width; derive expanded and minimum header extents from the resulting content rather than fixed height alone. Allocate leading and action space explicitly. Let long titles wrap and increase header height; do not shrink or ellipsize the greeting to conceal a failure. When title and actions cannot share a row, place actions in a separate bounded row while preserving their order and visibility. Use the same space policy throughout collapse so intermediate frames cannot move the title through actions. Prefer standard sliver/layout widgets; introduce a small header delegate only if the existing `SliverAppBar`/`FlexibleSpaceBar` cannot express the measured extents safely. Preserve leading/back behavior, header backgrounds, decorations, and scroll position. Modify `SyncStatusChip` layout only if its own intrinsic row still causes a reproduced failure, preserving its label, tooltip, and retry action.
+
+6. **Validate and record Milestone 2 only.** Run the focused regressions and relevant existing navigation/screen tests, analyze changed code, inspect representative rendering, and perform an Android smoke pass if a target is available. Update this milestone's status and execution log with actual results and limitations. Do not begin Milestone 3.
+
+#### Validation and review checklist
+
+| Area | Cases and required evidence |
+| --- | --- |
+| Shared tab bar and header | All six viewport pairs × scales 1.0, 1.3, 1.5, and 2.0; load bundled fonts for measurement. Assert no exceptions, full label bounds within targets, and title/action separation at expanded, midpoint, and collapsed positions. Include intermediate animation samples and a runtime scale change. |
+| Header content | Short and long greetings, including an unbroken name; Decks online with no chip, offline with zero pending, offline with a large pending count, and online pending/failed sync. Verify Create, retry, tooltips, and leading/back controls remain usable. |
+| Clearance | Exercise real shell nesting at all target widths, with short/tall heights and representative top/bottom insets (including zero and a bottom gesture/navigation inset). Scroll the last content/action fully above the bar and verify hit testing. Include populated, empty, loading, and error states where supported. Confirm clearance updates with scale and does not add the safe inset twice. |
+| Standalone Settings | Push from More, verify no tab bar or inherited tab-height reservation, reach the final setting above the system inset, and return to the preserved More state. Include a keyboard-inset case for shared scaffold sizing without changing form behavior. |
+| Appearance and behavior | Inspect light/dark default-scale and narrow scale-2.0 renders; preserve Home decoration and header transparency. Verify tab order, selected colors, reselection behavior, branch state retention, and transitions without duplicate navigator keys. |
+| Scope isolation | Use simple sliver fixtures to isolate header/navigation assertions, then exercise actual Home, Decks, History, More, and Settings. Report failures in later-milestone content separately; do not hide them with oversized test surfaces or claim full-screen success when they persist. |
+
+Expected test touchpoints: `test/routing/ios_tab_bar_test.dart`, `test/routing/app_router_test.dart`, `test/ui/common/large_title_scaffold_test.dart`, and the existing Home, Decks, History, More, and Settings screen tests. Add a focused shell-clearance test file if router tests cannot express the geometry clearly. Reuse current test/provider helpers; add only the matrix support needed here, leaving broad harness consolidation to Milestone 6.
+
+Completion requires the acceptance criteria above, geometric and interaction assertions in addition to exception checks, and an explicit distinction between automated rendering and Android device validation. Any unresolved implementation choice above must be settled from the reproduction evidence during execution, within this milestone's scope.
 
 ## Milestone 3 — Shared rows and compact selectors
 
@@ -216,7 +258,7 @@ Update after each independently executed milestone. Do not mark a milestone comp
 | Milestone | Date | Changes and validation evidence | Remaining limitations |
 | --- | --- | --- | --- |
 | 1 | 2026-09-06 | Reproduced the expanded Create Menu failure at 320×568 (999-pixel bottom overflow). Added a shared bounded, keyboard-aware scrolling sheet body and applied it to Create Menu plus course, deck, and profile editing. Import labels now wrap. Added regression coverage for all six viewport sizes at text scales 1.0, 1.3, 1.5, and 2.0, representative safe/keyboard insets, short-sheet sizing, dark theme, long import lists, wrapped course swatches, and reachable Save/validation behavior. All 70 focused tests passed. Full `flutter analyze` completed with no Milestone 1 findings. | No Android target was connected, so the manual Android smoke pass was not run. Full analysis still reports three pre-existing warnings in `home_tab_screen.dart` (unused `style` parameter, `_CardSkeleton`, and `_SectionError`). |
-| 2 | — | Not started | — |
+| 2 | 2026-09-06 | Reproduced a 10-pixel tab-item overflow at 320×568 with a 24-pixel Android bottom inset, then replaced viewport-percentage sizing with text-, icon-, spacing-, width-, and scale-driven navigation metrics. The shell now shares its exact rendered obstruction with tab branches, while `LargeTitleScaffold` supplies one trailing scroll clearance and standalone Settings uses only its system inset. Removed the unused `contentPadding` API and independent 120-pixel reservations. Replaced the fixed flexible header with a measured pinned header whose title and actions reflow throughout collapse. An actual offline Decks case at 320×568/scale 2 reproduced a 118-pixel status-chip overflow; the chip now wraps without losing its label, tooltip, or retry behavior. Added the six-viewport × four-scale tab/header matrix, expanded/intermediate/collapsed geometry checks, runtime scale and height-independence checks, actual offline/pending Decks coverage, shell/standalone clearance geometry, final-action reachability, and navigation behavior checks. Focused shared-layout, routing, Decks, History, More, Settings, and sync-chip suites passed. Full suite: 691 passed with six unrelated pre-existing expectation failures. | No Android target was connected, so the manual Android smoke pass was not run. Full analysis retains the same three pre-existing Home warnings. The full suite's unrelated failures are four stale Home expectations (removed labels, greeting punctuation, and intentional carousel neighbors) and two stale `AppTokens.light` palette expectations; no theme tokens changed in this milestone. |
 | 3 | — | Not started | — |
 | 4 | — | Not started | — |
 | 5 | — | Not started | — |

@@ -23,8 +23,8 @@ class SyncStatusChip extends ConsumerWidget {
     final tokens = Theme.of(context).extension<AppTokens>()!;
     final online = ref.watch(onlineStatusProvider).asData?.value ?? true;
     final count = ref.watch(pendingSyncCountProvider).asData?.value ?? 0;
-    final lastSyncFailed = ref.watch(syncOutcomeProvider).asData?.value.isFailure
-        ?? false;
+    final lastSyncFailed =
+        ref.watch(syncOutcomeProvider).asData?.value.isFailure ?? false;
 
     if (online && count == 0) return const SizedBox.shrink();
 
@@ -54,13 +54,14 @@ class SyncStatusChip extends ConsumerWidget {
             color: tokens.mutedFill,
             borderRadius: BorderRadius.circular(8),
           ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
+          child: Wrap(
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 4,
             children: [
               Icon(icon, size: 14, color: tokens.textSecondary),
-              const SizedBox(width: 4),
               Text(
                 label,
+                textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,

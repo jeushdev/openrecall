@@ -1,4 +1,5 @@
 import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -31,12 +32,53 @@ class HomeTabScreen extends ConsumerWidget {
     final username = ref.watch(profileProvider).asData?.value?.username;
     final active = ref.watch(activeSessionsProvider);
     final mostReviewed = ref.watch(mostReviewedDecksProvider);
-  
+    final tokens = Theme.of(context).extension<AppTokens>()!;
+
     return LargeTitleScaffold(
       title: 'Hello, ${displayNameOr(username, email)}!',
+      backgroundDecoration: Stack(
+        children: [
+          Positioned(
+            top: -30,
+            right: -40,
+            child: Container(
+              width: 140,
+              height: 140,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: tokens.tint.withValues(alpha: 0.06),
+              ),
+            ),
+          ),
+          Positioned(
+            top: 225,
+            right: 145,
+            child: Container(
+              width: 140,
+              height: 140,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: tokens.tint.withValues(alpha: 0.05),
+              ),
+            ),
+          ),
+          Positioned(
+            top: 360,
+            left: -70,
+            child: Container(
+              width: 110,
+              height: 110,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: tokens.tint.withValues(alpha: 0.05),
+              ),
+            ),
+          ),
+        ],
+      ),
       slivers: [
         SliverPadding(
-          padding: const EdgeInsets.fromLTRB(24, 4, 24, 120),
+          padding: const EdgeInsets.fromLTRB(24, 4, 24, 0),
           sliver: SliverList.list(
             children: [
               const _WelcomeSubheader(),
@@ -82,11 +124,13 @@ class _SectionHeader extends StatelessWidget {
     final tokens = Theme.of(context).extension<AppTokens>()!;
     return Padding(
       padding: const EdgeInsets.only(bottom: 4),
-      child: Text(text, style: (style ?? AppType.title).copyWith(color: tokens.textPrimary)),
+      child: Text(
+        text,
+        style: (style ?? AppType.title).copyWith(color: tokens.textPrimary),
+      ),
     );
   }
 }
-
 
 class _WelcomeSubheader extends StatelessWidget {
   const _WelcomeSubheader();
@@ -103,6 +147,7 @@ class _WelcomeSubheader extends StatelessWidget {
     );
   }
 }
+
 /// Horizontally scrolling list of in-progress sessions. Tapping a card resumes
 /// that deck's session in its mode (the study route re-queues the deck's
 /// unmastered cards and the session-conflict rule retires the stale row).
@@ -191,7 +236,9 @@ class _UnfinishedCard extends StatelessWidget {
                         session.deckName,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: AppType.label.copyWith(color: tokens.textPrimary),
+                        style: AppType.label.copyWith(
+                          color: tokens.textPrimary,
+                        ),
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -216,7 +263,9 @@ class _UnfinishedCard extends StatelessWidget {
                       child: Text(
                         '${session.percentComplete}%',
                         textAlign: TextAlign.right,
-                        style: AppType.numeric.copyWith(color: tokens.textSecondary),
+                        style: AppType.numeric.copyWith(
+                          color: tokens.textSecondary,
+                        ),
                       ),
                     ),
                   ],
@@ -292,8 +341,10 @@ class _DeckStackState extends State<_DeckStack> {
 
               if (blurSigma > 0.01) {
                 card = ImageFiltered(
-                  imageFilter:
-                      ui.ImageFilter.blur(sigmaX: blurSigma, sigmaY: blurSigma),
+                  imageFilter: ui.ImageFilter.blur(
+                    sigmaX: blurSigma,
+                    sigmaY: blurSigma,
+                  ),
                   child: card,
                 );
               }
@@ -378,8 +429,10 @@ class _DeckCard extends StatelessWidget {
                       minimumSize: const Size(0, 36),
                       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     ),
-                    child: Text('View Deck',
-                        style: AppType.label.copyWith(color: accent.text)),
+                    child: Text(
+                      'View Deck',
+                      style: AppType.label.copyWith(color: accent.text),
+                    ),
                   ),
               ],
             ),
