@@ -86,12 +86,14 @@ class HomeTabScreen extends ConsumerWidget {
               // the screen doesn't carry an empty heading.
               ...active.maybeWhen(
                 orElse: () => const <Widget>[],
-                data: (sessions) => [
-                  const SizedBox(height: 28),
-                  _SectionHeader('Pick up where you left off'),
-                  const SizedBox(height: 12),
-                  _UnfinishedStrip(sessions: sessions),
-                ],
+                data: (sessions) => sessions.isEmpty
+                    ? const <Widget>[]
+                    : [
+                        const SizedBox(height: 28),
+                        _SectionHeader('Pick up where you left off'),
+                        const SizedBox(height: 12),
+                        _UnfinishedStrip(sessions: sessions),
+                      ],
               ),
 
               ...mostReviewed.maybeWhen(
@@ -148,7 +150,7 @@ class _WelcomeSubheader extends StatelessWidget {
   }
 }
 
-/// Horizontally scrolling list of in-progress sessions. Tapping a card resumes
+/// Compact list of up to three in-progress sessions. Tapping a card resumes
 /// that deck's session in its mode (the study route re-queues the deck's
 /// unmastered cards and the session-conflict rule retires the stale row).
 class _UnfinishedStrip extends StatelessWidget {
@@ -157,38 +159,21 @@ class _UnfinishedStrip extends StatelessWidget {
   final List<UnfinishedSession> sessions;
 
   static const int _maxSlots = 3;
-  static const double _rowHeight = 56;
   static const double _rowGap = 8;
-  static const double fixedHeight =
-      _maxSlots * _rowHeight + (_maxSlots - 1) * _rowGap;
 
   @override
   Widget build(BuildContext context) {
-    final tokens = Theme.of(context).extension<AppTokens>()!;
-
-    if (sessions.isEmpty) {
-      return SizedBox(
-        height: fixedHeight,
-        child: Center(
-          child: Text(
-            'No pending session',
-            style: AppType.body.copyWith(color: tokens.textSecondary),
-          ),
-        ),
-      );
-    }
+    if (sessions.isEmpty) return const SizedBox.shrink();
 
     final shown = sessions.take(_maxSlots).toList();
-    return SizedBox(
-      height: fixedHeight,
-      child: Column(
-        children: [
-          for (var i = 0; i < shown.length; i++) ...[
-            if (i > 0) const SizedBox(height: _rowGap),
-            _UnfinishedCard(session: shown[i]),
-          ],
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (var i = 0; i < shown.length; i++) ...[
+          if (i > 0) const SizedBox(height: _rowGap),
+          _UnfinishedCard(session: shown[i]),
         ],
-      ),
+      ],
     );
   }
 }
@@ -220,63 +205,164 @@ class _UnfinishedCard extends StatelessWidget {
       radius: AppRadii.gridTile,
       onTap: () => _resume(context),
       padding: EdgeInsets.zero,
-      child: SizedBox(
-        height: 56,
-        child: Row(
-          children: [
-            Container(width: 7, color: accent.fill),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 14),
-                child: Row(
-                  children: [
-                    Expanded(
-                      flex: 2,
-                      child: Text(
-                        session.deckName,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: AppType.label.copyWith(
-                          color: tokens.textPrimary,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      flex: 3,
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(3),
-                        child: Container(
-                          height: 4,
-                          color: tokens.borderHairline,
-                          child: FractionallySizedBox(
-                            widthFactor: fraction,
-                            alignment: Alignment.centerLeft,
-                            child: Container(color: accent.fill),
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    SizedBox(
-                      width: 34,
-                      child: Text(
-                        '${session.percentComplete}%',
-                        textAlign: TextAlign.right,
-                        style: AppType.numeric.copyWith(
-                          color: tokens.textSecondary,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final percentage = '${session.percentComplete}%';
+          final percentageStyle = AppType.numeric.copyWith(
+            color: tokens.textSecondary,
+          );
+          final percentageWidth = _measureText(
+            context,
+            percentage,
+            percentageStyle,
+            double.infinity,
+          ).width;
+          final contentWidth = constraints.maxWidth - 35;
+          final reflow = contentWidth < percentageWidth + 204;
+
+          final progress = ClipRRect(
+            borderRadius: BorderRadius.circular(3),
+            child: Container(
+              height: 4,
+              color: tokens.borderHairline,
+              child: FractionallySizedBox(
+                widthFactor: fraction,
+                alignment: Alignment.centerLeft,
+                child: Container(color: accent.fill),
               ),
             ),
-          ],
-        ),
+          );
+          final name = Text(
+            session.deckName,
+            style: AppType.label.copyWith(color: tokens.textPrimary),
+          );
+          final percent = Text(
+            percentage,
+            textAlign: TextAlign.right,
+            style: percentageStyle,
+          );
+
+          final content = reflow
+              ? Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    name,
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(child: progress),
+                        const SizedBox(width: 10),
+                        percent,
+                      ],
+                    ),
+                  ],
+                )
+              : Row(
+                  children: [
+                    Expanded(flex: 2, child: name),
+                    const SizedBox(width: 12),
+                    Expanded(flex: 3, child: progress),
+                    const SizedBox(width: 10),
+                    percent,
+                  ],
+                );
+
+          return ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 56),
+            child: Stack(
+              children: [
+                Positioned.fill(
+                  right: null,
+                  child: Container(width: 7, color: accent.fill),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(21, 12, 14, 12),
+                  child: content,
+                ),
+              ],
+            ),
+          );
+        },
       ),
     );
   }
+}
+
+Size _measureText(
+  BuildContext context,
+  String text,
+  TextStyle style,
+  double maxWidth,
+) {
+  final painter = TextPainter(
+    text: TextSpan(
+      text: text,
+      style: DefaultTextStyle.of(context).style.merge(style),
+    ),
+    textDirection: Directionality.of(context),
+    textScaler: MediaQuery.textScalerOf(context),
+  )..layout(maxWidth: maxWidth);
+  return painter.size;
+}
+
+double _deckStackHeight(
+  BuildContext context,
+  double availableWidth,
+  List<MostReviewedDeck> decks,
+) {
+  const pageFraction = 0.82;
+  const pagePadding = 16.0;
+  const cardPadding = 36.0;
+  final contentWidth =
+      (availableWidth * pageFraction - pagePadding - cardPadding).clamp(
+        1.0,
+        double.infinity,
+      );
+  var requiredHeight = 260.0;
+
+  for (final deck in decks) {
+    var headingHeight = 0.0;
+    if (deck.courseName != null) {
+      headingHeight =
+          _measureText(
+            context,
+            deck.courseName!.toUpperCase(),
+            AppType.overline,
+            contentWidth,
+          ).height +
+          15;
+    }
+    final titleHeight = _measureText(
+      context,
+      deck.deckName,
+      AppType.title,
+      contentWidth,
+    ).height;
+    final countText = '${deck.cardCount} card${deck.cardCount == 1 ? '' : 's'}';
+    final countSize = _measureText(
+      context,
+      countText,
+      AppType.caption,
+      contentWidth,
+    );
+    final actionSize = _measureText(
+      context,
+      'View Deck',
+      AppType.label,
+      contentWidth,
+    );
+    final actionWidth = actionSize.width + 24;
+    final actionHeight = actionSize.height.clamp(36.0, double.infinity);
+    final footerHeight = countSize.width + 8 + actionWidth <= contentWidth
+        ? countSize.height.clamp(actionHeight, double.infinity)
+        : countSize.height + 8 + actionHeight;
+    requiredHeight = requiredHeight.clamp(
+      headingHeight + titleHeight + 16 + footerHeight + cardPadding + 12,
+      double.infinity,
+    );
+  }
+  return requiredHeight;
 }
 
 /// The most-reviewed decks as a layered card stack: the front card is fully
@@ -315,53 +401,55 @@ class _DeckStackState extends State<_DeckStack> {
   Widget build(BuildContext context) {
     if (widget.decks.isEmpty) return const SizedBox.shrink();
 
-    return SizedBox(
-      height: 260,
-      child: PageView.builder(
-        controller: _controller,
-        clipBehavior: Clip.none,
-        itemCount: widget.decks.length,
-        itemBuilder: (context, index) {
-          return AnimatedBuilder(
-            animation: _controller,
-            builder: (context, child) {
-              final page = _controller.hasClients && _controller.page != null
-                  ? _controller.page!
-                  : index.toDouble();
-              final distance = (page - index).abs().clamp(0.0, 1.0);
+    return LayoutBuilder(
+      builder: (context, constraints) => SizedBox(
+        height: _deckStackHeight(context, constraints.maxWidth, widget.decks),
+        child: PageView.builder(
+          controller: _controller,
+          clipBehavior: Clip.none,
+          itemCount: widget.decks.length,
+          itemBuilder: (context, index) {
+            return AnimatedBuilder(
+              animation: _controller,
+              builder: (context, child) {
+                final page = _controller.hasClients && _controller.page != null
+                    ? _controller.page!
+                    : index.toDouble();
+                final distance = (page - index).abs().clamp(0.0, 1.0);
 
-              final scale = 1 - (distance * 0.12);
-              final opacity = (1 - (distance * 0.35)).clamp(0.0, 1.0);
-              final blurSigma = distance * 6.0;
+                final scale = 1 - (distance * 0.12);
+                final opacity = (1 - (distance * 0.35)).clamp(0.0, 1.0);
+                final blurSigma = distance * 6.0;
 
-              Widget card = _DeckCard(
-                deck: widget.decks[index],
-                isFront: distance < 0.5,
-              );
-
-              if (blurSigma > 0.01) {
-                card = ImageFiltered(
-                  imageFilter: ui.ImageFilter.blur(
-                    sigmaX: blurSigma,
-                    sigmaY: blurSigma,
-                  ),
-                  child: card,
+                Widget card = _DeckCard(
+                  deck: widget.decks[index],
+                  isFront: distance < 0.5,
                 );
-              }
 
-              return Transform.scale(
-                scale: scale,
-                child: Opacity(
-                  opacity: opacity,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                if (blurSigma > 0.01) {
+                  card = ImageFiltered(
+                    imageFilter: ui.ImageFilter.blur(
+                      sigmaX: blurSigma,
+                      sigmaY: blurSigma,
+                    ),
                     child: card,
+                  );
+                }
+
+                return Transform.scale(
+                  scale: scale,
+                  child: Opacity(
+                    opacity: opacity,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      child: card,
+                    ),
                   ),
-                ),
-              );
-            },
-          );
-        },
+                );
+              },
+            );
+          },
+        ),
       ),
     );
   }
@@ -381,63 +469,88 @@ class _DeckCard extends StatelessWidget {
     return AppCard(
       radius: 18,
       padding: const EdgeInsets.all(18),
-      child: AspectRatio(
-        aspectRatio: 0.72,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (deck.courseName != null) ...[
-                  Text(
-                    deck.courseName!.toUpperCase(),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: AppType.overline.copyWith(color: accent.text),
-                  ),
-                  const SizedBox(height: 3),
-                  Container(width: 28, height: 2, color: accent.fill),
-                  const SizedBox(height: 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (deck.courseName != null) ...[
+                Text(
+                  deck.courseName!.toUpperCase(),
+                  style: AppType.overline.copyWith(color: accent.text),
+                ),
+                const SizedBox(height: 3),
+                Container(width: 28, height: 2, color: accent.fill),
+                const SizedBox(height: 10),
+              ],
+              Text(
+                deck.deckName,
+                style: AppType.title.copyWith(color: tokens.textPrimary),
+              ),
+            ],
+          ),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final count = Text(
+                '${deck.cardCount} card${deck.cardCount == 1 ? '' : 's'}',
+                style: AppType.caption.copyWith(color: tokens.textSecondary),
+              );
+              final action = TextButton(
+                onPressed: () => context.pushNamed(
+                  AppRoutes.deckDetailName,
+                  pathParameters: {'deckId': deck.deckId},
+                ),
+                style: TextButton.styleFrom(
+                  foregroundColor: accent.text,
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  minimumSize: const Size(0, 36),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                child: Text(
+                  'View Deck',
+                  style: AppType.label.copyWith(color: accent.text),
+                ),
+              );
+              if (!isFront) return count;
+
+              final countWidth = _measureText(
+                context,
+                '${deck.cardCount} card${deck.cardCount == 1 ? '' : 's'}',
+                AppType.caption,
+                constraints.maxWidth,
+              ).width;
+              final actionWidth =
+                  _measureText(
+                    context,
+                    'View Deck',
+                    AppType.label,
+                    constraints.maxWidth,
+                  ).width +
+                  24;
+              if (countWidth + 8 + actionWidth <= constraints.maxWidth) {
+                return Row(
+                  children: [
+                    count,
+                    const Spacer(),
+                    const SizedBox(width: 8),
+                    action,
+                  ],
+                );
+              }
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  count,
+                  const SizedBox(height: 8),
+                  Align(alignment: Alignment.centerRight, child: action),
                 ],
-                Text(
-                  deck.deckName,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: AppType.title.copyWith(color: tokens.textPrimary),
-                ),
-              ],
-            ),
-            Row(
-              children: [
-                Text(
-                  '${deck.cardCount} card${deck.cardCount == 1 ? '' : 's'}',
-                  style: AppType.caption.copyWith(color: tokens.textSecondary),
-                ),
-                const Spacer(),
-                if (isFront)
-                  TextButton(
-                    onPressed: () => context.pushNamed(
-                      AppRoutes.deckDetailName,
-                      pathParameters: {'deckId': deck.deckId},
-                    ),
-                    style: TextButton.styleFrom(
-                      foregroundColor: accent.text,
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      minimumSize: const Size(0, 36),
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    ),
-                    child: Text(
-                      'View Deck',
-                      style: AppType.label.copyWith(color: accent.text),
-                    ),
-                  ),
-              ],
-            ),
-          ],
-        ),
+              );
+            },
+          ),
+        ],
       ),
     );
   }

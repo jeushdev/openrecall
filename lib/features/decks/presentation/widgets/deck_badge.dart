@@ -11,11 +11,7 @@ import '../../application/decks_tab_view.dart';
 /// - Empty: a neutral `"no cards yet"` — deliberately not `"0 cards"`, to avoid
 ///   a discouraging zero.
 class DeckBadge extends StatelessWidget {
-  const DeckBadge({
-    super.key,
-    required this.deck,
-    required this.accent,
-  });
+  const DeckBadge({super.key, required this.deck, required this.accent});
 
   final DeckTileView deck;
   final AccentPair accent;
@@ -27,6 +23,7 @@ class DeckBadge extends StatelessWidget {
     if (deck.cardCount == 0) {
       return Text(
         'no cards yet',
+        textAlign: TextAlign.center,
         style: TextStyle(
           fontSize: 12,
           fontWeight: FontWeight.w500,
@@ -43,6 +40,7 @@ class DeckBadge extends StatelessWidget {
       ),
       child: Text(
         '${deck.cardCount} cards',
+        textAlign: TextAlign.center,
         style: TextStyle(
           fontSize: 12,
           fontWeight: FontWeight.w600,

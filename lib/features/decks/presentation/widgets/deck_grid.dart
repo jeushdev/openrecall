@@ -7,9 +7,10 @@ import '../../application/decks_tab_view.dart';
 import 'create_deck_tile.dart';
 import 'deck_grid_tile.dart';
 
-/// The 2-column square-tile grid inside one expanded course section of the
-/// Decks-tab accordion (ui-spec-v2 §5): `crossAxisCount: 2`,
-/// `childAspectRatio: 1`, gap `14`.
+/// The content-sized grid inside one expanded course section of the Decks-tab
+/// accordion (ui-spec-v2 §5). It keeps two columns and the 14-pixel gaps while
+/// the tiles have usable width, then gives every tile enough shared height for
+/// its scaled title and status content.
 ///
 /// Non-scrolling — the outer accordion `ListView` owns scrolling and the bottom
 /// inset that clears the floating glass nav bar. [showCreateTile] appends the
@@ -34,26 +35,42 @@ class DeckGrid extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return ReorderableGridView.count(
-      padding: EdgeInsets.zero,
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      crossAxisCount: 2,
-      childAspectRatio: 1,
-      mainAxisSpacing: 14,
-      crossAxisSpacing: 14,
-      onReorder: (oldIndex, newIndex) {
-        final ids = [for (final d in decks) d.id];
-        ref.read(tabOrderProvider.notifier).reorderDecks(
-              courseId,
-              moveItemToIndex(ids, oldIndex, newIndex),
-            );
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        const spacing = 14.0;
+        const minimumTwoColumnTileWidth = 112.0;
+        final columns =
+            constraints.maxWidth >= (minimumTwoColumnTileWidth * 2) + spacing
+            ? 2
+            : 1;
+        final tileWidth =
+            (constraints.maxWidth - (spacing * (columns - 1))) / columns;
+        final tileExtent = deckGridTileExtent(context, tileWidth, decks);
+
+        return ReorderableGridView.count(
+          padding: EdgeInsets.zero,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          crossAxisCount: columns,
+          childAspectRatio: tileWidth / tileExtent,
+          mainAxisSpacing: spacing,
+          crossAxisSpacing: spacing,
+          onReorder: (oldIndex, newIndex) {
+            final ids = [for (final d in decks) d.id];
+            ref
+                .read(tabOrderProvider.notifier)
+                .reorderDecks(
+                  courseId,
+                  moveItemToIndex(ids, oldIndex, newIndex),
+                );
+          },
+          footer: showCreateTile ? const [CreateDeckTile()] : null,
+          children: [
+            for (final deck in decks)
+              DeckGridTile(key: ValueKey(deck.id), deck: deck),
+          ],
+        );
       },
-      footer: showCreateTile ? const [CreateDeckTile()] : null,
-      children: [
-        for (final deck in decks)
-          DeckGridTile(key: ValueKey(deck.id), deck: deck),
-      ],
     );
   }
 }

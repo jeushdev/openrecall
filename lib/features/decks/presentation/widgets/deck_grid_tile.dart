@@ -8,8 +8,68 @@ import '../../../../ui/common/app_card.dart';
 import '../../application/decks_tab_view.dart';
 import 'deck_badge.dart';
 
-/// One square tile in a course section's deck grid (ui-spec-v2 §5, restyled on
-/// the v5 card system — ui-spec-v5 §6.3).
+const _tileContentPadding = 12.0;
+const _tileBackingInset = 8.0;
+const _tileDetailGap = 8.0;
+const _tileTitleStyle = TextStyle(fontSize: 15, fontWeight: FontWeight.w600);
+const _offlineStyle = TextStyle(fontSize: 10);
+
+double deckGridTileExtent(
+  BuildContext context,
+  double tileWidth,
+  Iterable<DeckTileView> decks,
+) {
+  final textScaler = MediaQuery.textScalerOf(context);
+  final direction = Directionality.of(context);
+  final contentWidth =
+      (tileWidth - _tileBackingInset - (_tileContentPadding * 2)).clamp(
+        1.0,
+        double.infinity,
+      );
+
+  double textHeight(String text, TextStyle style, double width) {
+    final painter = TextPainter(
+      text: TextSpan(
+        text: text,
+        style: DefaultTextStyle.of(context).style.merge(style),
+      ),
+      textDirection: direction,
+      textScaler: textScaler,
+      textAlign: TextAlign.center,
+    )..layout(maxWidth: width);
+    return painter.height;
+  }
+
+  var extent = tileWidth;
+  for (final deck in decks) {
+    final titleHeight = textHeight(deck.name, _tileTitleStyle, contentWidth);
+    final detailHeight = deck.isLockedOffline
+        ? textHeight(
+            'Download to use offline',
+            _offlineStyle,
+            (contentWidth - 16).clamp(1.0, double.infinity),
+          )
+        : deck.cardCount == 0
+        ? textHeight(
+            'no cards yet',
+            const TextStyle(fontSize: 12),
+            contentWidth,
+          )
+        : textHeight(
+                '${deck.cardCount} cards',
+                const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                (contentWidth - 16).clamp(1.0, double.infinity),
+              ) +
+              6;
+    final required =
+        (_tileContentPadding * 2) + titleHeight + _tileDetailGap + detailHeight;
+    if (required > extent) extent = required;
+  }
+  return extent;
+}
+
+/// One content-sized tile in a course section's deck grid (ui-spec-v2 §5,
+/// restyled on the v5 card system — ui-spec-v5 §6.3).
 ///
 /// The "stacked deck" depth is a single solid offset [Container] behind the
 /// foreground [AppCard] — **never** a [BoxShadow] on the backing layer (§3.3).
@@ -22,10 +82,7 @@ import 'deck_badge.dart';
 /// push (not a `go`) keeps the Decks tab underneath so back-navigation returns
 /// to it.
 class DeckGridTile extends StatelessWidget {
-  const DeckGridTile({
-    super.key,
-    required this.deck,
-  });
+  const DeckGridTile({super.key, required this.deck});
 
   final DeckTileView deck;
 
@@ -42,9 +99,9 @@ class DeckGridTile extends StatelessWidget {
         // Backing accent layer: shifted so only a left sliver shows.
         Positioned(
           left: 0,
-          right: 8,
-          top: 8,
-          bottom: 8,
+          right: _tileBackingInset,
+          top: _tileBackingInset,
+          bottom: _tileBackingInset,
           child: DecoratedBox(
             decoration: BoxDecoration(
               color: accent.fill.withValues(alpha: 0.4),
@@ -54,42 +111,42 @@ class DeckGridTile extends StatelessWidget {
         ),
         // Foreground card, inset 8px from the left to reveal the sliver.
         Padding(
-          padding: const EdgeInsets.only(left: 8),
+          padding: const EdgeInsets.only(left: _tileBackingInset),
           child: AppCard(
             radius: AppRadii.gridTile,
             onTap: deck.isLockedOffline
                 ? () => ScaffoldMessenger.maybeOf(context)
-                  ?..hideCurrentSnackBar()
-                  ..showSnackBar(SnackBar(
-                    content: Text(
-                      '“${deck.name}” isn\'t available offline — connect '
-                      'to download it.',
-                    ),
-                  ))
+                    ?..hideCurrentSnackBar()
+                    ..showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          '“${deck.name}” isn\'t available offline — connect '
+                          'to download it.',
+                        ),
+                      ),
+                    )
                 : () => context.pushNamed(
-                      AppRoutes.deckDetailName,
-                      pathParameters: {'deckId': deck.id},
-                    ),
+                    AppRoutes.deckDetailName,
+                    pathParameters: {'deckId': deck.id},
+                  ),
             child: Opacity(
               // Greyed while locked offline (design spec §E.1).
               opacity: deck.isLockedOffline ? 0.45 : 1.0,
               child: Padding(
-                padding: const EdgeInsets.all(12),
+                padding: const EdgeInsets.all(_tileContentPadding),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text(
                       deck.name,
                       textAlign: TextAlign.center,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
+                        fontSize: _tileTitleStyle.fontSize,
+                        fontWeight: _tileTitleStyle.fontWeight,
                         color: tokens.textPrimary,
                       ),
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: _tileDetailGap),
                     if (deck.isLockedOffline)
                       _OfflineLockAffordance(color: tokens.textSecondary)
                     else
@@ -123,8 +180,6 @@ class _OfflineLockAffordance extends StatelessWidget {
           child: Text(
             'Download to use offline',
             textAlign: TextAlign.center,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
             style: TextStyle(fontSize: 10, color: color),
           ),
         ),
