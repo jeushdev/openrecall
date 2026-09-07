@@ -17,11 +17,7 @@ import '../../domain/flip_rating.dart';
 /// [enabled] gates the whole row — Flip mode enables it once the card is
 /// flipped; Cloze and List enable it once every blank / item is revealed.
 class RatingRow extends StatelessWidget {
-  const RatingRow({
-    super.key,
-    required this.enabled,
-    required this.onRate,
-  });
+  const RatingRow({super.key, required this.enabled, required this.onRate});
 
   final bool enabled;
   final ValueChanged<FlipRating> onRate;
@@ -31,25 +27,68 @@ class RatingRow extends StatelessWidget {
     final tokens = Theme.of(context).extension<AppTokens>()!;
     final mastered = tokens.accent('red');
 
-    return Row(
-      children: [
-        for (final rating in FlipRating.values) ...[
-          if (rating.index != 0) const SizedBox(width: 10),
-          Expanded(
-            child: _RatingButton(
-              label: rating.label,
-              onTap: enabled ? () => onRate(rating) : null,
-              fill: rating == FlipRating.mastered ? mastered.fill : tokens.cardFill,
-              labelColor: rating == FlipRating.mastered
-                  ? tokens.cardFill
-                  : tokens.textPrimary,
-              borderColor: rating == FlipRating.mastered
-                  ? mastered.fill
-                  : tokens.borderHairline,
+    Widget button(FlipRating rating) => _RatingButton(
+      label: rating.label,
+      onTap: enabled ? () => onRate(rating) : null,
+      fill: rating == FlipRating.mastered ? mastered.fill : tokens.cardFill,
+      labelColor: rating == FlipRating.mastered
+          ? tokens.cardFill
+          : tokens.textPrimary,
+      borderColor: rating == FlipRating.mastered
+          ? mastered.fill
+          : tokens.borderHairline,
+    );
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        const gap = 10.0;
+        final style = AppType.label.copyWith(fontSize: 15);
+        final scaler = MediaQuery.textScalerOf(context);
+        final direction = Directionality.of(context);
+        final widestLabel = FlipRating.values.fold<double>(0, (width, rating) {
+          final painter = TextPainter(
+            text: TextSpan(text: rating.label, style: style),
+            textScaler: scaler,
+            textDirection: direction,
+          )..layout();
+          return width > painter.width ? width : painter.width;
+        });
+        final fourColumnWidth = (constraints.maxWidth - gap * 3) / 4;
+        final useTwoColumns = widestLabel + 16 > fourColumnWidth;
+
+        if (!useTwoColumns) {
+          return IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                for (final rating in FlipRating.values) ...[
+                  if (rating.index != 0) const SizedBox(width: gap),
+                  Expanded(child: button(rating)),
+                ],
+              ],
             ),
-          ),
-        ],
-      ],
+          );
+        }
+
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (var row = 0; row < 2; row++) ...[
+              if (row != 0) const SizedBox(height: gap),
+              IntrinsicHeight(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Expanded(child: button(FlipRating.values[row * 2])),
+                    const SizedBox(width: gap),
+                    Expanded(child: button(FlipRating.values[row * 2 + 1])),
+                  ],
+                ),
+              ),
+            ],
+          ],
+        );
+      },
     );
   }
 }
@@ -106,7 +145,7 @@ class _RatingButtonState extends State<_RatingButton> {
             onHighlightChanged: _setPressed,
             borderRadius: BorderRadius.circular(16),
             child: Container(
-              height: 60,
+              constraints: const BoxConstraints(minHeight: 60),
               alignment: Alignment.center,
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(16),
@@ -115,11 +154,9 @@ class _RatingButtonState extends State<_RatingButton> {
                   width: AppBorders.hairline,
                 ),
               ),
-              padding: const EdgeInsets.symmetric(horizontal: 2),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
               child: Text(
                 widget.label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
                 textAlign: TextAlign.center,
                 style: AppType.label.copyWith(
                   fontSize: 15,

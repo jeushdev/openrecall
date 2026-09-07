@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../theme/app_geometry.dart';
 import '../../../../theme/app_tokens.dart';
+import 'pre_session_picker_layout.dart';
 
 /// The Feynman timer preset picker (ui-spec-v1 §6.2.1).
 ///
@@ -24,41 +25,38 @@ class FeynmanTimerPicker extends StatelessWidget {
   Widget build(BuildContext context) {
     final tokens = Theme.of(context).extension<AppTokens>()!;
 
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              'How long for each card?',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
-                color: tokens.textPrimary,
-              ),
+    return PreSessionPickerLayout(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            'How long for each card?',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+              color: tokens.textPrimary,
             ),
-            const SizedBox(height: 8),
-            Text(
-              'You get this long to explain the prompt out loud before the '
-              'reference is revealed.',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 13, color: tokens.textSecondary),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'You get this long to explain the prompt out loud before the '
+            'reference is revealed.',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 13, color: tokens.textSecondary),
+          ),
+          const SizedBox(height: 24),
+          for (final seconds in presets) ...[
+            _PresetButton(
+              seconds: seconds,
+              isDefault: seconds == defaultSeconds,
+              onTap: () => onSelected(seconds),
+              tokens: tokens,
             ),
-            const SizedBox(height: 24),
-            for (final seconds in presets) ...[
-              _PresetButton(
-                seconds: seconds,
-                isDefault: seconds == defaultSeconds,
-                onTap: () => onSelected(seconds),
-                tokens: tokens,
-              ),
-              const SizedBox(height: 12),
-            ],
+            const SizedBox(height: 12),
           ],
-        ),
+        ],
       ),
     );
   }
@@ -86,7 +84,8 @@ class _PresetButton extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(14),
         child: Container(
-          height: 52,
+          constraints: const BoxConstraints(minHeight: 52),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           alignment: Alignment.center,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(14),
@@ -95,8 +94,10 @@ class _PresetButton extends StatelessWidget {
               width: AppBorders.hairline,
             ),
           ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
+          child: Wrap(
+            alignment: WrapAlignment.center,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 8,
             children: [
               Text(
                 '${seconds}s',
@@ -106,16 +107,11 @@ class _PresetButton extends StatelessWidget {
                   color: tokens.textPrimary,
                 ),
               ),
-              if (isDefault) ...[
-                const SizedBox(width: 8),
+              if (isDefault)
                 Text(
                   'default',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: tokens.textSecondary,
-                  ),
+                  style: TextStyle(fontSize: 12, color: tokens.textSecondary),
                 ),
-              ],
             ],
           ),
         ),

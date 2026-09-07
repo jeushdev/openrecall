@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../../theme/app_geometry.dart';
 import '../../../../theme/app_tokens.dart';
 import '../../../decks/domain/study_mode.dart';
+import 'pre_session_picker_layout.dart';
 
 /// The pre-session mode picker (ui-spec-v1 §6.2, decided with the user).
 ///
@@ -12,11 +13,7 @@ import '../../../decks/domain/study_mode.dart';
 /// session start" shape §6.2.1 uses for the Feynman timer. Only the modes the
 /// deck structurally supports are offered.
 class ModePicker extends StatelessWidget {
-  const ModePicker({
-    super.key,
-    required this.modes,
-    required this.onSelected,
-  });
+  const ModePicker({super.key, required this.modes, required this.onSelected});
 
   /// The offered modes, in [StudyMode] declaration order (Flip, Cloze, Feynman).
   final List<StudyMode> modes;
@@ -26,33 +23,30 @@ class ModePicker extends StatelessWidget {
   Widget build(BuildContext context) {
     final tokens = Theme.of(context).extension<AppTokens>()!;
 
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              'How do you want to study this deck?',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
-                color: tokens.textPrimary,
-              ),
+    return PreSessionPickerLayout(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            'How do you want to study this deck?',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+              color: tokens.textPrimary,
             ),
-            const SizedBox(height: 24),
-            for (final mode in modes) ...[
-              _ModeButton(
-                label: mode.label,
-                onTap: () => onSelected(mode),
-                tokens: tokens,
-              ),
-              const SizedBox(height: 12),
-            ],
+          ),
+          const SizedBox(height: 24),
+          for (final mode in modes) ...[
+            _ModeButton(
+              label: mode.label,
+              onTap: () => onSelected(mode),
+              tokens: tokens,
+            ),
+            const SizedBox(height: 12),
           ],
-        ),
+        ],
       ),
     );
   }
@@ -78,7 +72,8 @@ class _ModeButton extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(14),
         child: Container(
-          height: 52,
+          constraints: const BoxConstraints(minHeight: 52),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           alignment: Alignment.center,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(14),
@@ -89,6 +84,7 @@ class _ModeButton extends StatelessWidget {
           ),
           child: Text(
             label,
+            textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 15,
               fontWeight: FontWeight.w600,

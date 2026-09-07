@@ -316,9 +316,7 @@ void main() {
       ),
       textScale: 2,
     );
-    // The underlying detail screen has an existing scale-2 overflow in its
-    // pre-session content (Milestone 5). Clear it before isolating this sheet.
-    tester.takeException();
+    expect(tester.takeException(), isNull);
 
     await _openOverflow(tester, 'Edit deck');
     tester.view.viewInsets = const FakeViewPadding(bottom: 240);
@@ -347,6 +345,42 @@ void main() {
         'updateDeck(id=deck-1, name=Responsive deck, course=course-long)',
       ),
     );
+  });
+
+  testWidgets('all study modes remain reachable at 320x568 and 2x text', (
+    tester,
+  ) async {
+    _configurePhone(tester, const Size(320, 568));
+    final rec = _Recorder();
+    await _pump(
+      tester,
+      rec,
+      decks: FakeDeckRepository(
+        decks: [_deck('deck-1')],
+        cards: [
+          _card(keywords: const ['Paris']),
+          _card(id: 'concept', isConcept: true),
+        ],
+      ),
+      textScale: 2,
+    );
+
+    expect(tester.takeException(), isNull);
+    final feynman = find.text('Feynman Synthesis');
+    await tester.scrollUntilVisible(
+      feynman,
+      100,
+      scrollable: find
+          .descendant(
+            of: find.byKey(const ValueKey('pre-session-picker-scroll')),
+            matching: find.byType(Scrollable),
+          )
+          .first,
+    );
+    expect(feynman.hitTestable(), findsOneWidget);
+    await tester.tap(feynman);
+    await tester.pumpAndSettle();
+    expect(rec.location, '/study/deck-1');
   });
 
   testWidgets('Edit deck can move the deck to another course', (tester) async {

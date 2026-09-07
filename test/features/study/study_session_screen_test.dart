@@ -27,24 +27,24 @@ FlashCard _card(
   bool isConcept = false,
   String? front,
   String? back,
-}) =>
-    FlashCard(
-      id: id,
-      deckId: 'deck-1',
-      front: front ?? 'front-$id',
-      back: back ?? 'back-$id',
-      keywords: keywords,
-      isConcept: isConcept,
-      masteryLevel: mastery,
-      failCount: 0,
-      createdAt: DateTime.utc(2026),
-      updatedAt: DateTime.utc(2026),
-    );
+}) => FlashCard(
+  id: id,
+  deckId: 'deck-1',
+  front: front ?? 'front-$id',
+  back: back ?? 'back-$id',
+  keywords: keywords,
+  isConcept: isConcept,
+  masteryLevel: mastery,
+  failCount: 0,
+  createdAt: DateTime.utc(2026),
+  updatedAt: DateTime.utc(2026),
+);
 
 Widget _host({
   required FakeDeckRepository decks,
   required FakeStudyRepository study,
   String scope = 'due',
+  double textScale = 1,
 }) {
   final router = GoRouter(
     initialLocation: '/home',
@@ -60,7 +60,8 @@ Widget _host({
               return StudySessionScreen(
                 deckId: state.pathParameters['deckId']!,
                 scope: cardScopeFromDb(
-                    state.uri.queryParameters['scope'] ?? 'due'),
+                  state.uri.queryParameters['scope'] ?? 'due',
+                ),
                 requestedMode: args?.mode,
               );
             },
@@ -70,9 +71,8 @@ Widget _host({
       GoRoute(
         path: AppRoutes.importCardsPath,
         name: AppRoutes.importCardsName,
-        builder: (_, state) => Scaffold(
-          body: Text('import ${state.pathParameters['deckId']}'),
-        ),
+        builder: (_, state) =>
+            Scaffold(body: Text('import ${state.pathParameters['deckId']}')),
       ),
     ],
   );
@@ -81,7 +81,15 @@ Widget _host({
       deckRepositoryProvider.overrideWithValue(decks),
       studyRepositoryProvider.overrideWithValue(study),
     ],
-    child: MaterialApp.router(theme: AppTheme.light, routerConfig: router),
+    child: MaterialApp.router(
+      theme: AppTheme.light,
+      routerConfig: router,
+      builder: (context, child) => MediaQuery(
+        data: MediaQuery.of(context)
+            .copyWith(textScaler: TextScaler.linear(textScale)),
+        child: child!,
+      ),
+    ),
   );
 }
 
@@ -90,8 +98,11 @@ Future<void> _open(
   required FakeDeckRepository decks,
   required FakeStudyRepository study,
   String scope = 'due',
+  double textScale = 1,
 }) async {
-  await tester.pumpWidget(_host(decks: decks, study: study, scope: scope));
+  await tester.pumpWidget(
+    _host(decks: decks, study: study, scope: scope, textScale: textScale),
+  );
   GoRouter.of(tester.element(find.text('Home')))
       .go('/home/study/deck-1?scope=$scope');
   await tester.pumpAndSettle();
@@ -127,8 +138,9 @@ void main() {
   // missing SharedPreferences plugin. Individual tests re-seed it as needed.
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
-  testWidgets('a single-mode deck skips the picker and opens Flip',
-      (tester) async {
+  testWidgets('a single-mode deck skips the picker and opens Flip', (
+    tester,
+  ) async {
     await _open(
       tester,
       decks: FakeDeckRepository(cards: [_card('a'), _card('b')]),
@@ -151,8 +163,9 @@ void main() {
     expect(find.text('back-a'), findsOneWidget);
   });
 
-  testWidgets('the fade transition setting still reveals the back on tap',
-      (tester) async {
+  testWidgets('the fade transition setting still reveals the back on tap', (
+    tester,
+  ) async {
     SharedPreferences.setMockInitialValues({'card_transition': 'fade'});
     await _open(
       tester,
@@ -165,8 +178,9 @@ void main() {
     expect(find.text('back-a'), findsOneWidget);
   });
 
-  testWidgets('the rating row is inert until the card is flipped',
-      (tester) async {
+  testWidgets('the rating row is inert until the card is flipped', (
+    tester,
+  ) async {
     await _open(
       tester,
       decks: FakeDeckRepository(cards: [_card('a'), _card('b')]),
@@ -200,12 +214,16 @@ void main() {
     expect(find.text('front-b'), findsOneWidget);
   });
 
-  testWidgets('a deck supporting several modes shows the picker', (tester) async {
+  testWidgets('a deck supporting several modes shows the picker', (
+    tester,
+  ) async {
     await _open(
       tester,
-      decks: FakeDeckRepository(cards: [
-        _card('a', front: 'Paris is the capital', keywords: ['Paris']),
-      ]),
+      decks: FakeDeckRepository(
+        cards: [
+          _card('a', front: 'Paris is the capital', keywords: ['Paris']),
+        ],
+      ),
       study: FakeStudyRepository(),
     );
 
@@ -218,16 +236,60 @@ void main() {
     expect(find.text('Paris is the capital'), findsOneWidget);
   });
 
-  testWidgets('Cloze has no rating row; answering the blank ends the session',
-      (tester) async {
+  testWidgets('picker and active ratings fit at 320x568 and 2x text', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 568);
+    tester.view.devicePixelRatio = 1;
+    tester.view.viewPadding = const FakeViewPadding(top: 24, bottom: 24);
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetViewPadding);
+
     await _open(
       tester,
-      decks: FakeDeckRepository(cards: [
-        _card('a',
+      decks: FakeDeckRepository(
+        cards: [
+          _card(
+            'a',
+            front: 'Paris is the capital',
+            back: 'of France',
+            keywords: const ['Paris'],
+          ),
+        ],
+      ),
+      study: FakeStudyRepository(),
+      textScale: 2,
+    );
+
+    expect(tester.takeException(), isNull);
+    await tester.tap(find.text('Flip & Rate'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(FlipCard));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(find.text('Mastered').hitTestable(), findsOneWidget);
+    expect(
+      tester.widget<Text>(find.text('Unfamiliar')).overflow,
+      isNot(TextOverflow.ellipsis),
+    );
+  });
+
+  testWidgets('Cloze has no rating row; answering the blank ends the session', (
+    tester,
+  ) async {
+    await _open(
+      tester,
+      decks: FakeDeckRepository(
+        cards: [
+          _card(
+            'a',
             front: 'Paris is the capital',
             keywords: ['Paris'],
-            back: 'of France'),
-      ]),
+            back: 'of France',
+          ),
+        ],
+      ),
       study: FakeStudyRepository(),
     );
 
@@ -245,8 +307,55 @@ void main() {
     expect(find.byType(SessionSummaryView), findsOneWidget);
   });
 
-  testWidgets('completing the session shows the Summary, then Done pops back',
-      (tester) async {
+  testWidgets('Cloze field and submit stay reachable above the keyboard', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({'card_font_size': 'xlarge'});
+    tester.view.physicalSize = const Size(320, 568);
+    tester.view.devicePixelRatio = 1;
+    tester.view.viewPadding = const FakeViewPadding(top: 24, bottom: 24);
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetViewPadding);
+    addTearDown(tester.view.resetViewInsets);
+
+    await _open(
+      tester,
+      decks: FakeDeckRepository(
+        cards: [
+          _card(
+            'a',
+            front: 'Paris is the capital of France and a major European city',
+            keywords: const ['Paris'],
+            back: 'A long explanation that must remain scrollable.',
+          ),
+        ],
+      ),
+      study: FakeStudyRepository(),
+      textScale: 2,
+    );
+    await tester.tap(find.text('Cloze Type-in'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField), 'Paris');
+    tester.view.viewInsets = const FakeViewPadding(bottom: 260);
+    await tester.pumpAndSettle();
+    final check = find.widgetWithText(FilledButton, 'Check');
+    await tester.ensureVisible(check);
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+    expect(find.byType(RatingRow), findsNothing);
+    expect(check.hitTestable(), findsOneWidget);
+    expect(tester.getBottomRight(check).dy, lessThanOrEqualTo(308));
+    await tester.tap(check);
+    await tester.pumpAndSettle();
+    expect(find.text('This session'), findsOneWidget);
+  });
+
+  testWidgets('completing the session shows the Summary, then Done pops back', (
+    tester,
+  ) async {
     await _open(
       tester,
       decks: FakeDeckRepository(cards: [_card('a')]),
@@ -269,8 +378,9 @@ void main() {
     expect(find.byType(StudySessionScreen), findsNothing);
   });
 
-  testWidgets('the close button leaves the session active and pops',
-      (tester) async {
+  testWidgets('the close button leaves the session active and pops', (
+    tester,
+  ) async {
     final study = FakeStudyRepository();
     await _open(
       tester,
@@ -285,8 +395,9 @@ void main() {
     expect(study.sessions.single.status.name, 'active');
   });
 
-  testWidgets('an all-mastered deck on the due scope shows nothing to study',
-      (tester) async {
+  testWidgets('an all-mastered deck on the due scope shows nothing to study', (
+    tester,
+  ) async {
     await _open(
       tester,
       decks: FakeDeckRepository(cards: [_card('a', mastery: 4)]),
@@ -296,8 +407,9 @@ void main() {
     expect(find.textContaining('Nothing to study'), findsOneWidget);
   });
 
-  testWidgets('a deck with no cards shows the empty state, not a spinner',
-      (tester) async {
+  testWidgets('a deck with no cards shows the empty state, not a spinner', (
+    tester,
+  ) async {
     await _open(
       tester,
       decks: FakeDeckRepository(cards: const []),
@@ -308,8 +420,9 @@ void main() {
     expect(find.byType(CircularProgressIndicator), findsNothing);
   });
 
-  testWidgets('the no-cards empty state opens the import screen for the deck',
-      (tester) async {
+  testWidgets('the no-cards empty state opens the import screen for the deck', (
+    tester,
+  ) async {
     await _open(
       tester,
       decks: FakeDeckRepository(cards: const []),
@@ -322,7 +435,9 @@ void main() {
     expect(find.text('import deck-1'), findsOneWidget);
   });
 
-  testWidgets('the all-mastered dead-end offers to import cards', (tester) async {
+  testWidgets('the all-mastered dead-end offers to import cards', (
+    tester,
+  ) async {
     await _open(
       tester,
       decks: FakeDeckRepository(cards: [_card('a', mastery: 4)]),
@@ -335,8 +450,9 @@ void main() {
     expect(find.text('import deck-1'), findsOneWidget);
   });
 
-  testWidgets('the active session shows a "resolved / total" counter',
-      (tester) async {
+  testWidgets('the active session shows a "resolved / total" counter', (
+    tester,
+  ) async {
     await _open(
       tester,
       decks: FakeDeckRepository(cards: [_card('a'), _card('b'), _card('c')]),
@@ -353,8 +469,9 @@ void main() {
     expect(find.text('1 / 3'), findsOneWidget);
   });
 
-  testWidgets('a larger "Card text size" preset scales only the card context',
-      (tester) async {
+  testWidgets('a larger "Card text size" preset scales only the card context', (
+    tester,
+  ) async {
     SharedPreferences.setMockInitialValues({'card_font_size': 'xlarge'});
     await _open(
       tester,
@@ -371,8 +488,9 @@ void main() {
     expect(MediaQuery.textScalerOf(counterContext).scale(10), 10.0);
   });
 
-  testWidgets('the default preset leaves the card text context unscaled',
-      (tester) async {
+  testWidgets('the default preset leaves the card text context unscaled', (
+    tester,
+  ) async {
     await _open(
       tester,
       decks: FakeDeckRepository(cards: [_card('a')]),
@@ -384,16 +502,21 @@ void main() {
   });
 
   group('mode routing (milestone R1)', () {
-    FakeDeckRepository twoModeDeck() => FakeDeckRepository(cards: [
-          _card('a',
-              front: 'Paris is the capital',
-              keywords: ['Paris'],
-              back: 'of France'),
-          _card('b', front: 'Rome', keywords: ['Rome'], back: 'is in Italy'),
-        ]);
+    FakeDeckRepository twoModeDeck() => FakeDeckRepository(
+      cards: [
+        _card(
+          'a',
+          front: 'Paris is the capital',
+          keywords: ['Paris'],
+          back: 'of France',
+        ),
+        _card('b', front: 'Rome', keywords: ['Rome'], back: 'is in Italy'),
+      ],
+    );
 
-    testWidgets('a forwarded mode starts it, skipping the in-screen picker',
-        (tester) async {
+    testWidgets('a forwarded mode starts it, skipping the in-screen picker', (
+      tester,
+    ) async {
       await _openWithMode(
         tester,
         StudyMode.cloze,
@@ -447,8 +570,9 @@ void main() {
       expect(find.byType(CircularProgressIndicator), findsNothing);
     });
 
-    testWidgets('re-entering with the same mode resumes the live session',
-        (tester) async {
+    testWidgets('re-entering with the same mode resumes the live session', (
+      tester,
+    ) async {
       final decks = twoModeDeck();
       await _openWithMode(
         tester,
