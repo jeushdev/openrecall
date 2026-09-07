@@ -99,8 +99,18 @@ class SessionController extends Notifier<AsyncValue<StudySessionState?>> {
   void _triggerSync() {
     final sync = ref.read(syncServiceProvider);
     if (sync != null) {
-      unawaited(sync.syncPending().then((_) => _refreshSessionReads()));
+      unawaited(
+        sync.syncPending().then((_) {
+          _refreshPendingSync();
+          _refreshSessionReads();
+        }),
+      );
     }
+  }
+
+  void _refreshPendingSync() {
+    ref.invalidate(pendingSyncProvider);
+    ref.invalidate(pendingSyncCountProvider);
   }
 
   void _refreshSessionReads() {
@@ -126,6 +136,7 @@ class SessionController extends Notifier<AsyncValue<StudySessionState?>> {
 
   final Map<String, _CardSync> _sync = {};
   final Map<String, Future<void>> _writeChains = {};
+  Future<void> _sessionWriteChain = Future<void>.value();
 
   /// Every deck card's `mastery_level` snapshotted at session start — the
   /// baseline for the Session Summary's whole-deck mastery delta (spec §7).
@@ -194,6 +205,7 @@ class SessionController extends Notifier<AsyncValue<StudySessionState?>> {
 
     if (state.hasValue) {
       ref.invalidate(decksProvider);
+      _refreshPendingSync();
       _refreshSessionReads();
       // The user is back studying — drop any pending "come back" reminder.
       _notify(_notifications.cancelReturnReminder);
@@ -236,6 +248,7 @@ class SessionController extends Notifier<AsyncValue<StudySessionState?>> {
 
     if (state.hasValue) {
       ref.invalidate(decksProvider);
+      _refreshPendingSync();
       _refreshSessionReads();
       _notify(_notifications.cancelReturnReminder);
     }
@@ -339,8 +352,8 @@ class SessionController extends Notifier<AsyncValue<StudySessionState?>> {
     }
 
     if (effects.isFail && effects.newPosition != null) {
-      unawaited(
-        _study.updateSessionCard(
+      _scheduleSessionWrite(
+        () => _study.updateSessionCard(
           sessionCardId: effects.sessionCardId,
           position: effects.newPosition,
           consecutiveFails: effects.newConsecutiveFails,
@@ -387,8 +400,11 @@ class SessionController extends Notifier<AsyncValue<StudySessionState?>> {
     state = AsyncData(_attachOutcomeIfDone(next));
 
     if (sessionCardId != null) {
-      unawaited(
-        _study.updateSessionCard(sessionCardId: sessionCardId, isParked: true),
+      _scheduleSessionWrite(
+        () => _study.updateSessionCard(
+          sessionCardId: sessionCardId,
+          isParked: true,
+        ),
       );
     }
     if (next.phase == SessionPhase.completed) {
@@ -405,8 +421,8 @@ class SessionController extends Notifier<AsyncValue<StudySessionState?>> {
     state = AsyncData(current.declinePark());
 
     if (sessionCardId != null) {
-      unawaited(
-        _study.updateSessionCard(
+      _scheduleSessionWrite(
+        () => _study.updateSessionCard(
           sessionCardId: sessionCardId,
           consecutiveFails: 0,
         ),
@@ -422,6 +438,7 @@ class SessionController extends Notifier<AsyncValue<StudySessionState?>> {
     if (current == null) return;
     ref.invalidate(deckCardsProvider(current.deckId));
     ref.invalidate(decksProvider);
+    _refreshPendingSync();
     _refreshSessionReads();
     _triggerSync();
 
@@ -460,6 +477,7 @@ class SessionController extends Notifier<AsyncValue<StudySessionState?>> {
       // Non-fatal: the Session Summary is driven by in-memory state, not this
       // write.
     }
+    _refreshPendingSync();
 
     // Spec §8: a completed session still leaves parked cards for next time.
     final parked = current.parkedCardIds.length;
@@ -484,7 +502,15 @@ class SessionController extends Notifier<AsyncValue<StudySessionState?>> {
     final prev = _writeChains[cardId] ?? Future<void>.value();
     _writeChains[cardId] = prev
         .then((_) => _flushCardWrite(cardId))
-        .catchError((_) {});
+        .catchError((_) {})
+        .whenComplete(_refreshPendingSync);
+  }
+
+  void _scheduleSessionWrite(Future<void> Function() write) {
+    _sessionWriteChain = _sessionWriteChain
+        .then((_) => write())
+        .catchError((_) {})
+        .whenComplete(_refreshPendingSync);
   }
 
   Future<void> _flushCardWrite(String cardId) async {
@@ -536,7 +562,7 @@ class SessionController extends Notifier<AsyncValue<StudySessionState?>> {
 
   Future<void> _flushAllPendingWrites() async {
     // Drain the chains, then sweep once more for anything still dirty.
-    await Future.wait(_writeChains.values);
+    await Future.wait([..._writeChains.values, _sessionWriteChain]);
     final sweep = [for (final cardId in _sync.keys) _flushCardWrite(cardId)];
     await Future.wait(sweep);
   }
@@ -544,6 +570,7 @@ class SessionController extends Notifier<AsyncValue<StudySessionState?>> {
   void _resetInternals() {
     _sync.clear();
     _writeChains.clear();
+    _sessionWriteChain = Future<void>.value();
     _deckMasteryAtStart = const {};
     _requeues = 0;
     _missedCardIds.clear();

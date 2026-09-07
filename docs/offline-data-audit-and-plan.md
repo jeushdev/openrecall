@@ -8,10 +8,10 @@ Audited: 2026-09-07. Scope: native first; web remains online-only.
 - **Milestone 2 — Immediate application reads:** implemented; validation recorded below.
 - **Milestone 3 — Durable Dashboard, History, and metrics:** implemented; validation recorded below.
 - **Milestone 4 — Reliable deck packages:** implemented; validation recorded below.
-- **Milestone 5 — Local study writes and clear status:** deferred.
+- **Milestone 5 — Local study writes and clear status:** implemented; validation recorded below.
 
-Implementation currently stops after milestone 4. Local-first study writes and
-offline-indicator changes remain deferred to milestone 5.
+The native offline-data plan is complete across milestones 1–5. Web and native
+database-open failures intentionally remain online-only.
 
 ## Audit: current data flow
 
@@ -266,6 +266,39 @@ Implemented in `Add reliable offline deck package validation`:
 - Acceptance: all study modes finish with stalled remote calls; reconnect is
   idempotent and preserves newer local edits.
 
+Implemented in `Add local-first study writes and accurate sync status`:
+
+- For a verified complete deck package, abandonment, client-UUID session
+  creation, queue creation and mutation, card mastery/fail changes, completion,
+  and the deck's last-studied timestamp commit to the existing SQLite v7 mirror
+  without awaiting Supabase. Incomplete packages, web, and native runs without
+  SQLite retain the online-only repository path.
+- The session controller serializes queue-position/fail/park writes and drains
+  them together with guarded mastery writes before committing completion. It
+  refreshes pending-sync, history, active-progress, session-count, card, and deck
+  providers after local commits without replacing usable cached values on a
+  refresh or sync failure.
+- Sync retains its parent-first dependency order. For affected decks it applies
+  the existing remote active-session conflict rule before replaying session
+  rows, then upserts queue rows. Deck replay now carries the locally committed
+  `last_studied_at` value.
+- Every sync acknowledgment is conditional on the exact local revision sent:
+  timestamped card/content rows also compare their sent values, deck/course
+  acknowledgments compare all locally mutable fields, and session/queue rows
+  compare their complete payload because those server tables have no
+  `updated_at`. A later local edit therefore remains dirty for the next
+  idempotent pass instead of being cleared by a late response.
+- `SyncStatusChip` renders only when work is pending, uses the existing failure
+  outcome to distinguish a stalled online push, and never renders a synced or
+  up-to-date state. Retry remains enabled after an online failure and is disabled
+  only when connectivity is definitively offline. The global `OfflineBanner`
+  implementation and behavior are unchanged.
+
+Overall completion: milestones 1–5 now provide account-scoped SQLite v7 storage,
+immediate local-first reads, durable Dashboard/History/metrics, atomic verified
+deck packages, and local-first study writes with revision-safe sync status. No
+additional database or cache package was introduced.
+
 ## Validation
 
 Milestone 1: 44 tests passed with
@@ -307,7 +340,19 @@ no-SQLite online-only behavior. `flutter analyze --no-pub` reports only the same
 three pre-existing warnings in `home_tab_screen.dart` (unused `style`,
 `_CardSkeleton`, `_SectionError`).
 
-Milestone 5 still requires all study modes, committed-work restart, reconnect
-retries, account changes during work, and expired-session offline grace. Native
-startup timing must be measured on a device; static inspection is not a
-performance test.
+Milestone 5: 588 focused and regression tests passed with
+`flutter test --no-pub test/core/cache test/core/local_db test/core/sync test/core/ui/offline_banner_test.dart test/features/decks test/features/study test/features/stats test/features/home test/features/settings/more_tab_screen_test.dart`.
+Coverage includes Flip, Cloze, and Feynman sessions starting and completing from
+SQLite while every remote study write remains unresolved; local session, queue,
+mastery, completion, and last-studied commits; parent-first idempotent reconnect
+replay; exact-revision late-ack protection for session, queue, mastery, content,
+deck, and course writes; pending/failure-only chip states; retry disabled only
+while definitively offline; unchanged banner behavior; cached session data
+retained through refresh failures; no-SQLite online-only operation; cross-DAO
+revision checks; and queue-before-completion ordering.
+`flutter analyze --no-pub` reports only the same three pre-existing warnings in
+`home_tab_screen.dart` (unused `style`, `_CardSkeleton`, `_SectionError`).
+
+All five implementation milestones are complete. Native startup timing remains
+a separate on-device measurement; it is not established by static inspection or
+the automated test suite.

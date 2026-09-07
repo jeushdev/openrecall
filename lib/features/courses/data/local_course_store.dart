@@ -310,15 +310,31 @@ class LocalCourseStore {
     return rows.map(_dirtyFromRow).toList();
   }
 
-  Future<void> markCourseSynced(String id, DateTime remoteUpdatedAt) async {
+  Future<void> markCourseSynced(
+    String id,
+    DateTime remoteUpdatedAt, {
+    DirtyCourse? sentRevision,
+  }) async {
     final db = _db;
     if (db == null) return;
     final iso = remoteUpdatedAt.toUtc().toIso8601String();
     await db.update(
       'offline_courses',
       {'updated_at': iso, 'base_updated_at': iso, 'is_synced': 1},
-      where: 'id = ?',
-      whereArgs: [id],
+      where: sentRevision == null
+          ? 'id = ?'
+          : 'id = ? AND is_synced = 0 AND name = ? AND accent_color = ? '
+                'AND is_default = ? AND updated_at = ? AND position = ?',
+      whereArgs: [
+        id,
+        if (sentRevision != null) ...[
+          sentRevision.name,
+          sentRevision.accentColor,
+          sentRevision.isDefault ? 1 : 0,
+          sentRevision.updatedAt.toUtc().toIso8601String(),
+          sentRevision.position,
+        ],
+      ],
     );
   }
 

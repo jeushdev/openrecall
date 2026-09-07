@@ -22,9 +22,10 @@ class DeckUnavailableOfflineException implements Exception {
 /// Reads are read-through: hit Supabase, refresh the mirror, return the remote
 /// data; if the Supabase call throws, fall back to the mirror (for downloaded
 /// decks) and otherwise rethrow. The study-loop writes
-/// (`updateCardMasteryGuarded`, `readCardMasteryState`, `markDeckStudied`)
-/// behave the same way — Supabase first, local mirror as the offline fallback,
-/// with the offline mastery write marked unsynced for the reconnect pass.
+/// (`updateCardMasteryGuarded`, `readCardMasteryState`, `markDeckStudied`) use
+/// SQLite first for complete local packages, keeping the study loop independent
+/// of remote latency. Incomplete packages and no-SQLite operation remain
+/// online-only.
 ///
 /// Deck and card authoring (`createDeck` / `updateDeck` / `deleteDeck` /
 /// `addCard` / `addCards` / `updateCard` / `deleteCard`) is cache-first with a
@@ -79,11 +80,20 @@ class CacheFirstDeckRepository implements DeckRepository {
 
   @override
   Future<CardMasteryState> readCardMasteryState(String cardId) async {
+    final local = await _local.cardById(cardId);
+    if (local != null && await _local.isCardSetComplete(local.deckId)) {
+      return CardMasteryState(
+        masteryLevel: local.masteryLevel,
+        failCount: local.failCount,
+        updatedAt: local.updatedAt,
+      );
+    }
     try {
       return await _remote.readCardMasteryState(cardId);
     } catch (_) {
-      final local = await _local.cardById(cardId);
-      if (local == null) rethrow;
+      if (local == null || !await _local.isCardSetComplete(local.deckId)) {
+        rethrow;
+      }
       return CardMasteryState(
         masteryLevel: local.masteryLevel,
         failCount: local.failCount,
@@ -99,6 +109,15 @@ class CacheFirstDeckRepository implements DeckRepository {
     required int failCount,
     required DateTime expectedUpdatedAt,
   }) async {
+    final local = await _local.cardById(cardId);
+    if (local != null && await _local.isCardSetComplete(local.deckId)) {
+      return _local.writeCardMasteryUnsynced(
+        cardId: cardId,
+        masteryLevel: masteryLevel,
+        failCount: failCount,
+        expectedUpdatedAt: expectedUpdatedAt,
+      );
+    }
     try {
       final row = await _remote.updateCardMasteryGuarded(
         cardId: cardId,
@@ -106,13 +125,17 @@ class CacheFirstDeckRepository implements DeckRepository {
         failCount: failCount,
         expectedUpdatedAt: expectedUpdatedAt,
       );
-      if (row != null && await _local.cardById(cardId) != null) {
-        await _local.mirrorCardMastery(row);
+      if (row != null && local != null) {
+        await _local.mirrorCardMastery(
+          row,
+          expectedLocalUpdatedAt: expectedUpdatedAt,
+        );
       }
       return row;
     } catch (_) {
-      final local = await _local.cardById(cardId);
-      if (local == null) rethrow;
+      if (local == null || !await _local.isCardSetComplete(local.deckId)) {
+        rethrow;
+      }
       return _local.writeCardMasteryUnsynced(
         cardId: cardId,
         masteryLevel: masteryLevel,
@@ -124,13 +147,12 @@ class CacheFirstDeckRepository implements DeckRepository {
 
   @override
   Future<void> markDeckStudied(String deckId) async {
-    try {
-      await _remote.markDeckStudied(deckId);
-    } catch (_) {
-      // Best-effort: the local stamp below still lands, and the column is not
-      // part of the sync surface.
+    if (await _local.isCardSetComplete(deckId)) {
+      await _local.touchLastStudied(deckId, synced: false);
+      return;
     }
-    await _local.touchLastStudied(deckId);
+    await _remote.markDeckStudied(deckId);
+    await _local.touchLastStudied(deckId, synced: true);
   }
 
   // ---- cache-first authoring (spec-v4 §4: Supabase first, local queue on

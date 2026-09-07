@@ -12,6 +12,8 @@ void main() {
         id: id,
         name: id,
         courseId: 'c1',
+        lastStudiedAt: null,
+        updatedAt: DateTime.utc(2026),
         baseUpdatedAt: DateTime.utc(2026),
         position: position,
       );

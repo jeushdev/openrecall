@@ -8,13 +8,13 @@ import '../../../../theme/app_tokens.dart';
 /// The minimal sync-status chip (spec-v4 §O4). Deliberately quiet — ambient
 /// status, not an alert:
 ///
-/// - offline               → `☁ offline` (with `· N` when writes are queued)
-/// - online, N queued (>0) → `⟳ N`, or `⚠ N` if the last push stalled
-/// - online, nothing queued → nothing at all
+/// - offline, N queued (>0) → `☁ offline · N` (retry disabled)
+/// - online, N queued (>0)  → `⟳ N`, or `⚠ N` if the last push stalled
+/// - nothing queued         → nothing at all
 ///
-/// When anything is queued the chip is tappable and runs a forced sync
-/// ([manualSyncProvider], milestone E3) — the reconnect pass backs off after a
-/// failure, and this is how the user asks for an immediate retry.
+/// A queued online change is tappable and runs a forced sync
+/// ([manualSyncProvider], milestone E3). A failed attempt does not disable that
+/// action; only a definitive offline connectivity reading does.
 class SyncStatusChip extends ConsumerWidget {
   const SyncStatusChip({super.key});
 
@@ -26,18 +26,17 @@ class SyncStatusChip extends ConsumerWidget {
     final lastSyncFailed =
         ref.watch(syncOutcomeProvider).asData?.value.isFailure ?? false;
 
-    if (online && count == 0) return const SizedBox.shrink();
+    if (count == 0) return const SizedBox.shrink();
 
-    final canRetry = count > 0;
+    final canRetry = online;
     final IconData icon;
     final String label;
     final String tooltip;
     if (!online) {
       icon = Icons.cloud_off_outlined;
-      label = count > 0 ? 'offline · $count' : 'offline';
-      tooltip = count > 0
-          ? "You're offline — $count change${count == 1 ? '' : 's'} waiting to sync"
-          : "You're offline";
+      label = 'offline · $count';
+      tooltip =
+          "You're offline — $count change${count == 1 ? '' : 's'} waiting to sync";
     } else {
       icon = lastSyncFailed ? Icons.sync_problem : Icons.sync;
       label = '$count';

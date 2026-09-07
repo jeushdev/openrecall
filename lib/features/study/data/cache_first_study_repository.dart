@@ -8,18 +8,19 @@ import '../domain/session_status.dart';
 import '../domain/study_repository.dart';
 import '../domain/study_session.dart';
 import 'local_study_store.dart';
-import 'supabase_study_repository.dart';
 
-/// Wraps [SupabaseStudyRepository] with the local session mirror (spec §10), so
-/// a downloaded deck's session can be created, advanced and completed with no
-/// connectivity.
+/// Wraps the Supabase-backed repository with the local session mirror (spec
+/// §10), so a downloaded deck's session can be created, advanced and completed
+/// with no connectivity.
 ///
-/// Every method tries Supabase first and mirrors the result locally for
-/// downloaded decks. If the Supabase call throws and the deck is downloaded, it
-/// writes to the mirror instead and marks the row unsynced; the reconnect pass
-/// ([SyncService]) upserts those rows in `cards → study_sessions →
-/// session_cards` order. A fully-offline session gets a client-generated UUID
-/// from creation, so nothing has to be renumbered once it syncs.
+/// Complete local deck packages use SQLite as the study write authority: every
+/// session and queue mutation commits locally and is marked unsynced before a
+/// background [SyncService] pass may run. This keeps study interactions clear
+/// of network latency while retaining permanent client-generated UUIDs and the
+/// existing `cards → study_sessions → session_cards` dependency order.
+///
+/// Without a complete package (including when SQLite is unavailable), methods
+/// retain the online-only Supabase behavior.
 class CacheFirstStudyRepository implements StudyRepository {
   CacheFirstStudyRepository(
     this._remote,
@@ -28,20 +29,18 @@ class CacheFirstStudyRepository implements StudyRepository {
     this._currentUserId,
   );
 
-  final SupabaseStudyRepository _remote;
+  final StudyRepository _remote;
   final LocalStudyStore _local;
   final LocalDeckStore _deckLocal;
   final String? Function() _currentUserId;
 
   @override
   Future<void> abandonActiveSessions(String deckId) async {
-    try {
-      await _remote.abandonActiveSessions(deckId);
-      await _local.abandonActiveSessions(deckId, synced: true);
-    } catch (_) {
-      if (!await _deckLocal.isCardSetComplete(deckId)) rethrow;
+    if (await _deckLocal.isCardSetComplete(deckId)) {
       await _local.abandonActiveSessions(deckId, synced: false);
+      return;
     }
+    await _remote.abandonActiveSessions(deckId);
   }
 
   @override
@@ -52,35 +51,30 @@ class CacheFirstStudyRepository implements StudyRepository {
     int? cappedLength,
     CardScope cardScope = CardScope.due,
   }) async {
-    try {
-      final session = await _remote.createSession(
+    if (!await _deckLocal.isCardSetComplete(deckId)) {
+      return _remote.createSession(
         deckId: deckId,
         studyMode: studyMode,
         lengthMode: lengthMode,
         cappedLength: cappedLength,
         cardScope: cardScope,
       );
-      if (await _deckLocal.isCardSetComplete(deckId)) {
-        await _local.insertSession(session, _currentUserId(), synced: true);
-      }
-      return session;
-    } catch (_) {
-      if (!await _deckLocal.isCardSetComplete(deckId)) rethrow;
-      final session = StudySession(
-        id: newUuid(),
-        deckId: deckId,
-        status: SessionStatus.active,
-        studyMode: studyMode,
-        lengthMode: lengthMode,
-        cappedLength: cappedLength,
-        cardScope: cardScope,
-        masteryDelta: null,
-        startedAt: DateTime.now().toUtc(),
-        completedAt: null,
-      );
-      await _local.insertSession(session, _currentUserId(), synced: false);
-      return session;
     }
+
+    final session = StudySession(
+      id: newUuid(),
+      deckId: deckId,
+      status: SessionStatus.active,
+      studyMode: studyMode,
+      lengthMode: lengthMode,
+      cappedLength: cappedLength,
+      cardScope: cardScope,
+      masteryDelta: null,
+      startedAt: DateTime.now().toUtc(),
+      completedAt: null,
+    );
+    await _local.insertSession(session, _currentUserId(), synced: false);
+    return session;
   }
 
   @override
@@ -88,14 +82,8 @@ class CacheFirstStudyRepository implements StudyRepository {
     String sessionId,
     List<QueueSeed> seeds,
   ) async {
-    try {
-      final rows = await _remote.createSessionCards(sessionId, seeds);
-      if (await _local.hasSession(sessionId)) {
-        await _local.insertSessionCards(rows, synced: true);
-      }
-      return rows;
-    } catch (_) {
-      if (!await _local.hasSession(sessionId)) rethrow;
+    final deckId = await _local.sessionDeckId(sessionId);
+    if (deckId != null && await _deckLocal.isCardSetComplete(deckId)) {
       final rows = [
         for (final seed in seeds)
           SessionCard(
@@ -110,6 +98,7 @@ class CacheFirstStudyRepository implements StudyRepository {
       await _local.insertSessionCards(rows, synced: false);
       return rows;
     }
+    return _remote.createSessionCards(sessionId, seeds);
   }
 
   @override
@@ -119,21 +108,8 @@ class CacheFirstStudyRepository implements StudyRepository {
     int? consecutiveFails,
     bool? isParked,
   }) async {
-    try {
-      await _remote.updateSessionCard(
-        sessionCardId: sessionCardId,
-        position: position,
-        consecutiveFails: consecutiveFails,
-        isParked: isParked,
-      );
-      await _local.updateSessionCard(
-        sessionCardId,
-        position: position,
-        consecutiveFails: consecutiveFails,
-        isParked: isParked,
-        synced: true,
-      );
-    } catch (_) {
+    final deckId = await _local.sessionCardDeckId(sessionCardId);
+    if (deckId != null && await _deckLocal.isCardSetComplete(deckId)) {
       final applied = await _local.updateSessionCard(
         sessionCardId,
         position: position,
@@ -141,8 +117,14 @@ class CacheFirstStudyRepository implements StudyRepository {
         isParked: isParked,
         synced: false,
       );
-      if (!applied) rethrow;
+      if (applied) return;
     }
+    await _remote.updateSessionCard(
+      sessionCardId: sessionCardId,
+      position: position,
+      consecutiveFails: consecutiveFails,
+      isParked: isParked,
+    );
   }
 
   @override
@@ -151,26 +133,20 @@ class CacheFirstStudyRepository implements StudyRepository {
     int? masteryDelta,
     int? cardsReviewed,
   }) async {
-    try {
-      await _remote.completeSession(
-        sessionId,
-        masteryDelta: masteryDelta,
-        cardsReviewed: cardsReviewed,
-      );
-      await _local.completeSession(
-        sessionId,
-        masteryDelta,
-        cardsReviewed,
-        synced: true,
-      );
-    } catch (_) {
+    final deckId = await _local.sessionDeckId(sessionId);
+    if (deckId != null && await _deckLocal.isCardSetComplete(deckId)) {
       final applied = await _local.completeSession(
         sessionId,
         masteryDelta,
         cardsReviewed,
         synced: false,
       );
-      if (!applied) rethrow;
+      if (applied) return;
     }
+    await _remote.completeSession(
+      sessionId,
+      masteryDelta: masteryDelta,
+      cardsReviewed: cardsReviewed,
+    );
   }
 }

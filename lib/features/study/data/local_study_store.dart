@@ -77,6 +77,35 @@ class LocalStudyStore {
     return rows.isNotEmpty;
   }
 
+  Future<String?> sessionDeckId(String sessionId) async {
+    final db = _db;
+    if (db == null) return null;
+    final rows = await db.query(
+      'offline_study_sessions',
+      columns: ['deck_id'],
+      where: 'id = ?',
+      whereArgs: [sessionId],
+      limit: 1,
+    );
+    return rows.isEmpty ? null : rows.first['deck_id'] as String;
+  }
+
+  Future<String?> sessionCardDeckId(String sessionCardId) async {
+    final db = _db;
+    if (db == null) return null;
+    final rows = await db.rawQuery(
+      '''
+      SELECT s.deck_id
+      FROM offline_session_cards sc
+      JOIN offline_study_sessions s ON s.id = sc.session_id
+      WHERE sc.id = ?
+      LIMIT 1
+      ''',
+      [sessionCardId],
+    );
+    return rows.isEmpty ? null : rows.first['deck_id'] as String;
+  }
+
   Future<void> insertSessionCards(
     List<SessionCard> rows, {
     required bool synced,
@@ -211,20 +240,51 @@ class LocalStudyStore {
     ];
   }
 
-  Future<void> markSessionsSynced(List<String> ids) =>
-      _markSynced('offline_study_sessions', ids);
+  /// Acknowledges only the exact session revisions handed to the remote
+  /// upsert. A completion (or abandonment) committed while that request was in
+  /// flight must remain dirty for the next pass.
+  Future<void> markSessionsSynced(List<LocalSessionRow> sent) =>
+      _markSynced('offline_study_sessions', sent.map((row) => row.values));
 
-  Future<void> markSessionCardsSynced(List<String> ids) =>
-      _markSynced('offline_session_cards', ids);
+  /// The session-card counterpart of [markSessionsSynced]. Positions, fail
+  /// counters and park decisions are the row's revision because the server
+  /// table deliberately has no `updated_at` column.
+  Future<void> markSessionCardsSynced(List<LocalSessionCardRow> sent) =>
+      _markSynced(
+        'offline_session_cards',
+        sent.map(
+          (row) => {
+            ...row.values,
+            'is_parked': row.values['is_parked'] == true ? 1 : 0,
+          },
+        ),
+      );
 
-  Future<void> _markSynced(String table, List<String> ids) async {
+  Future<void> _markSynced(
+    String table,
+    Iterable<Map<String, Object?>> sent,
+  ) async {
     final db = _db;
-    if (db == null || ids.isEmpty) return;
-    await db.update(
-      table,
-      {'is_synced': 1},
-      where: 'id IN (${List.filled(ids.length, '?').join(',')})',
-      whereArgs: ids,
-    );
+    if (db == null) return;
+    await db.transaction((txn) async {
+      for (final revision in sent) {
+        final clauses = <String>['is_synced = 0'];
+        final args = <Object?>[];
+        for (final entry in revision.entries) {
+          if (entry.value == null) {
+            clauses.add('${entry.key} IS NULL');
+          } else {
+            clauses.add('${entry.key} = ?');
+            args.add(entry.value);
+          }
+        }
+        await txn.update(
+          table,
+          {'is_synced': 1},
+          where: clauses.join(' AND '),
+          whereArgs: args,
+        );
+      }
+    });
   }
 }

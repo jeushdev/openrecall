@@ -16,12 +16,14 @@ class DirtyCard {
     required this.id,
     required this.masteryLevel,
     required this.failCount,
+    required this.updatedAt,
     required this.baseUpdatedAt,
   });
 
   final String id;
   final int masteryLevel;
   final int failCount;
+  final DateTime updatedAt;
   final DateTime baseUpdatedAt;
 }
 
@@ -32,6 +34,8 @@ class DirtyDeck {
     required this.id,
     required this.name,
     required this.courseId,
+    required this.lastStudiedAt,
+    required this.updatedAt,
     required this.baseUpdatedAt,
     required this.position,
   });
@@ -39,6 +43,8 @@ class DirtyDeck {
   final String id;
   final String name;
   final String? courseId;
+  final DateTime? lastStudiedAt;
+  final DateTime? updatedAt;
   final DateTime? baseUpdatedAt;
 
   /// The row's `position` — client-authoritative after an offline drag, pushed
@@ -867,7 +873,10 @@ class LocalDeckStore {
 
   /// Mirrors a confirmed Supabase mastery write into the local row and re-bases
   /// its compare-and-set target.
-  Future<void> mirrorCardMastery(FlashCard row) async {
+  Future<void> mirrorCardMastery(
+    FlashCard row, {
+    DateTime? expectedLocalUpdatedAt,
+  }) async {
     final db = _db;
     if (db == null) return;
     await db.update(
@@ -879,18 +888,28 @@ class LocalDeckStore {
         'base_updated_at': row.updatedAt.toUtc().toIso8601String(),
         'is_synced': 1,
       },
-      where: 'id = ?',
-      whereArgs: [row.id],
+      where: expectedLocalUpdatedAt == null
+          ? 'id = ?'
+          : 'id = ? AND updated_at = ?',
+      whereArgs: [
+        row.id,
+        if (expectedLocalUpdatedAt != null)
+          expectedLocalUpdatedAt.toUtc().toIso8601String(),
+      ],
     );
   }
 
-  /// Bumps a cached deck's last-studied stamp. Device-local, never synced back.
-  Future<void> touchLastStudied(String deckId) async {
+  /// Bumps a cached deck's last-studied stamp. Complete-package study starts
+  /// mark the deck dirty so the existing deck upsert carries the stamp on the
+  /// next background sync; online-only calls can mirror a confirmed stamp as
+  /// already synced.
+  Future<void> touchLastStudied(String deckId, {required bool synced}) async {
     final db = _db;
     if (db == null) return;
+    final now = DateTime.now().toUtc().toIso8601String();
     await db.update(
       'offline_decks',
-      {'last_studied_at': DateTime.now().toUtc().toIso8601String()},
+      {'last_studied_at': now, 'updated_at': now, 'is_synced': synced ? 1 : 0},
       where: 'id = ?',
       whereArgs: [deckId],
     );
@@ -914,20 +933,35 @@ class LocalDeckStore {
           id: r['id'] as String,
           masteryLevel: r['mastery_level'] as int,
           failCount: r['fail_count'] as int,
+          updatedAt: DateTime.parse(r['updated_at'] as String),
           baseUpdatedAt: DateTime.parse(r['base_updated_at'] as String),
         ),
     ];
   }
 
-  Future<void> markCardSynced(String id, DateTime remoteUpdatedAt) async {
+  Future<void> markCardSynced(
+    String id,
+    DateTime remoteUpdatedAt, {
+    DirtyCard? sentRevision,
+  }) async {
     final db = _db;
     if (db == null) return;
     final iso = remoteUpdatedAt.toUtc().toIso8601String();
     await db.update(
       'offline_cards',
       {'updated_at': iso, 'base_updated_at': iso, 'is_synced': 1},
-      where: 'id = ?',
-      whereArgs: [id],
+      where: sentRevision == null
+          ? 'id = ?'
+          : 'id = ? AND is_synced = 0 AND updated_at = ? '
+                'AND mastery_level = ? AND fail_count = ?',
+      whereArgs: [
+        id,
+        if (sentRevision != null) ...[
+          sentRevision.updatedAt.toUtc().toIso8601String(),
+          sentRevision.masteryLevel,
+          sentRevision.failCount,
+        ],
+      ],
     );
   }
 
@@ -941,8 +975,9 @@ class LocalDeckStore {
 
   Future<void> markCardContentSynced(
     String id,
-    DateTime remoteUpdatedAt,
-  ) async {
+    DateTime remoteUpdatedAt, {
+    FlashCard? sentRevision,
+  }) async {
     final db = _db;
     if (db == null) return;
     final iso = remoteUpdatedAt.toUtc().toIso8601String();
@@ -957,8 +992,23 @@ class LocalDeckStore {
         // the remote DELETE (milestone E3).
         'created_locally': 0,
       },
-      where: 'id = ?',
-      whereArgs: [id],
+      where: sentRevision == null
+          ? 'id = ?'
+          : 'id = ? AND content_dirty = 1 AND updated_at = ? '
+                'AND front = ? AND back = ? AND keywords = ? '
+                'AND is_concept = ? AND mastery_level = ? AND fail_count = ?',
+      whereArgs: [
+        id,
+        if (sentRevision != null) ...[
+          sentRevision.updatedAt.toUtc().toIso8601String(),
+          sentRevision.front,
+          sentRevision.back,
+          jsonEncode(sentRevision.keywords),
+          sentRevision.isConcept ? 1 : 0,
+          sentRevision.masteryLevel,
+          sentRevision.failCount,
+        ],
+      ],
     );
   }
 
@@ -972,6 +1022,8 @@ class LocalDeckStore {
           id: r['id'] as String,
           name: r['name'] as String,
           courseId: r['course_id'] as String?,
+          lastStudiedAt: _parseNullable(r['last_studied_at']),
+          updatedAt: _parseNullable(r['updated_at']),
           baseUpdatedAt: (r['base_updated_at'] as String?) == null
               ? null
               : DateTime.parse(r['base_updated_at'] as String),
@@ -980,15 +1032,32 @@ class LocalDeckStore {
     ];
   }
 
-  Future<void> markDeckSynced(String id, DateTime remoteUpdatedAt) async {
+  Future<void> markDeckSynced(
+    String id,
+    DateTime remoteUpdatedAt, {
+    DirtyDeck? sentRevision,
+  }) async {
     final db = _db;
     if (db == null) return;
     final iso = remoteUpdatedAt.toUtc().toIso8601String();
     await db.update(
       'offline_decks',
       {'updated_at': iso, 'base_updated_at': iso, 'is_synced': 1},
-      where: 'id = ?',
-      whereArgs: [id],
+      where: sentRevision == null
+          ? 'id = ?'
+          : "id = ? AND is_synced = 0 AND name = ? AND COALESCE(course_id, '') = ? "
+                "AND COALESCE(last_studied_at, '') = ? "
+                "AND COALESCE(updated_at, '') = ? AND position = ?",
+      whereArgs: [
+        id,
+        if (sentRevision != null) ...[
+          sentRevision.name,
+          sentRevision.courseId ?? '',
+          sentRevision.lastStudiedAt?.toUtc().toIso8601String() ?? '',
+          sentRevision.updatedAt?.toUtc().toIso8601String() ?? '',
+          sentRevision.position,
+        ],
+      ],
     );
   }
 

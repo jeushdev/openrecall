@@ -235,6 +235,7 @@ class SyncService {
         await _courseLocal.markCourseSynced(
           course.id,
           DateTime.parse(row['updated_at'] as String),
+          sentRevision: course,
         );
       } catch (_) {
         // Best-effort — the row stays unsynced for the next trigger.
@@ -260,6 +261,7 @@ class SyncService {
               'user_id': userId,
               'name': deck.name,
               'course_id': ?courseId,
+              'last_studied_at': ?deck.lastStudiedAt?.toUtc().toIso8601String(),
             })
             .select()
             .single();
@@ -267,6 +269,7 @@ class SyncService {
         await _deckLocal.markDeckSynced(
           deck.id,
           DateTime.parse(row['updated_at'] as String),
+          sentRevision: deck,
         );
       } catch (_) {
         // Best-effort — the row stays unsynced for the next trigger.
@@ -335,6 +338,7 @@ class SyncService {
         await _deckLocal.markCardContentSynced(
           card.id,
           DateTime.parse(row['updated_at'] as String),
+          sentRevision: card,
         );
       } catch (_) {
         // Best-effort — the row stays content-dirty for the next trigger.
@@ -367,7 +371,11 @@ class SyncService {
       }
       if (row != null) {
         _checkScope();
-        await _deckLocal.markCardSynced(card.id, row.updatedAt);
+        await _deckLocal.markCardSynced(
+          card.id,
+          row.updatedAt,
+          sentRevision: card,
+        );
       }
     }
   }
@@ -376,12 +384,27 @@ class SyncService {
   Future<void> pushSessions() async {
     final dirty = await _studyLocal.unsyncedSessions();
     if (dirty.isEmpty) return;
+    // Preserve the one-active-session-per-deck conflict rule without putting a
+    // remote wait back into local session start. Abandon existing remote rows
+    // first, then the upsert below applies the client-authored state (active or
+    // already completed). Replays are harmless.
+    final affectedDecks = {
+      for (final session in dirty) session.values['deck_id'] as String,
+    };
+    for (final deckId in affectedDecks) {
+      _checkScope();
+      await _client
+          .from('study_sessions')
+          .update({'status': 'abandoned'})
+          .eq('deck_id', deckId)
+          .eq('status', 'active');
+    }
     _checkScope();
     await _client.from('study_sessions').upsert([
       for (final s in dirty) s.values,
     ]);
     _checkScope();
-    await _studyLocal.markSessionsSynced([for (final s in dirty) s.id]);
+    await _studyLocal.markSessionsSynced(dirty);
   }
 
   @visibleForTesting
@@ -393,7 +416,7 @@ class SyncService {
       for (final sc in dirty) sc.values,
     ]);
     _checkScope();
-    await _studyLocal.markSessionCardsSynced([for (final sc in dirty) sc.id]);
+    await _studyLocal.markSessionCardsSynced(dirty);
   }
 
   /// Replays tombstones in reverse foreign-key order so a parent is never
