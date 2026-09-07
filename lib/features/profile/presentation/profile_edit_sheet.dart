@@ -22,6 +22,7 @@ class ProfileEditSheet extends ConsumerStatefulWidget {
     final tokens = Theme.of(context).extension<AppTokens>()!;
     return showModalBottomSheet<void>(
       context: context,
+      useRootNavigator: true,
       isScrollControlled: true,
       useSafeArea: true,
       backgroundColor: tokens.cardFill,

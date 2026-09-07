@@ -46,6 +46,58 @@ Future<FakeProfileRepository> _open(
 }
 
 void main() {
+  testWidgets('opens above shell navigation instead of inside the tab', (
+    tester,
+  ) async {
+    var navigationTaps = 0;
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          profileRepositoryProvider.overrideWithValue(
+            FakeProfileRepository(
+              profile: (id: 'u1', email: 'a@b.com', username: 'Ada'),
+            ),
+          ),
+        ],
+        child: MaterialApp(
+          theme: AppTheme.light,
+          home: Scaffold(
+            body: Navigator(
+              onGenerateRoute: (_) => MaterialPageRoute<void>(
+                builder: (nestedContext) => Center(
+                  child: FilledButton(
+                    onPressed: () => ProfileEditSheet.show(
+                      nestedContext,
+                      currentName: 'Ada',
+                    ),
+                    child: const Text('open nested'),
+                  ),
+                ),
+              ),
+            ),
+            bottomNavigationBar: SizedBox(
+              height: 80,
+              child: Material(
+                child: InkWell(
+                  onTap: () => navigationTaps++,
+                  child: const Center(child: Text('Shell navigation')),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('open nested'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Shell navigation'), warnIfMissed: false);
+    await tester.pump();
+
+    expect(find.byType(ProfileEditSheet), findsOneWidget);
+    expect(navigationTaps, 0);
+  });
+
   testWidgets('validation and Save stay reachable with keyboard and large text',
       (tester) async {
     tester.view.physicalSize = const Size(320, 568);
