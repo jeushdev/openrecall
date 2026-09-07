@@ -57,16 +57,23 @@ class CacheFirstDeckRepository implements DeckRepository {
 
   @override
   Future<List<FlashCard>> fetchCards(String deckId) async {
+    late final List<FlashCard> cards;
     try {
-      final cards = await _remote.fetchCards(deckId);
-      if (await _local.isDownloaded(deckId)) {
-        await _local.mirrorCards(deckId, cards);
-      }
-      return _local.isNoop ? cards : await _local.cards(deckId);
+      cards = await _remote.fetchCards(deckId);
     } catch (_) {
       if (await _local.isCardSetComplete(deckId)) return _local.cards(deckId);
       if (_local.isNoop) rethrow;
       throw DeckUnavailableOfflineException(deckId);
+    }
+
+    try {
+      await _local.mirrorCards(deckId, cards);
+      return _local.isNoop ? cards : await _local.cards(deckId);
+    } catch (_) {
+      // A local validation/write failure must not replace usable online data
+      // or a previously valid package with an error/partial replacement.
+      if (await _local.isCardSetComplete(deckId)) return _local.cards(deckId);
+      return cards;
     }
   }
 

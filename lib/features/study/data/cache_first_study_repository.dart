@@ -39,7 +39,7 @@ class CacheFirstStudyRepository implements StudyRepository {
       await _remote.abandonActiveSessions(deckId);
       await _local.abandonActiveSessions(deckId, synced: true);
     } catch (_) {
-      if (!await _deckLocal.isDownloaded(deckId)) rethrow;
+      if (!await _deckLocal.isCardSetComplete(deckId)) rethrow;
       await _local.abandonActiveSessions(deckId, synced: false);
     }
   }
@@ -60,12 +60,12 @@ class CacheFirstStudyRepository implements StudyRepository {
         cappedLength: cappedLength,
         cardScope: cardScope,
       );
-      if (await _deckLocal.isDownloaded(deckId)) {
+      if (await _deckLocal.isCardSetComplete(deckId)) {
         await _local.insertSession(session, _currentUserId(), synced: true);
       }
       return session;
     } catch (_) {
-      if (!await _deckLocal.isDownloaded(deckId)) rethrow;
+      if (!await _deckLocal.isCardSetComplete(deckId)) rethrow;
       final session = StudySession(
         id: newUuid(),
         deckId: deckId,

@@ -10,10 +10,13 @@ import '../../application/offline_providers.dart';
 /// Since spec-v4 any deck opened online is auto-cached, so this toggle is a
 /// *pin* (`offline_decks.is_pinned`): on, it fetches the deck without opening it
 /// and never auto-evicts it; off, it drops the local copy after a confirm. The
-/// confirm only warns about data loss when the deck actually holds unsynced
-/// local work.
+/// Pending local work and application history are retained when it is unpinned.
 class OfflineToggle extends ConsumerWidget {
-  const OfflineToggle({super.key, required this.deckId, required this.deckName});
+  const OfflineToggle({
+    super.key,
+    required this.deckId,
+    required this.deckName,
+  });
 
   final String deckId;
   final String? deckName;
@@ -22,7 +25,9 @@ class OfflineToggle extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     // The "keep available offline" pin needs a local mirror, which the web
     // build never has (spec-web-mvp §5.3).
-    if (kIsWeb) return const SizedBox.shrink();
+    if (kIsWeb || !ref.watch(offlineStorageAvailableProvider)) {
+      return const SizedBox.shrink();
+    }
 
     final ids =
         ref.watch(offlineDeckIdsProvider).asData?.value ?? const <String>{};
@@ -107,8 +112,7 @@ class OfflineToggle extends ConsumerWidget {
   }
 
   Future<void> _confirmRemove(BuildContext context, WidgetRef ref) async {
-    final unsynced =
-        await ref.read(deckHasUnsyncedWorkProvider(deckId).future);
+    final unsynced = await ref.read(deckHasUnsyncedWorkProvider(deckId).future);
     if (!context.mounted) return;
     final confirmed = await showDialog<bool>(
       context: context,
@@ -116,10 +120,10 @@ class OfflineToggle extends ConsumerWidget {
         title: const Text('Remove offline copy?'),
         content: Text(
           unsynced
-              ? "This deck won't be kept on this device, and unsynced changes "
-                  'to it will be lost.'
+              ? "This deck won't be kept for offline study. Pending changes "
+                    'will stay on this device until they are safely synced.'
               : "This deck's cards will no longer be kept on this device for "
-                  'offline study.',
+                    'offline study.',
         ),
         actions: [
           TextButton(

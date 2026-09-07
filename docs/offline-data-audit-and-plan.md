@@ -7,12 +7,11 @@ Audited: 2026-09-07. Scope: native first; web remains online-only.
 - **Milestone 1 — Storage contracts and account isolation:** implemented; validation recorded below.
 - **Milestone 2 — Immediate application reads:** implemented; validation recorded below.
 - **Milestone 3 — Durable Dashboard, History, and metrics:** implemented; validation recorded below.
-- **Milestone 4 — Reliable deck packages:** deferred.
+- **Milestone 4 — Reliable deck packages:** implemented; validation recorded below.
 - **Milestone 5 — Local study writes and clear status:** deferred.
 
-Implementation currently stops after milestone 3. Offline deck download
-transaction hardening, local-first study writes, and offline-indicator changes
-remain deferred to milestones 4–5.
+Implementation currently stops after milestone 4. Local-first study writes and
+offline-indicator changes remain deferred to milestone 5.
 
 ## Audit: current data flow
 
@@ -232,6 +231,30 @@ Implemented in `Add durable dashboard, history, and profile metrics`:
   retain cards needed by pending work or active sessions. Support empty packages.
 - Acceptance: interrupted downloads never report ready; unpin loses no history.
 
+Implemented in `Add reliable offline deck package validation`:
+
+- Deck readiness, pinned-package membership, study fallback, and offline tile
+  eligibility now all require `cards_complete = 1`; a metadata header or a
+  nonempty local card list is never enough. Verified zero-card packages remain
+  complete and pinnable.
+- Production card reads and explicit downloads page to the exact count, reject
+  short pages, duplicate IDs, wrong-deck rows, invalid card state, and count
+  changes during the fetch. A package also requires usable deck metadata and,
+  when assigned, cached course metadata.
+- `LocalDeckStore.commitDeckPackage` validates first, then replaces clean cards,
+  stamps completeness/download time, and changes pin state in one SQLite
+  transaction. Fetch or validation failures happen before that transaction;
+  transaction failures roll back, so a previously complete package stays intact.
+- Package replacement overlays dirty cards and card tombstones and retains cards
+  referenced by active sessions or unsynced session/queue work. Unpinning clears
+  package readiness and deletes only discardable clean cards; it never deletes
+  deck metadata, sessions, queue rows, history, or metrics inputs.
+- Cached card data remains visible when a background refresh or local package
+  commit fails. With no SQLite capability, online card reads remain authoritative
+  and the offline-package control is hidden. Web remains online-only.
+- Study write ordering and both existing offline indicators are unchanged;
+  milestone 5 was not started.
+
 ### 5. Local study writes and clear status
 
 - Commit local session start, queue, mastery, completion, and last-studied data
@@ -274,9 +297,17 @@ behavior. `flutter analyze --no-pub` reports only the same three
 pre-existing warnings in `home_tab_screen.dart` (unused `style`,
 `_CardSkeleton`, `_SectionError`).
 
-Later milestones require
-warm-cache airplane-mode restart, unreachable Supabase with a live interface,
-fresh offline install, absent SQLite, empty/partial/multipage downloads, all study
-modes, committed-work restart, reconnect retries, account changes during work,
-unpinning with pending data, and expired-session offline grace. Native startup
-timing must be measured on a device; static inspection is not a performance test.
+Milestone 4: 297 focused and regression tests passed with
+`flutter test --no-pub test/core/cache test/core/local_db test/features/decks test/features/study/pre_session_cards_provider_test.dart test/features/study/session_controller_test.dart`.
+Coverage includes partial/interrupted and duplicate-ID downloads, atomic pin and
+package replacement, verified empty packages, failed-update rollback behavior,
+dirty-card and tombstone preservation, active/pending-work retention after unpin,
+history/queue preservation, cached-data retention on package errors, and
+no-SQLite online-only behavior. `flutter analyze --no-pub` reports only the same
+three pre-existing warnings in `home_tab_screen.dart` (unused `style`,
+`_CardSkeleton`, `_SectionError`).
+
+Milestone 5 still requires all study modes, committed-work restart, reconnect
+retries, account changes during work, and expired-session offline grace. Native
+startup timing must be measured on a device; static inspection is not a
+performance test.

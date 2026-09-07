@@ -29,7 +29,7 @@ class DeckLibraryScreen extends ConsumerWidget {
     // (spec-web-mvp §5.3).
     final offlineIds = kIsWeb
         ? const <String>{}
-        : ref.watch(offlineDeckIdsProvider).asData?.value ?? const <String>{};
+        : ref.watch(studiableOfflineDeckIdsProvider).asData?.value ?? const <String>{};
 
     return Scaffold(
       appBar: AppBar(

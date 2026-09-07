@@ -90,12 +90,12 @@ class LocalDeckStore {
 
   // ---- membership --------------------------------------------------------
 
-  /// The ids of every cached deck (opened online or pinned).
+  /// The ids of every deck with a verified complete card package.
+  ///
+  /// Kept for compatibility with older callers; row existence is deliberately
+  /// not treated as a download because every listed deck has a metadata row.
   Future<Set<String>> downloadedDeckIds() async {
-    final db = _db;
-    if (db == null) return <String>{};
-    final rows = await db.query('offline_decks', columns: ['id']);
-    return {for (final r in rows) r['id'] as String};
+    return completeCardDeckIds();
   }
 
   /// The ids of decks the user pinned "available offline" (`is_pinned = 1`).
@@ -105,30 +105,20 @@ class LocalDeckStore {
     final rows = await db.query(
       'offline_decks',
       columns: ['id'],
-      where: 'is_pinned = 1',
+      where: 'is_pinned = 1 AND cards_complete = 1',
     );
     return {for (final r in rows) r['id'] as String};
   }
 
   Future<bool> isDownloaded(String deckId) async {
-    final db = _db;
-    if (db == null) return false;
-    final rows = await db.query(
-      'offline_decks',
-      columns: ['id'],
-      where: 'id = ?',
-      whereArgs: [deckId],
-      limit: 1,
-    );
-    return rows.isNotEmpty;
+    return isCardSetComplete(deckId);
   }
 
   /// The ids of decks whose full card set was verified by a successful fetch.
   ///
-  /// Distinct from [downloadedDeckIds], which since spec-v4 returns every deck
-  /// the user has: `refreshDeckMeta` writes an `offline_decks` header row for
-  /// each one so the Library is browsable offline, long before any card set is
-  /// mirrored. Row existence means "listed"; a row here means "studiable".
+  /// `refreshDeckMeta` writes an `offline_decks` header row for every listed
+  /// deck, long before any card set is mirrored. Row existence means "listed";
+  /// a row here means "studiable".
   Future<Set<String>> completeCardDeckIds() async {
     final db = _db;
     if (db == null) return <String>{};
@@ -195,50 +185,33 @@ class LocalDeckStore {
     }
   }
 
-  /// Unpins a deck. If it still holds unsynced local work its row and cards are
-  /// kept (just `is_pinned = 0`); otherwise its whole local footprint is
-  /// dropped.
+  /// Unpins a deck without deleting application history. Clean package cards
+  /// are discarded, except cards referenced by an active session or pending
+  /// local queue work. Dirty cards and deletion tombstones are always retained.
   Future<void> removeDeck(String deckId) async {
     final db = _db;
     if (db == null) return;
     await db.transaction((txn) async {
-      final unsynced = await _deckHasUnsyncedWork(txn, deckId);
-      if (unsynced) {
-        await txn.update(
-          'offline_decks',
-          {'is_pinned': 0},
-          where: 'id = ?',
-          whereArgs: [deckId],
-        );
-        return;
-      }
-      final sessionIds = [
-        for (final r in await txn.query(
-          'offline_study_sessions',
-          columns: ['id'],
-          where: 'deck_id = ?',
-          whereArgs: [deckId],
-        ))
-          r['id'] as String,
-      ];
-      for (final id in sessionIds) {
-        await txn.delete(
-          'offline_session_cards',
-          where: 'session_id = ?',
-          whereArgs: [id],
-        );
-      }
-      await txn.delete(
-        'offline_study_sessions',
-        where: 'deck_id = ?',
+      await txn.update(
+        'offline_decks',
+        {'is_pinned': 0, 'cards_complete': 0, 'downloaded_at': null},
+        where: 'id = ?',
         whereArgs: [deckId],
       );
       await txn.delete(
         'offline_cards',
-        where: 'deck_id = ?',
-        whereArgs: [deckId],
+        where: '''
+          deck_id = ? AND is_synced = 1 AND id NOT IN (
+            SELECT sc.card_id
+            FROM offline_session_cards sc
+            JOIN offline_study_sessions s ON s.id = sc.session_id
+            WHERE s.deck_id = ? AND (
+              s.status = 'active' OR s.is_synced = 0 OR sc.is_synced = 0
+            )
+          )
+        ''',
+        whereArgs: [deckId, deckId],
       );
-      await txn.delete('offline_decks', where: 'id = ?', whereArgs: [deckId]);
     });
   }
 
@@ -418,8 +391,23 @@ class LocalDeckStore {
   /// `offline_decks` row exists, so opening any deck online auto-caches it
   /// (unpinned).
   Future<void> mirrorCards(String deckId, List<FlashCard> remote) async {
+    await commitDeckPackage(deckId: deckId, cards: remote);
+  }
+
+  /// Atomically installs a fully validated package. When [pin] is non-null the
+  /// pin preference changes in the same transaction as card replacement and
+  /// the completeness marker, so a failed insert leaves the previous package
+  /// and pin state intact.
+  Future<void> commitDeckPackage({
+    required String deckId,
+    required List<FlashCard> cards,
+    String? deckName,
+    String? courseId,
+    bool? pin,
+  }) async {
     final db = _db;
     if (db == null) return;
+    _validateCompletePackage(deckId, cards);
     await db.transaction((txn) async {
       final exists = (await txn.query(
         'offline_decks',
@@ -431,9 +419,40 @@ class LocalDeckStore {
       if (!exists) {
         await txn.insert('offline_decks', {
           'id': deckId,
-          'name': '',
+          'name': deckName ?? '',
+          'course_id': courseId,
           'is_synced': 1,
         });
+      } else if (deckName != null) {
+        await txn.update(
+          'offline_decks',
+          {'name': deckName},
+          where: 'id = ? AND is_synced = 1',
+          whereArgs: [deckId],
+        );
+      }
+      final metadata = (await txn.query(
+        'offline_decks',
+        columns: ['name', 'course_id'],
+        where: 'id = ?',
+        whereArgs: [deckId],
+        limit: 1,
+      )).single;
+      if ((metadata['name'] as String).trim().isEmpty) {
+        throw StateError('Missing deck metadata for $deckId');
+      }
+      final packageCourseId = metadata['course_id'] as String?;
+      if (packageCourseId != null) {
+        final hasCourse = (await txn.query(
+          'offline_courses',
+          columns: ['id'],
+          where: 'id = ?',
+          whereArgs: [packageCourseId],
+          limit: 1,
+        )).isNotEmpty;
+        if (!hasCourse) {
+          throw StateError('Missing course metadata for $deckId');
+        }
       }
       final dirtyIds = {
         for (final r in await txn.query(
@@ -453,23 +472,34 @@ class LocalDeckStore {
         ))
           r['entity_id'] as String,
       };
-      final remoteIds = {for (final c in remote) c.id};
+      final remoteIds = {for (final c in cards) c.id};
+      const retainForSession = '''
+        id IN (
+          SELECT sc.card_id
+          FROM offline_session_cards sc
+          JOIN offline_study_sessions s ON s.id = sc.session_id
+          WHERE s.deck_id = ? AND (
+            s.status = 'active' OR s.is_synced = 0 OR sc.is_synced = 0
+          )
+        )
+      ''';
       if (remoteIds.isEmpty) {
         await txn.delete(
           'offline_cards',
-          where: 'deck_id = ? AND is_synced = 1',
-          whereArgs: [deckId],
+          where: 'deck_id = ? AND is_synced = 1 AND NOT ($retainForSession)',
+          whereArgs: [deckId, deckId],
         );
       } else {
         await txn.delete(
           'offline_cards',
           where:
               'deck_id = ? AND is_synced = 1 AND id NOT IN '
-              "(${List.filled(remoteIds.length, '?').join(',')})",
-          whereArgs: [deckId, ...remoteIds],
+              "(${List.filled(remoteIds.length, '?').join(',')}) "
+              'AND NOT ($retainForSession)',
+          whereArgs: [deckId, ...remoteIds, deckId],
         );
       }
-      for (final c in remote) {
+      for (final c in cards) {
         if (dirtyIds.contains(c.id) || tombstonedIds.contains(c.id)) continue;
         await txn.insert(
           'offline_cards',
@@ -481,8 +511,10 @@ class LocalDeckStore {
         'offline_decks',
         {
           'cards_complete': 1,
-          'total_cards': remote.length,
-          'mastery_level_sum': remote.fold<int>(
+          'downloaded_at': DateTime.now().toUtc().toIso8601String(),
+          if (pin != null) 'is_pinned': pin ? 1 : 0,
+          'total_cards': cards.length,
+          'mastery_level_sum': cards.fold<int>(
             0,
             (sum, card) => sum + card.masteryLevel,
           ),
@@ -491,6 +523,20 @@ class LocalDeckStore {
         whereArgs: [deckId],
       );
     });
+  }
+
+  void _validateCompletePackage(String deckId, List<FlashCard> cards) {
+    final ids = <String>{};
+    for (final card in cards) {
+      if (card.id.isEmpty || card.deckId != deckId || !ids.add(card.id)) {
+        throw StateError('Invalid card package for deck $deckId');
+      }
+      if (card.masteryLevel < 0 ||
+          card.masteryLevel > masteredLevel ||
+          card.failCount < 0) {
+        throw StateError('Incomplete card metadata for ${card.id}');
+      }
+    }
   }
 
   // ---- offline reads --------------------------------------------------------

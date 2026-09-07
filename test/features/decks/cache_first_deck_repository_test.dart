@@ -92,6 +92,26 @@ class _MirrorRecordingLocalDeckStore extends LocalDeckStore {
       cardsByDeck[deckId] ?? const [];
 }
 
+class _RejectingPackageStore extends LocalDeckStore {
+  _RejectingPackageStore(this.cached) : super(null);
+
+  final List<FlashCard> cached;
+
+  @override
+  bool get isNoop => false;
+
+  @override
+  Future<bool> isCardSetComplete(String deckId) async => true;
+
+  @override
+  Future<void> mirrorCards(String deckId, List<FlashCard> remote) async {
+    throw StateError('package write failed');
+  }
+
+  @override
+  Future<List<FlashCard>> cards(String deckId) async => cached;
+}
+
 void main() {
   test('successful remote deck authoring refreshes cached metadata', () async {
     final local = _FakeLocalDeckStore();
@@ -218,6 +238,75 @@ void main() {
           'k1',
           'k2',
         ], reason: 'the fresh set was written to the local mirror on success');
+      },
+    );
+
+    test(
+      'without SQLite the successful online result remains authoritative',
+      () async {
+        final remote = FakeDeckRepository(
+          cards: [
+            FlashCard(
+              id: 'online',
+              deckId: 'deck-1',
+              front: 'Q',
+              back: 'A',
+              keywords: const [],
+              isConcept: false,
+              masteryLevel: 0,
+              failCount: 0,
+              createdAt: DateTime.utc(2026),
+              updatedAt: DateTime.utc(2026),
+            ),
+          ],
+        );
+        final repo = CacheFirstDeckRepository(
+          remote,
+          LocalDeckStore(null),
+          LocalCourseStore(null),
+        );
+
+        expect((await repo.fetchCards('deck-1')).single.id, 'online');
+      },
+    );
+
+    test(
+      'a local package failure retains the prior valid cached value',
+      () async {
+        final old = FlashCard(
+          id: 'old',
+          deckId: 'deck-1',
+          front: 'Old',
+          back: 'A',
+          keywords: const [],
+          isConcept: false,
+          masteryLevel: 0,
+          failCount: 0,
+          createdAt: DateTime.utc(2026),
+          updatedAt: DateTime.utc(2026),
+        );
+        final repo = CacheFirstDeckRepository(
+          FakeDeckRepository(
+            cards: [
+              FlashCard(
+                id: 'new',
+                deckId: 'deck-1',
+                front: 'New',
+                back: 'A',
+                keywords: const [],
+                isConcept: false,
+                masteryLevel: 0,
+                failCount: 0,
+                createdAt: DateTime.utc(2026),
+                updatedAt: DateTime.utc(2026),
+              ),
+            ],
+          ),
+          _RejectingPackageStore([old]),
+          _FakeLocalCourseStore(null),
+        );
+
+        expect((await repo.fetchCards('deck-1')).single.id, 'old');
       },
     );
   });

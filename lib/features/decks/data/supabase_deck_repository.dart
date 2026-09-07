@@ -86,12 +86,28 @@ class SupabaseDeckRepository
 
   @override
   Future<List<FlashCard>> fetchCards(String deckId) async {
-    final rows = await _client
-        .from('cards')
-        .select()
-        .eq('deck_id', deckId)
-        .order('created_at');
-    return rows.map(FlashCard.fromJson).toList();
+    const pageSize = 1000;
+    final total = await countCards(deckId);
+    final cards = <FlashCard>[];
+    final ids = <String>{};
+    for (var offset = 0; offset < total; offset += pageSize) {
+      final remaining = total - offset;
+      final expected = remaining < pageSize ? remaining : pageSize;
+      final page = await fetchCardsPage(
+        deckId,
+        offset: offset,
+        limit: expected,
+      );
+      if (page.length != expected ||
+          page.any((card) => card.deckId != deckId || !ids.add(card.id))) {
+        throw StateError('Incomplete or invalid card response for $deckId');
+      }
+      cards.addAll(page);
+    }
+    if (cards.length != total || await countCards(deckId) != total) {
+      throw StateError('Deck changed while its cards were loading');
+    }
+    return cards;
   }
 
   @override
@@ -117,6 +133,7 @@ class SupabaseDeckRepository
         .select()
         .eq('deck_id', deckId)
         .order('created_at')
+        .order('id')
         .range(offset, offset + limit - 1);
     return rows.map(FlashCard.fromJson).toList();
   }
