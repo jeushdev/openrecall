@@ -5,14 +5,14 @@ Audited: 2026-09-07. Scope: native first; web remains online-only.
 ## Milestone status
 
 - **Milestone 1 — Storage contracts and account isolation:** implemented; validation recorded below.
-- **Milestone 2 — Immediate application reads:** deferred.
+- **Milestone 2 — Immediate application reads:** implemented; validation recorded below.
 - **Milestone 3 — Durable Dashboard, History, and metrics:** deferred.
 - **Milestone 4 — Reliable deck packages:** deferred.
 - **Milestone 5 — Local study writes and clear status:** deferred.
 
-Implementation stops after milestone 1 at the user's request. The new storage
-contracts are foundations, not a claim that the existing offline screen or study
-bugs are fixed. Milestones 2–5 must be implemented separately.
+Implementation currently stops after milestone 2. Dashboard/History durability,
+offline deck download transaction hardening, local-first study writes, and
+offline-indicator changes remain deferred to milestones 3–5.
 
 ## Audit: current data flow
 
@@ -163,6 +163,33 @@ owner marker are adopted by the first restored account, matching prior behavior.
 - Refresh metadata after authoring without clobbering dirty rows/tombstones.
 - Acceptance: cached content renders with unresolved remote futures.
 
+Implemented in `Add immediate local-first application reads`:
+
+- `staleFirst` is the shared observable read primitive for profile, deck,
+  course, and per-deck card providers. It emits a usable SQLite value first,
+  bounds only the background remote leg to six seconds, replaces the value on
+  success, and retains it on refresh failure. The Decks tab now consumes the
+  app-wide deck provider rather than maintaining a tab-only cached fallback.
+- Successful empty deck/course list responses are distinguished from missing
+  caches through `application_cache`. Profile rows use `cached_profile`; Home
+  and More suppress the email-derived fallback while native profile restoration
+  is pending. Successful username edits update the cached row before the
+  profile provider is refreshed.
+- A local card list is eligible for immediate use only when
+  `offline_decks.cards_complete = 1`. Successful full card mirrors set that bit,
+  including for a zero-card response. Migrated legacy rows and metadata-only
+  rows remain unverified, so a failed bounded online fetch produces the existing
+  unavailable-offline/error state instead of an empty-deck view.
+- Remote list/card merges are presentation-authoritative only after SQLite has
+  preserved dirty rows and filtered deck/course/card tombstones. Metadata
+  refresh also retains parent rows needed by unsynced cards, sessions, or decks.
+  Successful online course/deck create and edit responses are written into the
+  existing metadata mirror immediately.
+- A null SQLite capability still produces no local emission or write and uses
+  the repository's online result. Web therefore remains online-only. No session
+  persistence, download transaction, study write-ordering, or indicator changes
+  are included in this milestone.
+
 ### 3. Durable Dashboard, History, and profile metrics
 
 - Persist paginated account session metadata and active progress; merge by ID.
@@ -201,6 +228,16 @@ pending-row preservation, cache coverage states, account-bound provider invalida
 overlapping switches, stale DAO rejection, late sync-response rejection, and existing
 offline launch behavior. `flutter analyze --no-pub` reports only three pre-existing
 warnings in `home_tab_screen.dart` (unused `style`, `_CardSkeleton`, `_SectionError`).
+
+Milestone 2: 368 tests passed with
+`flutter test --no-pub test/core/cache test/core/local_db test/features/profile test/features/decks test/features/courses test/features/home/home_tab_screen_test.dart test/features/home/home_providers_test.dart test/features/settings/more_tab_screen_test.dart test/features/stats/stats_providers_test.dart test/features/study/pre_session_cards_provider_test.dart`.
+Coverage includes unresolved-remote cached emissions for profile/decks/courses/
+complete cards, username restoration without an email-fallback flash, verified
+empty card sets, metadata-only and legacy-unverified unavailability, background
+refresh replacement/error retention, dirty-row and tombstone preservation,
+authoring metadata refresh, and no-SQLite online-only behavior.
+`flutter analyze --no-pub` reports only the same three pre-existing warnings in
+`home_tab_screen.dart` (unused `style`, `_CardSkeleton`, `_SectionError`).
 
 Later milestones require
 warm-cache airplane-mode restart, unreachable Supabase with a live interface,

@@ -49,9 +49,11 @@ Future<GoRouter> _pumpMore(
         appVersionProvider.overrideWith((ref) async => '1.2.3+4'),
         userIdentityProvider.overrideWithValue((email: email)),
         profileProvider.overrideWith(
-          (ref) async => username == null
-              ? null
-              : (id: 'u1', email: email ?? 'a@b.com', username: username),
+          (ref) => Stream.value(
+            username == null
+                ? null
+                : (id: 'u1', email: email ?? 'a@b.com', username: username),
+          ),
         ),
       ],
       child: const OpenRecallApp(),

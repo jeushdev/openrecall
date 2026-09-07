@@ -20,9 +20,8 @@ import 'local_meta_store.dart';
 /// user's own device.
 ///
 /// The schema is defined as ordered statement lists so [_createSchema] (a fresh
-/// install) and [_onUpgrade] (an in-place migration) cannot drift apart — the
-/// schema-parity test asserts that a fresh v2 database and a v1 database
-/// upgraded to v2 describe the same tables and columns.
+/// install) and [_onUpgrade] (an in-place migration) cannot drift apart. The
+/// schema-parity tests compare fresh v7 databases with upgraded databases.
 class AppDatabase {
   AppDatabase._(this._db);
 
@@ -89,7 +88,7 @@ class AppDatabase {
     )
   ''';
 
-  /// Every statement that builds the current (v2) schema, in order. A fresh
+  /// Every statement that builds the current v7 schema, in order. A fresh
   /// install executes exactly this list.
   @visibleForTesting
   static const List<String> schemaStatements = <String>[

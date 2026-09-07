@@ -48,7 +48,7 @@ void main() {
     expect(events, ['cache']);
   });
 
-  test('a slow cache read never blocks the remote value', () async {
+  test('a broken cache does not block the remote value', () async {
     final events = await staleFirst<String>(
       cached: () async => throw StateError('local db is broken'),
       remote: () async => 'remote',

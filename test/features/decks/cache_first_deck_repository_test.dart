@@ -3,6 +3,7 @@ import 'package:open_recall/features/courses/data/local_course_store.dart';
 import 'package:open_recall/features/decks/data/cache_first_deck_repository.dart';
 import 'package:open_recall/features/decks/data/local_deck_store.dart';
 import 'package:open_recall/features/decks/domain/card.dart';
+import 'package:open_recall/features/decks/domain/deck.dart';
 
 import '../../support/fake_deck_repository.dart';
 
@@ -12,6 +13,7 @@ class _FakeLocalDeckStore extends LocalDeckStore {
 
   final List<String> createDeckCalls = [];
   final List<List<String>> reorderDeckCalls = [];
+  final List<Deck> savedRemoteDecks = [];
 
   @override
   bool get isNoop => false;
@@ -28,6 +30,11 @@ class _FakeLocalDeckStore extends LocalDeckStore {
   @override
   Future<void> reorderDecks(List<String> orderedIds) async {
     reorderDeckCalls.add(orderedIds);
+  }
+
+  @override
+  Future<void> saveRemoteDeck(Deck deck) async {
+    savedRemoteDecks.add(deck);
   }
 }
 
@@ -55,7 +62,7 @@ class _MetaOnlyLocalDeckStore extends LocalDeckStore {
   Future<bool> isDownloaded(String deckId) async => true;
 
   @override
-  Future<bool> hasMirroredCards(String deckId) async => false;
+  Future<bool> isCardSetComplete(String deckId) async => false;
 }
 
 /// Records the card sets handed to [mirrorCards]. `isDownloaded` is true for
@@ -66,6 +73,7 @@ class _MirrorRecordingLocalDeckStore extends LocalDeckStore {
   _MirrorRecordingLocalDeckStore() : super(null);
 
   final Map<String, List<String>> mirrored = {};
+  final Map<String, List<FlashCard>> cardsByDeck = {};
 
   @override
   bool get isNoop => false;
@@ -76,27 +84,48 @@ class _MirrorRecordingLocalDeckStore extends LocalDeckStore {
   @override
   Future<void> mirrorCards(String deckId, List<FlashCard> remote) async {
     mirrored[deckId] = [for (final c in remote) c.id];
+    cardsByDeck[deckId] = remote;
   }
+
+  @override
+  Future<List<FlashCard>> cards(String deckId) async =>
+      cardsByDeck[deckId] ?? const [];
 }
 
 void main() {
+  test('successful remote deck authoring refreshes cached metadata', () async {
+    final local = _FakeLocalDeckStore();
+    final repo = CacheFirstDeckRepository(
+      FakeDeckRepository(),
+      local,
+      _FakeLocalCourseStore(null),
+    );
+
+    final created = await repo.createDeck('Cells');
+
+    expect(local.savedRemoteDecks.single.id, created.id);
+    expect(local.savedRemoteDecks.single.name, 'Cells');
+  });
+
   group('CacheFirstDeckRepository.createDeck offline', () {
-    test('queues locally, resolving a null course to the mirrored default',
-        () async {
-      final local = _FakeLocalDeckStore();
-      final repo = CacheFirstDeckRepository(
-        FakeDeckRepository()..throwOnNextCall = StateError('offline'),
-        local,
-        _FakeLocalCourseStore('default-course'),
-      );
+    test(
+      'queues locally, resolving a null course to the mirrored default',
+      () async {
+        final local = _FakeLocalDeckStore();
+        final repo = CacheFirstDeckRepository(
+          FakeDeckRepository()..throwOnNextCall = StateError('offline'),
+          local,
+          _FakeLocalCourseStore('default-course'),
+        );
 
-      final deck = await repo.createDeck('Cells');
+        final deck = await repo.createDeck('Cells');
 
-      expect(deck.name, 'Cells');
-      expect(deck.courseId, 'default-course');
-      expect(local.createDeckCalls.single, contains('course=default-course'));
-      expect(local.createDeckCalls.single, contains('name=Cells'));
-    });
+        expect(deck.name, 'Cells');
+        expect(deck.courseId, 'default-course');
+        expect(local.createDeckCalls.single, contains('course=default-course'));
+        expect(local.createDeckCalls.single, contains('name=Cells'));
+      },
+    );
 
     test('queues with a null course when the mirror has no default', () async {
       final local = _FakeLocalDeckStore();
@@ -143,31 +172,54 @@ void main() {
   });
 
   group('CacheFirstDeckRepository.fetchCards online', () {
-    test('opening a listed deck refreshes its card mirror in place '
-        '(the spec\'s "opportunistic refresh" — no separate code needed)',
-        () async {
-      final remote = FakeDeckRepository(cards: [
-        FlashCard(
-          id: 'k1', deckId: 'deck-1', front: 'Q', back: 'A',
-          keywords: const [], isConcept: false, masteryLevel: 0, failCount: 0,
-          createdAt: DateTime.utc(2026), updatedAt: DateTime.utc(2026),
-        ),
-        FlashCard(
-          id: 'k2', deckId: 'deck-1', front: 'Q2', back: 'A2',
-          keywords: const [], isConcept: false, masteryLevel: 0, failCount: 0,
-          createdAt: DateTime.utc(2026), updatedAt: DateTime.utc(2026),
-        ),
-      ]);
-      final local = _MirrorRecordingLocalDeckStore();
-      final repo = CacheFirstDeckRepository(
-        remote, local, _FakeLocalCourseStore(null));
+    test(
+      'opening a listed deck refreshes its card mirror in place '
+      '(the spec\'s "opportunistic refresh" — no separate code needed)',
+      () async {
+        final remote = FakeDeckRepository(
+          cards: [
+            FlashCard(
+              id: 'k1',
+              deckId: 'deck-1',
+              front: 'Q',
+              back: 'A',
+              keywords: const [],
+              isConcept: false,
+              masteryLevel: 0,
+              failCount: 0,
+              createdAt: DateTime.utc(2026),
+              updatedAt: DateTime.utc(2026),
+            ),
+            FlashCard(
+              id: 'k2',
+              deckId: 'deck-1',
+              front: 'Q2',
+              back: 'A2',
+              keywords: const [],
+              isConcept: false,
+              masteryLevel: 0,
+              failCount: 0,
+              createdAt: DateTime.utc(2026),
+              updatedAt: DateTime.utc(2026),
+            ),
+          ],
+        );
+        final local = _MirrorRecordingLocalDeckStore();
+        final repo = CacheFirstDeckRepository(
+          remote,
+          local,
+          _FakeLocalCourseStore(null),
+        );
 
-      final cards = await repo.fetchCards('deck-1');
+        final cards = await repo.fetchCards('deck-1');
 
-      expect(cards.map((c) => c.id), ['k1', 'k2']);
-      expect(local.mirrored['deck-1'], ['k1', 'k2'],
-          reason: 'the fresh set was written to the local mirror on success');
-    });
+        expect(cards.map((c) => c.id), ['k1', 'k2']);
+        expect(local.mirrored['deck-1'], [
+          'k1',
+          'k2',
+        ], reason: 'the fresh set was written to the local mirror on success');
+      },
+    );
   });
 
   group('CacheFirstDeckRepository.reorderDecks', () {

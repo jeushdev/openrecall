@@ -57,6 +57,19 @@ class LocalCourseStore {
 
   bool get isNoop => _db == null;
 
+  Future<bool> hasFetchedCourses() async {
+    final db = _db;
+    if (db == null) return false;
+    final rows = await db.query(
+      'application_cache',
+      columns: ['key'],
+      where: 'key = ?',
+      whereArgs: ['courses'],
+      limit: 1,
+    );
+    return rows.isNotEmpty;
+  }
+
   // ---- read-through refresh -------------------------------------------------
 
   /// Merges [remote] into the mirror after a successful online fetch, without
@@ -74,26 +87,45 @@ class LocalCourseStore {
         ))
           r['id'] as String,
       };
+      final tombstonedIds = {
+        for (final r in await txn.query(
+          'offline_deletions',
+          columns: ['entity_id'],
+          where: "entity_type = 'course'",
+        ))
+          r['entity_id'] as String,
+      };
       final remoteIds = {for (final c in remote) c.id};
+      const retainPendingDecks =
+          'id IN (SELECT course_id FROM offline_decks WHERE is_synced = 0)';
       if (remoteIds.isEmpty) {
-        await txn.delete('offline_courses', where: 'is_synced = 1');
+        await txn.delete(
+          'offline_courses',
+          where: 'is_synced = 1 AND NOT ($retainPendingDecks)',
+        );
       } else {
         await txn.delete(
           'offline_courses',
           where:
               'is_synced = 1 AND id NOT IN '
-              "(${List.filled(remoteIds.length, '?').join(',')})",
+              "(${List.filled(remoteIds.length, '?').join(',')}) "
+              'AND NOT ($retainPendingDecks)',
           whereArgs: remoteIds.toList(),
         );
       }
       for (final c in remote) {
-        if (dirtyIds.contains(c.id)) continue;
+        if (dirtyIds.contains(c.id) || tombstonedIds.contains(c.id)) continue;
         await txn.insert(
           'offline_courses',
           _syncedValues(c),
           conflictAlgorithm: ConflictAlgorithm.replace,
         );
       }
+      await txn.insert('application_cache', {
+        'key': 'courses',
+        'fetched_at': DateTime.now().toUtc().toIso8601String(),
+        'coverage': 'complete',
+      }, conflictAlgorithm: ConflictAlgorithm.replace);
     });
   }
 
@@ -103,6 +135,42 @@ class LocalCourseStore {
     if (db == null) return const [];
     final rows = await db.query('offline_courses', orderBy: 'position, name');
     return rows.map(_fromRow).toList();
+  }
+
+  Future<void> saveRemoteCourse(Course course) async {
+    final db = _db;
+    if (db == null) return;
+    final tombstone = await db.query(
+      'offline_deletions',
+      columns: ['entity_id'],
+      where: "entity_type = 'course' AND entity_id = ?",
+      whereArgs: [course.id],
+      limit: 1,
+    );
+    if (tombstone.isNotEmpty) return;
+    final dirty = await db.query(
+      'offline_courses',
+      columns: ['id'],
+      where: 'id = ? AND is_synced = 0',
+      whereArgs: [course.id],
+      limit: 1,
+    );
+    if (dirty.isNotEmpty) return;
+    await db.insert(
+      'offline_courses',
+      _syncedValues(course),
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  Future<void> removeRemoteCourse(String id) async {
+    final db = _db;
+    if (db == null) return;
+    await db.delete(
+      'offline_courses',
+      where: 'id = ? AND is_synced = 1',
+      whereArgs: [id],
+    );
   }
 
   /// Applies a manual course reorder made offline: stamps each id's list index

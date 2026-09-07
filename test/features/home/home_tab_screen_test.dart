@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:open_recall/app.dart';
 import 'package:open_recall/core/connectivity/connectivity_service.dart';
+import 'package:open_recall/core/local_db/local_db_providers.dart';
 import 'package:open_recall/features/auth/application/auth_providers.dart';
 import 'package:open_recall/features/courses/application/course_providers.dart';
 import 'package:open_recall/features/decks/application/deck_providers.dart';
@@ -10,6 +13,7 @@ import 'package:open_recall/features/decks/domain/deck.dart';
 import 'package:open_recall/features/decks/domain/study_mode.dart';
 import 'package:open_recall/features/home/presentation/home_tab_screen.dart';
 import 'package:open_recall/features/profile/application/profile_providers.dart';
+import 'package:open_recall/features/profile/domain/profile.dart';
 import 'package:open_recall/features/settings/application/settings_providers.dart';
 import 'package:open_recall/features/stats/application/stats_providers.dart';
 import 'package:open_recall/features/stats/domain/active_session.dart';
@@ -56,6 +60,10 @@ void main() {
     required List<DeckSummary> decks,
     required FakeStatsRepository stats,
     String? username,
+    String? email,
+    Stream<Profile?>? profileStream,
+    bool localStorageAvailable = false,
+    bool settle = true,
     String courseName = 'Biology',
     double textScale = 1,
     ThemeMode themeMode = ThemeMode.light,
@@ -79,18 +87,55 @@ void main() {
           ),
           statsRepositoryProvider.overrideWithValue(stats),
           onlineStatusProvider.overrideWith((ref) => Stream.value(true)),
+          localStorageAvailableProvider.overrideWithValue(
+            localStorageAvailable,
+          ),
+          userIdentityProvider.overrideWithValue((email: email)),
           profileProvider.overrideWith(
-            (ref) async => username == null
-                ? null
-                : (id: 'u1', email: 'a@b.com', username: username),
+            (ref) =>
+                profileStream ??
+                Stream.value(
+                  username == null
+                      ? null
+                      : (id: 'u1', email: 'a@b.com', username: username),
+                ),
           ),
           initialThemeModeProvider.overrideWithValue(themeMode),
         ],
         child: const OpenRecallApp(),
       ),
     );
-    await tester.pumpAndSettle();
+    if (settle) {
+      await tester.pumpAndSettle();
+    } else {
+      await tester.pump();
+    }
   }
+
+  testWidgets('cached username appears without an email-fallback flash', (
+    tester,
+  ) async {
+    final cached = Completer<Profile?>();
+    await pumpHome(
+      tester,
+      decks: const [],
+      stats: FakeStatsRepository(),
+      email: 'jeush.b@example.com',
+      profileStream: Stream.fromFuture(cached.future),
+      localStorageAvailable: true,
+      settle: false,
+    );
+
+    expect(find.textContaining('Jeush'), findsNothing);
+    cached.complete((
+      id: 'user',
+      email: 'jeush.b@example.com',
+      username: 'Ada',
+    ));
+    await tester.pump();
+    await tester.pump();
+    expect(find.text('Hello, Ada!'), findsOneWidget);
+  });
 
   testWidgets('renders the greeting and welcome content', (tester) async {
     await pumpHome(

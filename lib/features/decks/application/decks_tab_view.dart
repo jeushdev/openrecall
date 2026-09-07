@@ -2,9 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../../../core/cache/stale_first.dart' show kRevalidateTimeout;
 import '../../../core/connectivity/connectivity_service.dart';
-import '../../../core/local_db/local_db_providers.dart';
 import '../../../core/ui/app_messenger.dart';
 import '../../courses/application/course_providers.dart';
 import '../../courses/domain/course.dart';
@@ -37,9 +35,8 @@ class DeckTileView {
   /// parent course. Falls back to `slate` when the course is unknown.
   final String accentKey;
 
-  /// True when the app is offline and this deck's cards are not mirrored
-  /// locally, so it cannot be opened or studied (design spec §E.1). The tile
-  /// renders greyed with a "Download to use offline" affordance.
+  /// True when the app is offline and this deck has no verified complete local
+  /// card set, so it cannot be opened or studied.
   final bool isLockedOffline;
 }
 
@@ -54,69 +51,21 @@ class CourseDeckGroup {
   final List<DeckTileView> decks;
 }
 
-/// How long the Decks tab waits on the deck-list fetch before falling back to
-/// the local mirror. The tab is the app's home screen — it must not sit on a
-/// spinner because Supabase is slow, asleep or unreachable (same reasoning as
-/// the study screen's bound, ui-spec-v1 §2). Overridden short in tests.
-final decksLoadTimeoutProvider =
-    Provider<Duration>((ref) => kRevalidateTimeout);
-
-/// The decks already in the local SQLite mirror — served immediately on the
-/// Decks tab while [tabDecksProvider] revalidates against Supabase (milestone
-/// E1). A fast local query; empty on a fresh install. Never hits the network,
-/// so it can't hang offline.
-final cachedTabDecksProvider = FutureProvider<List<DeckSummary>>((ref) {
-  return ref.watch(localDeckStoreProvider).cachedDeckSummaries();
-});
-
-/// The deck list for the tab, bounded by [decksLoadTimeoutProvider]. Separate
-/// from the app-wide [decksProvider] (which the Mastery tab and stats layer also
-/// read) so the bound applies only here.
-///
-/// The bound wraps the **remote** call only; the local-mirror fallback that
-/// runs after a timeout is fast and unbounded. Previously the timeout wrapped
-/// `CacheFirstDeckRepository.fetchDecks` whole — cache fallback included — so an
-/// unreachable host burned the budget before the fallback ran and the tab
-/// showed an error over a perfectly good mirror. [decksTabViewProvider] serves
-/// [cachedTabDecksProvider] in the meantime so first paint is never a spinner
-/// behind a doomed network call.
-final tabDecksProvider = FutureProvider<List<DeckSummary>>((ref) async {
-  final repository = ref.watch(deckRepositoryProvider);
-  final local = ref.watch(localDeckStoreProvider);
-  final timeout = ref.watch(decksLoadTimeoutProvider);
-  try {
-    return await repository.fetchDecks().timeout(timeout);
-  } catch (_) {
-    final cached = await local.cachedDeckSummaries();
-    if (cached.isNotEmpty) return cached;
-    rethrow;
-  }
-});
+/// Compatibility name for callers that conceptually read the tab's decks. The
+/// data now comes from the same local-first observable used app-wide.
+final tabDecksProvider = decksProvider;
 
 /// The Decks-tab accordion model (ui-spec-v2 §5): the user's courses ordered by
 /// `created_at` ascending — so the default course sorts first — each with its
 /// decks.
 ///
-/// Driven by [tabDecksProvider] — its error / empty state is the screen's
-/// state. While it is still loading, the decks already in the local mirror
-/// ([cachedTabDecksProvider]) stand in, so an offline launch paints real
-/// content instead of a spinner behind a doomed network call (milestone E1).
+/// Driven by the shared local-first [decksProvider].
 /// [coursesProvider] is best-effort enrichment: while it loads or if it fails,
 /// every deck falls into a single synthetic group so the tab still renders
 /// rather than blocking.
-final decksTabViewProvider =
-    Provider<AsyncValue<List<CourseDeckGroup>>>((ref) {
-  final live = ref.watch(tabDecksProvider);
-  final cached =
-      ref.watch(cachedTabDecksProvider).asData?.value ?? const <DeckSummary>[];
-  // Stale-first: while the Supabase refresh is in flight, show whatever the
-  // mirror holds. Once it resolves (or errors with an empty mirror) the live
-  // state takes over.
-  final decksAsync = live.isLoading && cached.isNotEmpty
-      ? AsyncData<List<DeckSummary>>(cached)
-      : live;
-  final courses =
-      ref.watch(coursesProvider).asData?.value ?? const <Course>[];
+final decksTabViewProvider = Provider<AsyncValue<List<CourseDeckGroup>>>((ref) {
+  final decksAsync = ref.watch(decksProvider);
+  final courses = ref.watch(coursesProvider).asData?.value ?? const <Course>[];
 
   // Optimistically-deleted courses / decks (milestone R1) are subtracted before
   // grouping. Dropping a pending course from the list is enough to re-home its
@@ -131,7 +80,8 @@ final decksTabViewProvider =
   // A deck the app can't open offline (design spec §E.1). Assume online until
   // connectivity resolves, so tiles never flash locked on a cold start.
   final online = ref.watch(onlineStatusProvider).asData?.value ?? true;
-  final studiable = ref.watch(studiableOfflineDeckIdsProvider).asData?.value ??
+  final studiable =
+      ref.watch(studiableOfflineDeckIdsProvider).asData?.value ??
       const <String>{};
 
   return decksAsync.whenData((decks) {
@@ -141,8 +91,13 @@ final decksTabViewProvider =
     final visibleCourses = pending.courseIds.isEmpty
         ? courses
         : courses.where((c) => !pending.courseIds.contains(c.id)).toList();
-    return _group(visibleDecks, visibleCourses, order,
-        online: online, studiable: studiable);
+    return _group(
+      visibleDecks,
+      visibleCourses,
+      order,
+      online: online,
+      studiable: studiable,
+    );
   });
 });
 
@@ -167,24 +122,23 @@ List<CourseDeckGroup> _group(
   required Set<String> studiable,
 }) {
   DeckTileView tile(DeckSummary d, String accentKey) => DeckTileView(
-        id: d.id,
-        name: d.name,
-        cardCount: d.totalCards,
-        accentKey: accentKey,
-        // On web there is no local mirror and nothing is ever "studiable
-        // offline", so an offline browser would otherwise lock every tile with
-        // copy about downloading (spec-web-mvp §5.3). The web build is
-        // online-only by design; leave tiles unlocked.
-        isLockedOffline: !kIsWeb && !online && !studiable.contains(d.id),
-      );
+    id: d.id,
+    name: d.name,
+    cardCount: d.totalCards,
+    accentKey: accentKey,
+    // On web there is no local mirror and nothing is ever "studiable
+    // offline", so an offline browser would otherwise lock every tile with
+    // copy about downloading (spec-web-mvp §5.3). The web build is
+    // online-only by design; leave tiles unlocked.
+    isLockedOffline: !kIsWeb && !online && !studiable.contains(d.id),
+  );
 
   if (courses.isEmpty) {
     return [
       CourseDeckGroup(
         course: _syntheticDefaultCourse,
         decks: [
-          for (final d in decks)
-            tile(d, _syntheticDefaultCourse.accentColor),
+          for (final d in decks) tile(d, _syntheticDefaultCourse.accentColor),
         ],
       ),
     ];
@@ -201,8 +155,10 @@ List<CourseDeckGroup> _group(
   final courseGroups = _applyOverride(ordered, order.courseOrder, (c) => c.id);
 
   final byId = {for (final c in courseGroups) c.id: c};
-  final defaultCourse = courseGroups
-      .firstWhere((c) => c.isDefault, orElse: () => courseGroups.first);
+  final defaultCourse = courseGroups.firstWhere(
+    (c) => c.isDefault,
+    orElse: () => courseGroups.first,
+  );
 
   final buckets = {for (final c in courseGroups) c.id: <DeckSummary>[]};
   for (final d in decks) {
@@ -259,17 +215,13 @@ List<T> _applyOverride<T>(
 ) {
   if (order == null) return items;
   final byId = {for (final it in items) idOf(it): it};
-  final result = <T>[
-    for (final id in order) ?byId.remove(id),
-  ];
+  final result = <T>[for (final id in order) ?byId.remove(id)];
   result.addAll(byId.values);
   return result;
 }
 
 /// Re-runs the deck-list and course fetches (Retry on the error state).
 void refreshDecksTab(WidgetRef ref) {
-  ref.invalidate(tabDecksProvider);
-  ref.invalidate(cachedTabDecksProvider);
   ref.invalidate(decksProvider);
   ref.invalidate(coursesProvider);
 }
@@ -289,8 +241,9 @@ class TabOrder {
   final Map<String, List<String>> deckOrders;
 }
 
-final tabOrderProvider =
-    NotifierProvider<TabOrderController, TabOrder>(TabOrderController.new);
+final tabOrderProvider = NotifierProvider<TabOrderController, TabOrder>(
+  TabOrderController.new,
+);
 
 /// Handles a drag-to-reorder gesture on the Decks tab: apply the new order to
 /// [tabOrderProvider] at once (optimistic), persist it in one batched call, and
@@ -317,8 +270,6 @@ class TabOrderController extends Notifier<TabOrder> {
     await _settleAfter(() {
       ref.invalidate(coursesProvider);
       ref.invalidate(decksProvider);
-      ref.invalidate(tabDecksProvider);
-      ref.invalidate(cachedTabDecksProvider);
       return ref.read(coursesProvider.future);
     });
     state = TabOrder(courseOrder: null, deckOrders: state.deckOrders);
@@ -339,8 +290,6 @@ class TabOrderController extends Notifier<TabOrder> {
     }
     await _settleAfter(() {
       ref.invalidate(decksProvider);
-      ref.invalidate(tabDecksProvider);
-      ref.invalidate(cachedTabDecksProvider);
       return ref.read(tabDecksProvider.future);
     });
     state = TabOrder(
@@ -388,8 +337,9 @@ class DecksAccordionPreferences {
   }
 }
 
-final decksAccordionPreferencesProvider =
-    Provider<DecksAccordionPreferences>((ref) => DecksAccordionPreferences());
+final decksAccordionPreferencesProvider = Provider<DecksAccordionPreferences>(
+  (ref) => DecksAccordionPreferences(),
+);
 
 /// The expanded Decks-tab course sections (ui-spec-v2 §5). `null` until the user
 /// first toggles a section; after that the persisted set is authoritative.
@@ -397,8 +347,8 @@ final decksAccordionPreferencesProvider =
 /// renders (mirrors how the Settings toggles degrade).
 final expandedCoursesProvider =
     AsyncNotifierProvider<ExpandedCoursesController, Set<String>?>(
-  ExpandedCoursesController.new,
-);
+      ExpandedCoursesController.new,
+    );
 
 class ExpandedCoursesController extends AsyncNotifier<Set<String>?> {
   DecksAccordionPreferences get _prefs =>

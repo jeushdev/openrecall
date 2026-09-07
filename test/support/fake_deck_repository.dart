@@ -14,8 +14,8 @@ import 'package:open_recall/features/decks/domain/deck_repository.dart';
 /// guard-miss tests.
 class FakeDeckRepository implements DeckRepository {
   FakeDeckRepository({List<DeckSummary>? decks, List<FlashCard>? cards})
-      : _decks = [...?decks],
-        _cards = [...?cards];
+    : _decks = [...?decks],
+      _cards = [...?cards];
 
   final List<DeckSummary> _decks;
   final List<FlashCard> _cards;
@@ -34,6 +34,9 @@ class FakeDeckRepository implements DeckRepository {
   /// completes — an unreachable host rather than a refused connection, the
   /// case the Decks-tab timeout used to mishandle.
   bool hangForever = false;
+
+  /// When set, list/card fetches wait here before returning their current data.
+  Completer<void>? fetchGate;
 
   /// When set, [updateCardMasteryGuarded] awaits this before applying — lets a
   /// test hold a background write open while another rating happens.
@@ -58,8 +61,7 @@ class FakeDeckRepository implements DeckRepository {
   // A monotonic clock so every write moves `updated_at` — the compare-and-set
   // guard is only observable if timestamps actually change.
   int _tick = 0;
-  DateTime get _now =>
-      DateTime.utc(2026, 1, 1).add(Duration(seconds: _tick++));
+  DateTime get _now => DateTime.utc(2026, 1, 1).add(Duration(seconds: _tick++));
 
   FlashCard? cardById(String id) {
     for (final c in _cards) {
@@ -76,33 +78,35 @@ class FakeDeckRepository implements DeckRepository {
     bool isConcept = false,
     int masteryLevel = 0,
     int failCount = 0,
-  }) =>
-      FlashCard(
-        id: _nextId('card'),
-        deckId: deckId,
-        front: front,
-        back: back,
-        keywords: keywords,
-        isConcept: isConcept,
-        masteryLevel: masteryLevel,
-        failCount: failCount,
-        createdAt: _now,
-        updatedAt: _now,
-      );
+  }) => FlashCard(
+    id: _nextId('card'),
+    deckId: deckId,
+    front: front,
+    back: back,
+    keywords: keywords,
+    isConcept: isConcept,
+    masteryLevel: masteryLevel,
+    failCount: failCount,
+    createdAt: _now,
+    updatedAt: _now,
+  );
 
   @override
   Future<List<DeckSummary>> fetchDecks() async {
     calls.add('fetchDecks()');
     _maybeThrow();
     if (hangForever) return Completer<List<DeckSummary>>().future;
+    await fetchGate?.future;
     return List.unmodifiable(_decks);
   }
 
   @override
   Future<Deck> createDeck(String name, {String? courseId}) async {
-    calls.add(courseId == null
-        ? 'createDeck($name)'
-        : 'createDeck($name, course=$courseId)');
+    calls.add(
+      courseId == null
+          ? 'createDeck($name)'
+          : 'createDeck($name, course=$courseId)',
+    );
     _maybeThrow();
     final deck = Deck(
       id: _nextId('deck'),
@@ -171,6 +175,7 @@ class FakeDeckRepository implements DeckRepository {
     calls.add('fetchCards($deckId)');
     _maybeThrow();
     if (hangForever) return Completer<List<FlashCard>>().future;
+    await fetchGate?.future;
     return _cards.where((c) => c.deckId == deckId).toList();
   }
 
@@ -182,8 +187,10 @@ class FakeDeckRepository implements DeckRepository {
     required List<String> keywords,
     required bool isConcept,
   }) async {
-    calls.add('addCard(deck=$deckId, front=$front, back=$back, '
-        'keywords=$keywords, concept=$isConcept)');
+    calls.add(
+      'addCard(deck=$deckId, front=$front, back=$back, '
+      'keywords=$keywords, concept=$isConcept)',
+    );
     _maybeThrow();
     final card = _card(
       deckId: deckId,
@@ -197,7 +204,10 @@ class FakeDeckRepository implements DeckRepository {
   }
 
   @override
-  Future<List<FlashCard>> addCards(String deckId, List<ParsedCard> cards) async {
+  Future<List<FlashCard>> addCards(
+    String deckId,
+    List<ParsedCard> cards,
+  ) async {
     calls.add('addCards($deckId, ${cards.length})');
     _maybeThrow();
     final added = [
@@ -222,8 +232,10 @@ class FakeDeckRepository implements DeckRepository {
     required List<String> keywords,
     required bool isConcept,
   }) async {
-    calls.add('updateCard(id=$id, front=$front, back=$back, '
-        'keywords=$keywords, concept=$isConcept)');
+    calls.add(
+      'updateCard(id=$id, front=$front, back=$back, '
+      'keywords=$keywords, concept=$isConcept)',
+    );
     _maybeThrow();
     final i = _cards.indexWhere((c) => c.id == id);
     final existing = _cards[i];
@@ -280,8 +292,10 @@ class FakeDeckRepository implements DeckRepository {
     required int failCount,
     required DateTime expectedUpdatedAt,
   }) async {
-    calls.add('updateCardMasteryGuarded(id=$cardId, mastery=$masteryLevel, '
-        'fail=$failCount)');
+    calls.add(
+      'updateCardMasteryGuarded(id=$cardId, mastery=$masteryLevel, '
+      'fail=$failCount)',
+    );
     _maybeThrow();
     await guardGate?.future;
     final i = _cards.indexWhere((c) => c.id == cardId);
@@ -321,16 +335,16 @@ class FakeDeckRepository implements DeckRepository {
   }
 
   DeckSummary _withPosition(DeckSummary d, int position) => DeckSummary(
-        id: d.id,
-        name: d.name,
-        courseId: d.courseId,
-        lastStudiedAt: d.lastStudiedAt,
-        totalCards: d.totalCards,
-        dueCards: d.dueCards,
-        masteryPercent: d.masteryPercent,
-        masteryLevelSum: d.masteryLevelSum,
-        position: position,
-      );
+    id: d.id,
+    name: d.name,
+    courseId: d.courseId,
+    lastStudiedAt: d.lastStudiedAt,
+    totalCards: d.totalCards,
+    dueCards: d.dueCards,
+    masteryPercent: d.masteryPercent,
+    masteryLevelSum: d.masteryLevelSum,
+    position: position,
+  );
 
   @override
   Future<void> markDeckStudied(String deckId) async {
@@ -355,17 +369,16 @@ class FakeDeckRepository implements DeckRepository {
     int? masteryLevel,
     int? failCount,
     DateTime? updatedAt,
-  }) =>
-      FlashCard(
-        id: c.id,
-        deckId: c.deckId,
-        front: c.front,
-        back: c.back,
-        keywords: c.keywords,
-        isConcept: c.isConcept,
-        masteryLevel: masteryLevel ?? c.masteryLevel,
-        failCount: failCount ?? c.failCount,
-        createdAt: c.createdAt,
-        updatedAt: updatedAt ?? c.updatedAt,
-      );
+  }) => FlashCard(
+    id: c.id,
+    deckId: c.deckId,
+    front: c.front,
+    back: c.back,
+    keywords: c.keywords,
+    isConcept: c.isConcept,
+    masteryLevel: masteryLevel ?? c.masteryLevel,
+    failCount: failCount ?? c.failCount,
+    createdAt: c.createdAt,
+    updatedAt: updatedAt ?? c.updatedAt,
+  );
 }

@@ -3,14 +3,14 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../core/cache/stale_first.dart';
+import '../../../core/local_db/local_db_providers.dart';
 import '../data/supabase_profile_repository.dart';
 import '../domain/profile.dart';
 import '../domain/profile_repository.dart';
 
-/// The signed-in user as the identity blocks need them (ui-spec-v1 §6.4,
-/// ui-spec-v4-navigation §5). Only the email is available — there is no display
-/// name anywhere in the schema, so the avatar initials and the greeting token
-/// are derived from the email's local part downstream.
+/// The signed-in user's auth identity. The profile username is loaded
+/// separately through [profileProvider].
 typedef UserIdentity = ({String? email});
 
 /// Reads the current user's email straight off the Supabase session.
@@ -34,16 +34,29 @@ final profileRepositoryProvider = Provider<ProfileRepository>((ref) {
   return SupabaseProfileRepository(Supabase.instance.client);
 });
 
-/// The current user's profile row, or `null` when there is no session, Supabase
-/// is not initialized (widget tests), or the row can't be read. The name is
-/// cosmetic, so every failure degrades to `null` and the UI shows the
-/// email-derived name.
-final profileProvider = FutureProvider<Profile?>((ref) async {
-  try {
-    return await ref.read(profileRepositoryProvider).fetch();
-  } catch (_) {
-    return null;
-  }
+/// The current profile is restored from SQLite first and refreshed in the
+/// background. A failed refresh never replaces a cached username. With no
+/// SQLite this remains the previous online-only nullable read.
+class _ProfileSnapshot {
+  const _ProfileSnapshot(this.value);
+  final Profile? value;
+}
+
+final profileProvider = StreamProvider<Profile?>((ref) {
+  final cache = ref.watch(applicationCacheProvider);
+  final repository = ref.watch(profileRepositoryProvider);
+  return staleFirst<_ProfileSnapshot>(
+    cached: () async {
+      final profile = await cache.profile();
+      return profile == null ? null : _ProfileSnapshot(profile);
+    },
+    remote: () async {
+      final profile = await repository.fetch();
+      await cache.saveProfile(profile);
+      return _ProfileSnapshot(profile);
+    },
+    noCacheErrorFallback: const _ProfileSnapshot(null),
+  ).map((snapshot) => snapshot.value);
 });
 
 /// Drives the "edit display name" action: `isLoading` disables the sheet's Save
@@ -63,6 +76,16 @@ class ProfileController extends AsyncNotifier<void> {
     state = const AsyncLoading();
     state = await AsyncValue.guard(() async {
       await ref.read(profileRepositoryProvider).updateUsername(name);
+      final cache = ref.read(applicationCacheProvider);
+      final current =
+          ref.read(profileProvider).asData?.value ?? await cache.profile();
+      if (current != null) {
+        await cache.saveProfile((
+          id: current.id,
+          email: current.email,
+          username: name,
+        ));
+      }
       ref.invalidate(profileProvider);
     });
   }

@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../routing/app_routes.dart';
+import '../../../core/local_db/local_db_providers.dart';
 import '../../../theme/app_geometry.dart';
 import '../../../theme/app_tokens.dart';
 import '../../../theme/app_type.dart';
@@ -28,8 +29,13 @@ class HomeTabScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final email = ref.watch(userIdentityProvider).email;
-    final username = ref.watch(profileProvider).asData?.value?.username;
+    final profile = ref.watch(profileProvider);
+    final waitingForLocalProfile =
+        ref.watch(localStorageAvailableProvider) && profile.isLoading;
+    final email = waitingForLocalProfile
+        ? null
+        : ref.watch(userIdentityProvider).email;
+    final username = profile.asData?.value?.username;
     final active = ref.watch(activeSessionsProvider);
     final mostReviewed = ref.watch(mostReviewedDecksProvider);
     final tokens = Theme.of(context).extension<AppTokens>()!;

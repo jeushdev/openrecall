@@ -11,6 +11,7 @@ class _FakeLocalCourseStore extends LocalCourseStore {
 
   final List<Course> _cached;
   final List<List<String>> reorderCourseCalls = [];
+  final List<Course> savedRemoteCourses = [];
 
   @override
   bool get isNoop => false;
@@ -25,12 +26,38 @@ class _FakeLocalCourseStore extends LocalCourseStore {
   Future<void> reorderCourses(List<String> orderedIds) async {
     reorderCourseCalls.add(orderedIds);
   }
+
+  @override
+  Future<void> saveRemoteCourse(Course course) async {
+    savedRemoteCourses.add(course);
+  }
 }
 
 void main() {
+  test(
+    'successful remote course authoring refreshes cached metadata',
+    () async {
+      final local = _FakeLocalCourseStore(const []);
+      final repo = CacheFirstCourseRepository(
+        FakeCourseRepository(),
+        local,
+        () => 'u1',
+      );
+
+      final created = await repo.createCourse(
+        name: 'Biology',
+        accentColor: 'green',
+      );
+
+      expect(local.savedRemoteCourses.single.id, created.id);
+      expect(local.savedRemoteCourses.single.name, 'Biology');
+    },
+  );
+
   group('CacheFirstCourseRepository.fetchCourses offline', () {
     test('falls back to a non-empty mirror', () async {
-      final remote = FakeCourseRepository()..throwOnNextCall = StateError('offline');
+      final remote = FakeCourseRepository()
+        ..throwOnNextCall = StateError('offline');
       final repo = CacheFirstCourseRepository(
         remote,
         _FakeLocalCourseStore([
@@ -45,22 +72,26 @@ void main() {
       expect(courses.map((c) => c.id), ['default', 'bio']);
     });
 
-    test('returns an empty list rather than rethrowing when the mirror is empty',
-        () async {
-      final remote = FakeCourseRepository()..throwOnNextCall = StateError('offline');
-      final repo = CacheFirstCourseRepository(
-        remote,
-        _FakeLocalCourseStore(const []),
-        () => 'u1',
-      );
+    test(
+      'returns an empty list rather than rethrowing when the mirror is empty',
+      () async {
+        final remote = FakeCourseRepository()
+          ..throwOnNextCall = StateError('offline');
+        final repo = CacheFirstCourseRepository(
+          remote,
+          _FakeLocalCourseStore(const []),
+          () => 'u1',
+        );
 
-      // The pre-fix behaviour rethrew here, which is what disabled the Deck
-      // Creator's "Create" button offline (milestone UX1).
-      expect(await repo.fetchCourses(), isEmpty);
-    });
+        // The pre-fix behaviour rethrew here, which is what disabled the Deck
+        // Creator's "Create" button offline (milestone UX1).
+        expect(await repo.fetchCourses(), isEmpty);
+      },
+    );
 
     test('rethrows when there is no local database at all', () async {
-      final remote = FakeCourseRepository()..throwOnNextCall = StateError('offline');
+      final remote = FakeCourseRepository()
+        ..throwOnNextCall = StateError('offline');
       final repo = CacheFirstCourseRepository(
         remote,
         LocalCourseStore(null), // isNoop == true
@@ -73,11 +104,13 @@ void main() {
 
   group('CacheFirstCourseRepository.reorderCourses', () {
     test('delegates the new order straight to the remote', () async {
-      final remote = FakeCourseRepository(courses: [
-        fakeCourse(id: 'a', isDefault: true),
-        fakeCourse(id: 'b'),
-        fakeCourse(id: 'c'),
-      ]);
+      final remote = FakeCourseRepository(
+        courses: [
+          fakeCourse(id: 'a', isDefault: true),
+          fakeCourse(id: 'b'),
+          fakeCourse(id: 'c'),
+        ],
+      );
       final repo = CacheFirstCourseRepository(
         remote,
         _FakeLocalCourseStore(const []),

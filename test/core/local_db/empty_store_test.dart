@@ -26,8 +26,8 @@ void main() {
     expect(await store.cachedDeckSummaries(), isEmpty);
     expect(await store.downloadedDeckIds(), isEmpty);
     expect(await store.pinnedDeckIds(), isEmpty);
-    expect(await store.mirroredCardDeckIds(), isEmpty);
-    expect(await store.hasMirroredCards('nope'), isFalse);
+    expect(await store.completeCardDeckIds(), isEmpty);
+    expect(await store.isCardSetComplete('nope'), isFalse);
     expect(await store.isDownloaded('nope'), isFalse);
     expect(await store.cards('nope'), isEmpty);
     expect(await store.cardById('nope'), isNull);
@@ -47,10 +47,7 @@ void main() {
   });
 
   test('streak and metrics folds are defined over an empty history', () {
-    expect(
-      currentStreak(const <DateTime>[], now: DateTime(2026, 9, 1)),
-      0,
-    );
+    expect(currentStreak(const <DateTime>[], now: DateTime(2026, 9, 1)), 0);
     final metrics = buildStudyMetrics(sessions: const <CompletedSession>[]);
     expect(metrics.currentStreak, 0);
     expect(metrics.longestStreak, 0);

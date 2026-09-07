@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/sync/sync_providers.dart';
+import '../../../core/local_db/local_db_providers.dart';
 import '../../../routing/app_routes.dart';
 import '../../../ui/common/avatar.dart';
 import '../../../ui/common/ios_list.dart';
@@ -29,8 +30,13 @@ class MoreTabScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final email = ref.watch(userIdentityProvider).email;
-    final username = ref.watch(profileProvider).asData?.value?.username;
+    final profile = ref.watch(profileProvider);
+    final waitingForLocalProfile =
+        ref.watch(localStorageAvailableProvider) && profile.isLoading;
+    final email = waitingForLocalProfile
+        ? null
+        : ref.watch(userIdentityProvider).email;
+    final username = profile.asData?.value?.username;
     final version = ref.watch(appVersionProvider);
     final pending = ref.watch(pendingSyncCountProvider);
 

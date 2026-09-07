@@ -3,6 +3,7 @@
 /// (`pre_session_cards_provider.dart`) — the app never sits on a spinner
 /// because Supabase is slow, asleep or unreachable.
 const Duration kRevalidateTimeout = Duration(seconds: 6);
+const Object _noFallback = Object();
 
 /// A stale-first read: yield what the local mirror already has, then replace it
 /// with the freshly-fetched value.
@@ -21,11 +22,14 @@ const Duration kRevalidateTimeout = Duration(seconds: 6);
 /// [cached] returns `null` for "nothing worth showing" — callers pass `null`
 /// rather than an empty list so the UI never flashes an empty state it is about
 /// to replace. A throwing [cached] is treated as no cache: a broken local
-/// database must not take the remote path down with it.
+/// database must not take the remote path down with it. Callers whose legacy
+/// contract degrades an uncached remote error to data can provide
+/// [noCacheErrorFallback].
 Stream<T> staleFirst<T>({
   required Future<T?> Function() cached,
   required Future<T> Function() remote,
   Duration remoteTimeout = kRevalidateTimeout,
+  Object? noCacheErrorFallback = _noFallback,
 }) async* {
   T? seed;
   try {
@@ -41,6 +45,12 @@ Stream<T> staleFirst<T>({
     // With a seed already emitted this is an ordinary offline revalidation
     // miss — the stale value stands. With no seed there is nothing to show, so
     // the error is the screen's state and the caller's Retry applies.
-    if (seed == null) rethrow;
+    if (seed == null) {
+      if (!identical(noCacheErrorFallback, _noFallback)) {
+        yield noCacheErrorFallback as T;
+      } else {
+        rethrow;
+      }
+    }
   }
 }

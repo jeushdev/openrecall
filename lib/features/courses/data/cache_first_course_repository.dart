@@ -31,7 +31,7 @@ class CacheFirstCourseRepository implements CourseRepository {
     try {
       final remote = await _remote.fetchCourses();
       await _local.refreshCourses(remote);
-      return remote;
+      return _local.isNoop ? remote : await _local.cachedCourses();
     } catch (_) {
       // With no local mirror there is nothing to fall back to — behave like the
       // plain Supabase repo and surface the error.
@@ -46,7 +46,12 @@ class CacheFirstCourseRepository implements CourseRepository {
     required String accentColor,
   }) async {
     try {
-      return await _remote.createCourse(name: name, accentColor: accentColor);
+      final course = await _remote.createCourse(
+        name: name,
+        accentColor: accentColor,
+      );
+      await _local.saveRemoteCourse(course);
+      return course;
     } catch (_) {
       if (_local.isNoop) rethrow;
       return _local.createCourse(
@@ -65,11 +70,13 @@ class CacheFirstCourseRepository implements CourseRepository {
     String? accentColor,
   }) async {
     try {
-      return await _remote.updateCourse(
+      final course = await _remote.updateCourse(
         id: id,
         name: name,
         accentColor: accentColor,
       );
+      await _local.saveRemoteCourse(course);
+      return course;
     } catch (_) {
       if (_local.isNoop) rethrow;
       final updated = await _local.updateCourse(
@@ -83,9 +90,13 @@ class CacheFirstCourseRepository implements CourseRepository {
   }
 
   @override
-  Future<void> deleteCourse(String id, {required String defaultCourseId}) async {
+  Future<void> deleteCourse(
+    String id, {
+    required String defaultCourseId,
+  }) async {
     try {
       await _remote.deleteCourse(id, defaultCourseId: defaultCourseId);
+      await _local.removeRemoteCourse(id);
     } catch (_) {
       if (_local.isNoop) rethrow;
       await _local.deleteCourse(id, defaultCourseId: defaultCourseId);

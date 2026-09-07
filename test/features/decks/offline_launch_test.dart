@@ -25,26 +25,26 @@ class _OfflineMirror extends LocalDeckStore {
 
   @override
   Future<List<DeckSummary>> cachedDeckSummaries() async => const [
-        DeckSummary(
-          id: 'cached-1',
-          name: 'Mitochondria',
-          lastStudiedAt: null,
-          totalCards: 8,
-          dueCards: 8,
-          masteryPercent: 0,
-        ),
-        DeckSummary(
-          id: 'cached-2',
-          name: 'Never opened',
-          lastStudiedAt: null,
-          totalCards: 0,
-          dueCards: 0,
-          masteryPercent: 0,
-        ),
-      ];
+    DeckSummary(
+      id: 'cached-1',
+      name: 'Mitochondria',
+      lastStudiedAt: null,
+      totalCards: 8,
+      dueCards: 8,
+      masteryPercent: 0,
+    ),
+    DeckSummary(
+      id: 'cached-2',
+      name: 'Never opened',
+      lastStudiedAt: null,
+      totalCards: 0,
+      dueCards: 0,
+      masteryPercent: 0,
+    ),
+  ];
 
   @override
-  Future<Set<String>> mirroredCardDeckIds() async => {'cached-1'};
+  Future<Set<String>> completeCardDeckIds() async => {'cached-1'};
 }
 
 /// The shell now defaults to the Home branch (ui-spec-v4-navigation §2); the
@@ -59,8 +59,9 @@ void _openDecks(WidgetTester tester) {
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
-  testWidgets('offline launch paints cached decks and the banner immediately',
-      (tester) async {
+  testWidgets('offline launch paints cached decks and the banner immediately', (
+    tester,
+  ) async {
     await pumpApp(
       tester,
       signedIn: true,

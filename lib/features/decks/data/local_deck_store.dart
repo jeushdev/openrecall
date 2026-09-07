@@ -75,6 +75,19 @@ class LocalDeckStore {
   /// True when there is no local database, so nothing can be cached or synced.
   bool get isNoop => _db == null;
 
+  Future<bool> hasFetchedDeckMetadata() async {
+    final db = _db;
+    if (db == null) return false;
+    final rows = await db.query(
+      'application_cache',
+      columns: ['key'],
+      where: 'key = ?',
+      whereArgs: ['decks'],
+      limit: 1,
+    );
+    return rows.isNotEmpty;
+  }
+
   // ---- membership --------------------------------------------------------
 
   /// The ids of every cached deck (opened online or pinned).
@@ -110,30 +123,33 @@ class LocalDeckStore {
     return rows.isNotEmpty;
   }
 
-  /// The ids of decks whose **cards** are mirrored locally — the decks that can
-  /// actually be studied offline.
+  /// The ids of decks whose full card set was verified by a successful fetch.
   ///
   /// Distinct from [downloadedDeckIds], which since spec-v4 returns every deck
   /// the user has: `refreshDeckMeta` writes an `offline_decks` header row for
   /// each one so the Library is browsable offline, long before any card set is
   /// mirrored. Row existence means "listed"; a row here means "studiable".
-  Future<Set<String>> mirroredCardDeckIds() async {
+  Future<Set<String>> completeCardDeckIds() async {
     final db = _db;
     if (db == null) return <String>{};
-    final rows = await db.rawQuery(
-      'SELECT DISTINCT deck_id FROM offline_cards',
+    final rows = await db.query(
+      'offline_decks',
+      columns: ['id'],
+      where: 'cards_complete = 1',
     );
-    return {for (final r in rows) r['deck_id'] as String};
+    return {for (final r in rows) r['id'] as String};
   }
 
-  /// Whether [deckId]'s cards are mirrored locally. See [mirroredCardDeckIds].
-  Future<bool> hasMirroredCards(String deckId) async {
+  /// Whether [deckId] has a verified complete card set. This remains true for
+  /// a verified empty deck, while metadata-only and migrated legacy rows stay
+  /// false until an online fetch succeeds.
+  Future<bool> isCardSetComplete(String deckId) async {
     final db = _db;
     if (db == null) return false;
     final rows = await db.query(
-      'offline_cards',
+      'offline_decks',
       columns: ['id'],
-      where: 'deck_id = ?',
+      where: 'id = ? AND cards_complete = 1',
       whereArgs: [deckId],
       limit: 1,
     );
@@ -282,20 +298,36 @@ class LocalDeckStore {
         ))
           r['id'] as String,
       };
+      final tombstonedIds = {
+        for (final r in await txn.query(
+          'offline_deletions',
+          columns: ['entity_id'],
+          where: "entity_type = 'deck'",
+        ))
+          r['entity_id'] as String,
+      };
       final remoteIds = {for (final d in remote) d.id};
+      const retainPendingWork =
+          'id IN (SELECT deck_id FROM offline_cards WHERE is_synced = 0) OR '
+          'id IN (SELECT deck_id FROM offline_study_sessions '
+          'WHERE is_synced = 0)';
       if (remoteIds.isEmpty) {
-        await txn.delete('offline_decks', where: 'is_synced = 1');
+        await txn.delete(
+          'offline_decks',
+          where: 'is_synced = 1 AND NOT ($retainPendingWork)',
+        );
       } else {
         await txn.delete(
           'offline_decks',
           where:
               'is_synced = 1 AND id NOT IN '
-              "(${List.filled(remoteIds.length, '?').join(',')})",
+              "(${List.filled(remoteIds.length, '?').join(',')}) "
+              'AND NOT ($retainPendingWork)',
           whereArgs: remoteIds.toList(),
         );
       }
       for (final d in remote) {
-        if (dirtyIds.contains(d.id)) continue;
+        if (dirtyIds.contains(d.id) || tombstonedIds.contains(d.id)) continue;
         final exists = (await txn.query(
           'offline_decks',
           columns: ['id'],
@@ -322,7 +354,63 @@ class LocalDeckStore {
           await txn.insert('offline_decks', {'id': d.id, ...meta});
         }
       }
+      await txn.insert('application_cache', {
+        'key': 'decks',
+        'fetched_at': DateTime.now().toUtc().toIso8601String(),
+        'coverage': 'complete',
+      }, conflictAlgorithm: ConflictAlgorithm.replace);
     });
+  }
+
+  /// Caches metadata returned by a successful create or edit without waiting
+  /// for the next list refresh. Existing card coverage and pin state stay put.
+  Future<void> saveRemoteDeck(Deck deck) async {
+    final db = _db;
+    if (db == null) return;
+    final values = {
+      'name': deck.name,
+      'course_id': deck.courseId,
+      'last_studied_at': deck.lastStudiedAt?.toUtc().toIso8601String(),
+      'created_at': deck.createdAt.toUtc().toIso8601String(),
+      'updated_at': deck.updatedAt.toUtc().toIso8601String(),
+      'base_updated_at': deck.updatedAt.toUtc().toIso8601String(),
+      'is_synced': 1,
+    };
+    final updated = await db.update(
+      'offline_decks',
+      values,
+      where: 'id = ? AND is_synced = 1',
+      whereArgs: [deck.id],
+    );
+    if (updated == 0) {
+      final dirty = await db.query(
+        'offline_decks',
+        columns: ['id'],
+        where: 'id = ?',
+        whereArgs: [deck.id],
+        limit: 1,
+      );
+      final tombstone = await db.query(
+        'offline_deletions',
+        columns: ['entity_id'],
+        where: "entity_type = 'deck' AND entity_id = ?",
+        whereArgs: [deck.id],
+        limit: 1,
+      );
+      if (dirty.isEmpty && tombstone.isEmpty) {
+        await db.insert('offline_decks', {'id': deck.id, ...values});
+      }
+    }
+  }
+
+  Future<void> removeRemoteDeck(String id) async {
+    final db = _db;
+    if (db == null) return;
+    await db.delete(
+      'offline_decks',
+      where: 'id = ? AND is_synced = 1',
+      whereArgs: [id],
+    );
   }
 
   /// Refreshes a deck's card mirror from a successful online fetch, without
@@ -356,6 +444,15 @@ class LocalDeckStore {
         ))
           r['id'] as String,
       };
+      final tombstonedIds = {
+        for (final r in await txn.query(
+          'offline_deletions',
+          columns: ['entity_id'],
+          where: "entity_type = 'card' AND deck_id = ?",
+          whereArgs: [deckId],
+        ))
+          r['entity_id'] as String,
+      };
       final remoteIds = {for (final c in remote) c.id};
       if (remoteIds.isEmpty) {
         await txn.delete(
@@ -373,22 +470,34 @@ class LocalDeckStore {
         );
       }
       for (final c in remote) {
-        if (dirtyIds.contains(c.id)) continue;
+        if (dirtyIds.contains(c.id) || tombstonedIds.contains(c.id)) continue;
         await txn.insert(
           'offline_cards',
           _cardValues(c),
           conflictAlgorithm: ConflictAlgorithm.replace,
         );
       }
+      await txn.update(
+        'offline_decks',
+        {
+          'cards_complete': 1,
+          'total_cards': remote.length,
+          'mastery_level_sum': remote.fold<int>(
+            0,
+            (sum, card) => sum + card.masteryLevel,
+          ),
+        },
+        where: 'id = ?',
+        whereArgs: [deckId],
+      );
     });
   }
 
   // ---- offline reads --------------------------------------------------------
 
-  /// Deck-Library summaries built entirely from the local mirror, for when the
-  /// online fetch failed. Every cached deck appears — its card counts come from
-  /// the mirrored cards when present, otherwise from the `mastery_level_sum` /
-  /// `total_cards` stamped by [refreshDeckMeta].
+  /// Deck-Library summaries built entirely from the local mirror. Counts come
+  /// from local cards only for verified complete sets; metadata-only and
+  /// legacy-unverified sets retain the aggregate counts from [refreshDeckMeta].
   Future<List<DeckSummary>> cachedDeckSummaries() async {
     final db = _db;
     if (db == null) return const [];
@@ -405,7 +514,7 @@ class LocalDeckStore {
         ))
           r['mastery_level'] as int,
       ];
-      if (levels.isNotEmpty) {
+      if ((d['cards_complete'] as int? ?? 0) == 1) {
         result.add(
           DeckSummary(
             id: id,

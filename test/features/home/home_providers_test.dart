@@ -19,16 +19,15 @@ DeckSummary _deck({
   String? courseId,
   int totalCards = 0,
   DateTime? lastStudiedAt,
-}) =>
-    DeckSummary(
-      id: id,
-      name: 'Deck $id',
-      lastStudiedAt: lastStudiedAt,
-      totalCards: totalCards,
-      dueCards: totalCards,
-      masteryPercent: 0,
-      courseId: courseId,
-    );
+}) => DeckSummary(
+  id: id,
+  name: 'Deck $id',
+  lastStudiedAt: lastStudiedAt,
+  totalCards: totalCards,
+  dueCards: totalCards,
+  masteryPercent: 0,
+  courseId: courseId,
+);
 
 ActiveSessionProgress _active({
   required String deckId,
@@ -36,18 +35,17 @@ ActiveSessionProgress _active({
   int total = 0,
   StudyMode mode = StudyMode.flip,
   DateTime? startedAt,
-}) =>
-    ActiveSessionProgress(
-      sessionId: 's-$deckId',
-      deckId: deckId,
-      studyMode: mode,
-      lengthMode: SessionLengthMode.untilMastered,
-      cardScope: CardScope.all,
-      cappedLength: null,
-      startedAt: startedAt ?? DateTime(2026, 9, 1),
-      masteredCards: mastered,
-      totalCards: total,
-    );
+}) => ActiveSessionProgress(
+  sessionId: 's-$deckId',
+  deckId: deckId,
+  studyMode: mode,
+  lengthMode: SessionLengthMode.untilMastered,
+  cardScope: CardScope.all,
+  cappedLength: null,
+  startedAt: startedAt ?? DateTime(2026, 9, 1),
+  masteredCards: mastered,
+  totalCards: total,
+);
 
 void main() {
   late FakeDeckRepository decks;
@@ -55,35 +53,44 @@ void main() {
   late FakeStatsRepository stats;
 
   ProviderContainer build() {
-    final c = ProviderContainer(overrides: [
-      deckRepositoryProvider.overrideWithValue(decks),
-      courseRepositoryProvider.overrideWithValue(courses),
-      statsRepositoryProvider.overrideWithValue(stats),
-    ]);
+    final c = ProviderContainer(
+      overrides: [
+        deckRepositoryProvider.overrideWithValue(decks),
+        courseRepositoryProvider.overrideWithValue(courses),
+        statsRepositoryProvider.overrideWithValue(stats),
+      ],
+    );
+    c.listen(decksProvider, (_, _) {});
+    c.listen(coursesProvider, (_, _) {});
     addTearDown(c.dispose);
     return c;
   }
 
   setUp(() {
-    decks = FakeDeckRepository(decks: [
-      _deck(id: 'd1', courseId: 'c1', totalCards: 10),
-      _deck(id: 'd2', courseId: 'c2', totalCards: 4),
-      _deck(id: 'd3', totalCards: 2),
-    ]);
-    courses = FakeCourseRepository(courses: [
-      fakeCourse(id: 'c1', name: 'Biology', accentColor: 'green'),
-      fakeCourse(id: 'c2', name: 'History', accentColor: 'amber'),
-    ]);
+    decks = FakeDeckRepository(
+      decks: [
+        _deck(id: 'd1', courseId: 'c1', totalCards: 10),
+        _deck(id: 'd2', courseId: 'c2', totalCards: 4),
+        _deck(id: 'd3', totalCards: 2),
+      ],
+    );
+    courses = FakeCourseRepository(
+      courses: [
+        fakeCourse(id: 'c1', name: 'Biology', accentColor: 'green'),
+        fakeCourse(id: 'c2', name: 'History', accentColor: 'amber'),
+      ],
+    );
     stats = FakeStatsRepository();
   });
 
   group('activeSessionsProvider', () {
     test('joins each active session to its deck name and percent', () async {
-      stats = FakeStatsRepository(activeSessions: [
-        _active(deckId: 'd1', mastered: 3, total: 12, mode: StudyMode.cloze),
-      ]);
-      final result =
-          await build().read(activeSessionsProvider.future);
+      stats = FakeStatsRepository(
+        activeSessions: [
+          _active(deckId: 'd1', mastered: 3, total: 12, mode: StudyMode.cloze),
+        ],
+      );
+      final result = await build().read(activeSessionsProvider.future);
       expect(result, hasLength(1));
       expect(result.single.deckName, 'Deck d1');
       expect(result.single.studyMode, StudyMode.cloze);
@@ -91,10 +98,12 @@ void main() {
     });
 
     test('drops sessions whose deck is not in the deck list', () async {
-      stats = FakeStatsRepository(activeSessions: [
-        _active(deckId: 'd1', mastered: 1, total: 2),
-        _active(deckId: 'gone', mastered: 0, total: 5),
-      ]);
+      stats = FakeStatsRepository(
+        activeSessions: [
+          _active(deckId: 'd1', mastered: 1, total: 2),
+          _active(deckId: 'gone', mastered: 0, total: 5),
+        ],
+      );
       final result = await build().read(activeSessionsProvider.future);
       expect(result.map((s) => s.deckId), ['d1']);
     });
@@ -114,30 +123,34 @@ void main() {
     });
 
     test('breaks count ties by most recently studied', () async {
-      decks = FakeDeckRepository(decks: [
-        _deck(id: 'd1', lastStudiedAt: DateTime(2026, 8, 1)),
-        _deck(id: 'd2', lastStudiedAt: DateTime(2026, 8, 20)),
-      ]);
+      decks = FakeDeckRepository(
+        decks: [
+          _deck(id: 'd1', lastStudiedAt: DateTime(2026, 8, 1)),
+          _deck(id: 'd2', lastStudiedAt: DateTime(2026, 8, 20)),
+        ],
+      );
       stats = FakeStatsRepository(sessionCountsByDeck: {'d1': 3, 'd2': 3});
       final result = await build().read(mostReviewedDecksProvider.future);
       expect(result.map((d) => d.deckId), ['d2', 'd1']);
     });
 
-    test('carries the course name and accent, null for a course-less deck',
-        () async {
-      stats = FakeStatsRepository(sessionCountsByDeck: {'d1': 1});
-      final result = await build().read(mostReviewedDecksProvider.future);
-      final byId = {for (final d in result) d.deckId: d};
-      expect(byId['d1']!.courseName, 'Biology');
-      expect(byId['d1']!.accentColor, 'green');
-      expect(byId['d3']!.courseName, isNull);
-      expect(byId['d3']!.accentColor, 'slate');
-    });
+    test(
+      'carries the course name and accent, null for a course-less deck',
+      () async {
+        stats = FakeStatsRepository(sessionCountsByDeck: {'d1': 1});
+        final result = await build().read(mostReviewedDecksProvider.future);
+        final byId = {for (final d in result) d.deckId: d};
+        expect(byId['d1']!.courseName, 'Biology');
+        expect(byId['d1']!.accentColor, 'green');
+        expect(byId['d3']!.courseName, isNull);
+        expect(byId['d3']!.accentColor, 'slate');
+      },
+    );
 
     test('caps the list at mostReviewedDecksLimit', () async {
-      decks = FakeDeckRepository(decks: [
-        for (var i = 0; i < 10; i++) _deck(id: 'd$i'),
-      ]);
+      decks = FakeDeckRepository(
+        decks: [for (var i = 0; i < 10; i++) _deck(id: 'd$i')],
+      );
       final result = await build().read(mostReviewedDecksProvider.future);
       expect(result, hasLength(mostReviewedDecksLimit));
     });

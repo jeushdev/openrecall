@@ -14,10 +14,12 @@ void main() {
   late ProviderContainer container;
 
   setUp(() {
-    courses = FakeCourseRepository(courses: [
-      fakeCourse(id: 'default', name: 'Uncategorized', isDefault: true),
-      fakeCourse(id: 'bio', name: 'Biology', accentColor: 'green'),
-    ]);
+    courses = FakeCourseRepository(
+      courses: [
+        fakeCourse(id: 'default', name: 'Uncategorized', isDefault: true),
+        fakeCourse(id: 'bio', name: 'Biology', accentColor: 'green'),
+      ],
+    );
     decks = FakeDeckRepository();
     container = ProviderContainer(
       overrides: [
@@ -25,6 +27,8 @@ void main() {
         deckRepositoryProvider.overrideWithValue(decks),
       ],
     );
+    container.listen(coursesProvider, (_, _) {}, fireImmediately: true);
+    container.listen(decksProvider, (_, _) {}, fireImmediately: true);
     addTearDown(container.dispose);
   });
 
@@ -38,18 +42,22 @@ void main() {
     );
   });
 
-  test('create forwards the name and accent and returns the new course',
-      () async {
-    final course =
-        await controller().create(name: 'Chemistry', accentColor: 'amber');
+  test(
+    'create forwards the name and accent and returns the new course',
+    () async {
+      final course = await controller().create(
+        name: 'Chemistry',
+        accentColor: 'amber',
+      );
 
-    expect(course?.name, 'Chemistry');
-    expect(course?.accentColor, 'amber');
-    expect(
-      courses.calls,
-      contains('createCourse(name=Chemistry, accent=amber)'),
-    );
-  });
+      expect(course?.name, 'Chemistry');
+      expect(course?.accentColor, 'amber');
+      expect(
+        courses.calls,
+        contains('createCourse(name=Chemistry, accent=amber)'),
+      );
+    },
+  );
 
   test('create refreshes the course list', () async {
     await container.read(coursesProvider.future);
@@ -72,31 +80,38 @@ void main() {
     expect(decks.calls, contains('fetchDecks()'));
   });
 
-  test('update sends only the non-null fields and returns the new row',
-      () async {
-    final course = await controller().updateCourse(id: 'bio', name: 'Bio 101');
+  test(
+    'update sends only the non-null fields and returns the new row',
+    () async {
+      final course = await controller().updateCourse(
+        id: 'bio',
+        name: 'Bio 101',
+      );
 
-    expect(course?.name, 'Bio 101');
-    expect(course?.accentColor, 'green');
-    expect(
-      courses.calls,
-      contains('updateCourse(id=bio, name=Bio 101, accent=null)'),
-    );
-  });
+      expect(course?.name, 'Bio 101');
+      expect(course?.accentColor, 'green');
+      expect(
+        courses.calls,
+        contains('updateCourse(id=bio, name=Bio 101, accent=null)'),
+      );
+    },
+  );
 
-  test('delete removes the course and reassigns its decks to the default',
-      () async {
-    courses.deckCourseIds['deck-1'] = 'bio';
-    courses.deckCourseIds['deck-2'] = 'default';
+  test(
+    'delete removes the course and reassigns its decks to the default',
+    () async {
+      courses.deckCourseIds['deck-1'] = 'bio';
+      courses.deckCourseIds['deck-2'] = 'default';
 
-    await controller().delete('bio');
+      await controller().delete('bio');
 
-    expect(courses.calls, contains('deleteCourse(bio)'));
-    expect(courses.deckCourseIds['deck-1'], 'default');
-    expect(courses.deckCourseIds['deck-2'], 'default');
-    final after = await container.read(coursesProvider.future);
-    expect(after.map((c) => c.id), isNot(contains('bio')));
-  });
+      expect(courses.calls, contains('deleteCourse(bio)'));
+      expect(courses.deckCourseIds['deck-1'], 'default');
+      expect(courses.deckCourseIds['deck-2'], 'default');
+      final after = await container.read(coursesProvider.future);
+      expect(after.map((c) => c.id), isNot(contains('bio')));
+    },
+  );
 
   test('delete is optimistic — the id enters pendingDeletions immediately, '
       'then clears once the write lands', () async {
@@ -104,10 +119,7 @@ void main() {
 
     final future = controller().delete('bio');
     // Synchronously after the (already-cached) course read, the row is hidden.
-    expect(
-      container.read(pendingDeletionsProvider).courseIds,
-      contains('bio'),
-    );
+    expect(container.read(pendingDeletionsProvider).courseIds, contains('bio'));
 
     await future;
     expect(
@@ -117,22 +129,24 @@ void main() {
     expect(courses.calls, contains('deleteCourse(bio)'));
   });
 
-  test('delete calls the repository once, passing the default course id',
-      () async {
-    courses.deckCourseIds['deck-1'] = 'bio';
-    await container.read(coursesProvider.future);
-    courses.calls.clear();
+  test(
+    'delete calls the repository once, passing the default course id',
+    () async {
+      courses.deckCourseIds['deck-1'] = 'bio';
+      await container.read(coursesProvider.future);
+      courses.calls.clear();
 
-    await controller().delete('bio');
+      await controller().delete('bio');
 
-    // A single deleteCourse (the real repo turns this into decks.update +
-    // courses.delete, with no self-lookup — the id is passed in).
-    expect(
-      courses.calls.where((c) => c.startsWith('deleteCourse')),
-      hasLength(1),
-    );
-    expect(courses.deckCourseIds['deck-1'], 'default');
-  });
+      // A single deleteCourse (the real repo turns this into decks.update +
+      // courses.delete, with no self-lookup — the id is passed in).
+      expect(
+        courses.calls.where((c) => c.startsWith('deleteCourse')),
+        hasLength(1),
+      );
+      expect(courses.deckCourseIds['deck-1'], 'default');
+    },
+  );
 
   test('a failed delete clears the pending id so the row returns', () async {
     await container.read(coursesProvider.future);
@@ -148,27 +162,33 @@ void main() {
     expect(after.map((c) => c.id), contains('bio'));
   });
 
-  test('delete refuses the default course and never calls the repository',
-      () async {
-    await container.read(coursesProvider.future);
+  test(
+    'delete refuses the default course and never calls the repository',
+    () async {
+      await container.read(coursesProvider.future);
 
-    await controller().delete('default');
+      await controller().delete('default');
 
-    final state = container.read(courseControllerProvider);
-    expect(state.hasError, isTrue);
-    expect(courses.calls, isNot(contains('deleteCourse(default)')));
-  });
+      final state = container.read(courseControllerProvider);
+      expect(state.hasError, isTrue);
+      expect(courses.calls, isNot(contains('deleteCourse(default)')));
+    },
+  );
 
-  test('a failed call lands as AsyncError, returns null, and clears loading',
-      () async {
-    courses.throwOnNextCall = Exception('boom');
+  test(
+    'a failed call lands as AsyncError, returns null, and clears loading',
+    () async {
+      courses.throwOnNextCall = Exception('boom');
 
-    final course =
-        await controller().create(name: 'Chemistry', accentColor: 'amber');
+      final course = await controller().create(
+        name: 'Chemistry',
+        accentColor: 'amber',
+      );
 
-    expect(course, isNull);
-    final state = container.read(courseControllerProvider);
-    expect(state.hasError, isTrue);
-    expect(state.isLoading, isFalse);
-  });
+      expect(course, isNull);
+      final state = container.read(courseControllerProvider);
+      expect(state.hasError, isTrue);
+      expect(state.isLoading, isFalse);
+    },
+  );
 }

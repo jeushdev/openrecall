@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import '../../../core/cache/stale_first.dart' show kRevalidateTimeout;
+import '../../../core/cache/stale_first.dart';
 import '../../../core/local_db/local_db_providers.dart';
 import '../../../core/sync/sync_providers.dart';
 import '../../../core/ui/app_messenger.dart';
@@ -34,24 +34,28 @@ final courseRepositoryProvider = Provider<CourseRepository>((ref) {
 /// grouping spinning (milestone E1): the remote call is capped and, on a
 /// timeout, the local `offline_courses` mirror stands in. A fresh install
 /// offline has an empty mirror, so the error surfaces with a Retry.
-final coursesProvider = FutureProvider<List<Course>>((ref) async {
-  final repository = ref.watch(courseRepositoryProvider);
+final coursesProvider = StreamProvider<List<Course>>((ref) {
   final local = ref.watch(localCourseStoreProvider);
-  try {
-    return await repository.fetchCourses().timeout(kRevalidateTimeout);
-  } catch (_) {
-    final cached = await local.cachedCourses();
-    if (cached.isNotEmpty) return cached;
-    rethrow;
-  }
+  final repository = ref.watch(courseRepositoryProvider);
+  return staleFirst(
+    cached: () async {
+      if (local.isNoop) return null;
+      final courses = await local.cachedCourses();
+      return courses.isNotEmpty || await local.hasFetchedCourses()
+          ? courses
+          : null;
+    },
+    remote: repository.fetchCourses,
+  );
 });
 
 /// Drives the create / update / delete course actions (ui-spec-v2 §3.2):
 /// `isLoading` disables the submit button, `AsyncError` feeds a SnackBar. Holds
 /// no value of its own — it only tracks the in-flight action, mirroring
 /// [DecksController].
-final courseControllerProvider =
-    AsyncNotifierProvider<CourseController, void>(CourseController.new);
+final courseControllerProvider = AsyncNotifierProvider<CourseController, void>(
+  CourseController.new,
+);
 
 class CourseController extends AsyncNotifier<void> {
   @override

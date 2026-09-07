@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 import '../../theme/app_tokens.dart';
 
 /// The circular initials avatar, shared by the Home greeting header and the
-/// Profile / More identity blocks. There is no image or display name anywhere
-/// in the schema, so it is always initials on an `amber` fill.
+/// Profile / More identity blocks. A cached profile username supplies initials
+/// when present; otherwise the auth email is used.
 class Avatar extends StatelessWidget {
   const Avatar({super.key, required this.email, this.name, this.size = 56});
 
@@ -59,7 +59,9 @@ String emailInitials(String? email) {
 String greetingName(String? email) {
   if (email == null) return 'there';
   final local = email.split('@').first;
-  final first = local.split(RegExp('[._-]')).firstWhere(
+  final first = local
+      .split(RegExp('[._-]'))
+      .firstWhere(
         (p) => p.replaceAll(RegExp('[^A-Za-z0-9]'), '').isNotEmpty,
         orElse: () => '',
       );
@@ -72,15 +74,18 @@ String greetingName(String? email) {
 /// content, otherwise the email-derived greeting token from [greetingName].
 String displayNameOr(String? username, String? email) =>
     (username != null && username.trim().isNotEmpty)
-        ? username.trim()
-        : greetingName(email);
+    ? username.trim()
+    : greetingName(email);
 
 /// Up to two uppercase letters from a display [name]: the first letters of its
 /// first two whitespace-separated words, or the first two letters of a single
 /// word. Falls back to `?` for an empty name.
 String initialsFrom(String name) {
-  final words =
-      name.trim().split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
+  final words = name
+      .trim()
+      .split(RegExp(r'\s+'))
+      .where((w) => w.isNotEmpty)
+      .toList();
   if (words.isEmpty) return '?';
   if (words.length == 1) {
     final w = words.first;

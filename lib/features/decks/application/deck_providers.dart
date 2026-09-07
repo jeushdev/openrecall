@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../core/cache/stale_first.dart';
 import '../../../core/local_db/local_db_providers.dart';
 import '../../../core/sync/sync_providers.dart';
 import '../../../core/ui/app_messenger.dart';
@@ -33,22 +34,42 @@ final deckRepositoryProvider = Provider<DeckRepository>((ref) {
 
 /// The signed-in user's decks with their aggregate counts, for the Deck
 /// Library. Re-fetched whenever [DecksController] invalidates it.
-final decksProvider = FutureProvider<List<DeckSummary>>((ref) {
-  return ref.watch(deckRepositoryProvider).fetchDecks();
+final decksProvider = StreamProvider<List<DeckSummary>>((ref) {
+  final local = ref.watch(localDeckStoreProvider);
+  final repository = ref.watch(deckRepositoryProvider);
+  return staleFirst(
+    cached: () async {
+      if (local.isNoop) return null;
+      final decks = await local.cachedDeckSummaries();
+      return decks.isNotEmpty || await local.hasFetchedDeckMetadata()
+          ? decks
+          : null;
+    },
+    remote: repository.fetchDecks,
+  );
 });
 
 /// The cards in one deck, for the Deck Creator. Keyed by deck id.
-final deckCardsProvider =
-    FutureProvider.family<List<FlashCard>, String>((ref, deckId) {
-  return ref.watch(deckRepositoryProvider).fetchCards(deckId);
+final deckCardsProvider = StreamProvider.family<List<FlashCard>, String>((
+  ref,
+  deckId,
+) {
+  final local = ref.watch(localDeckStoreProvider);
+  final repository = ref.watch(deckRepositoryProvider);
+  return staleFirst(
+    cached: () async =>
+        await local.isCardSetComplete(deckId) ? local.cards(deckId) : null,
+    remote: () => repository.fetchCards(deckId),
+  );
 });
 
 /// Drives the create-deck and card add/edit/delete actions: `isLoading`
 /// disables the relevant button, `AsyncError` feeds a SnackBar. Holds no value
 /// of its own — it only tracks the in-flight state of the most recent action
 /// (mirrors `AuthController`).
-final decksControllerProvider =
-    AsyncNotifierProvider<DecksController, void>(DecksController.new);
+final decksControllerProvider = AsyncNotifierProvider<DecksController, void>(
+  DecksController.new,
+);
 
 class DecksController extends AsyncNotifier<void> {
   @override
@@ -159,18 +180,23 @@ class DecksController extends AsyncNotifier<void> {
     List<String> keywords = const [],
     bool isConcept = false,
   }) async {
-    final card = await _run(() => _repo.addCard(
-          deckId: deckId,
-          front: front,
-          back: back,
-          keywords: keywords,
-          isConcept: isConcept,
-        ));
+    final card = await _run(
+      () => _repo.addCard(
+        deckId: deckId,
+        front: front,
+        back: back,
+        keywords: keywords,
+        isConcept: isConcept,
+      ),
+    );
     if (card != null) _refresh(deckId);
     return card;
   }
 
-  Future<List<FlashCard>?> addCards(String deckId, List<ParsedCard> cards) async {
+  Future<List<FlashCard>?> addCards(
+    String deckId,
+    List<ParsedCard> cards,
+  ) async {
     final added = await _run(() => _repo.addCards(deckId, cards));
     if (added != null) _refresh(deckId);
     return added;
@@ -184,13 +210,15 @@ class DecksController extends AsyncNotifier<void> {
     List<String> keywords = const [],
     bool isConcept = false,
   }) async {
-    final card = await _run(() => _repo.updateCard(
-          id: id,
-          front: front,
-          back: back,
-          keywords: keywords,
-          isConcept: isConcept,
-        ));
+    final card = await _run(
+      () => _repo.updateCard(
+        id: id,
+        front: front,
+        back: back,
+        keywords: keywords,
+        isConcept: isConcept,
+      ),
+    );
     if (card != null) _refresh(deckId);
     return card;
   }
@@ -198,10 +226,7 @@ class DecksController extends AsyncNotifier<void> {
   /// Optimistic (milestone R1): the card id lands in [pendingDeletionsProvider]
   /// at once so the card list drops the row and the edit dialog can pop without
   /// awaiting. On failure the id is cleared (row returns) and a snackbar shown.
-  Future<void> deleteCard({
-    required String deckId,
-    required String id,
-  }) async {
+  Future<void> deleteCard({required String deckId, required String id}) async {
     final pending = ref.read(pendingDeletionsProvider.notifier);
     pending.addCard(id);
 

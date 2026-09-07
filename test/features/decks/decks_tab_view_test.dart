@@ -16,14 +16,14 @@ import '../../support/fake_course_repository.dart';
 import '../../support/fake_deck_repository.dart';
 
 DeckSummary _deck(String id, {String? courseId, int cards = 0}) => DeckSummary(
-      id: id,
-      name: id,
-      courseId: courseId,
-      lastStudiedAt: null,
-      totalCards: cards,
-      dueCards: 0,
-      masteryPercent: 0,
-    );
+  id: id,
+  name: id,
+  courseId: courseId,
+  lastStudiedAt: null,
+  totalCards: cards,
+  dueCards: 0,
+  masteryPercent: 0,
+);
 
 Course _course(
   String id, {
@@ -31,16 +31,15 @@ Course _course(
   String accentColor = 'slate',
   bool isDefault = false,
   DateTime? createdAt,
-}) =>
-    Course(
-      id: id,
-      userId: 'user-1',
-      name: name ?? id,
-      accentColor: accentColor,
-      isDefault: isDefault,
-      createdAt: createdAt ?? DateTime.utc(2026),
-      updatedAt: DateTime.utc(2026),
-    );
+}) => Course(
+  id: id,
+  userId: 'user-1',
+  name: name ?? id,
+  accentColor: accentColor,
+  isDefault: isDefault,
+  createdAt: createdAt ?? DateTime.utc(2026),
+  updatedAt: DateTime.utc(2026),
+);
 
 /// Two cached deck headers; only `cached-1` has its cards mirrored.
 class _SeededLocalDeckStore extends LocalDeckStore {
@@ -51,26 +50,26 @@ class _SeededLocalDeckStore extends LocalDeckStore {
 
   @override
   Future<List<DeckSummary>> cachedDeckSummaries() async => const [
-        DeckSummary(
-          id: 'cached-1',
-          name: 'Cached deck',
-          lastStudiedAt: null,
-          totalCards: 3,
-          dueCards: 3,
-          masteryPercent: 0,
-        ),
-        DeckSummary(
-          id: 'cached-2',
-          name: 'Locked deck',
-          lastStudiedAt: null,
-          totalCards: 0,
-          dueCards: 0,
-          masteryPercent: 0,
-        ),
-      ];
+    DeckSummary(
+      id: 'cached-1',
+      name: 'Cached deck',
+      lastStudiedAt: null,
+      totalCards: 3,
+      dueCards: 3,
+      masteryPercent: 0,
+    ),
+    DeckSummary(
+      id: 'cached-2',
+      name: 'Locked deck',
+      lastStudiedAt: null,
+      totalCards: 0,
+      dueCards: 0,
+      masteryPercent: 0,
+    ),
+  ];
 
   @override
-  Future<Set<String>> mirroredCardDeckIds() async => {'cached-1'};
+  Future<Set<String>> completeCardDeckIds() async => {'cached-1'};
 }
 
 void main() {
@@ -81,13 +80,19 @@ void main() {
       required List<DeckSummary> decks,
       required List<Course> courses,
     }) async {
-      final container = ProviderContainer(overrides: [
-        deckRepositoryProvider
-            .overrideWithValue(FakeDeckRepository(decks: decks)),
-        courseRepositoryProvider
-            .overrideWithValue(FakeCourseRepository(courses: courses)),
-      ]);
+      final container = ProviderContainer(
+        overrides: [
+          deckRepositoryProvider.overrideWithValue(
+            FakeDeckRepository(decks: decks),
+          ),
+          courseRepositoryProvider.overrideWithValue(
+            FakeCourseRepository(courses: courses),
+          ),
+        ],
+      );
       addTearDown(container.dispose);
+      container.listen(decksProvider, (_, _) {}, fireImmediately: true);
+      container.listen(coursesProvider, (_, _) {}, fireImmediately: true);
       await container.read(tabDecksProvider.future);
       await container.read(coursesProvider.future);
       return container.read(decksTabViewProvider).requireValue;
@@ -101,10 +106,12 @@ void main() {
         ],
         courses: [
           _course('c-bio', name: 'Biology', createdAt: DateTime.utc(2026, 3)),
-          _course('c-default',
-              name: 'Uncategorized',
-              isDefault: true,
-              createdAt: DateTime.utc(2026, 1)),
+          _course(
+            'c-default',
+            name: 'Uncategorized',
+            isDefault: true,
+            createdAt: DateTime.utc(2026, 1),
+          ),
         ],
       );
 
@@ -127,60 +134,90 @@ void main() {
       expect(groups[1].decks, isEmpty);
     });
 
-    test('a deck with an unknown course id falls into the default group',
-        () async {
-      final groups = await groupsOf(
-        decks: [
-          _deck('orphan', courseId: 'gone'),
-          _deck('orphan-null'),
-        ],
-        courses: [
-          _course('c-default',
+    test(
+      'a deck with an unknown course id falls into the default group',
+      () async {
+        final groups = await groupsOf(
+          decks: [
+            _deck('orphan', courseId: 'gone'),
+            _deck('orphan-null'),
+          ],
+          courses: [
+            _course(
+              'c-default',
               name: 'Uncategorized',
               isDefault: true,
-              createdAt: DateTime.utc(2026, 1)),
-          _course('c-other', name: 'Other', createdAt: DateTime.utc(2026, 2)),
-        ],
-      );
+              createdAt: DateTime.utc(2026, 1),
+            ),
+            _course('c-other', name: 'Other', createdAt: DateTime.utc(2026, 2)),
+          ],
+        );
 
-      expect(groups[0].course.isDefault, isTrue);
-      expect(groups[0].decks.map((d) => d.id), ['orphan', 'orphan-null']);
-      expect(groups[1].decks, isEmpty);
-    });
+        expect(groups[0].course.isDefault, isTrue);
+        expect(groups[0].decks.map((d) => d.id), ['orphan', 'orphan-null']);
+        expect(groups[1].decks, isEmpty);
+      },
+    );
 
-    test('with no courses loaded, every deck lands in one synthetic group',
-        () async {
-      final groups = await groupsOf(
-        decks: [_deck('d1', courseId: 'c1'), _deck('d2')],
-        courses: const [],
-      );
+    test(
+      'with no courses loaded, every deck lands in one synthetic group',
+      () async {
+        final groups = await groupsOf(
+          decks: [
+            _deck('d1', courseId: 'c1'),
+            _deck('d2'),
+          ],
+          courses: const [],
+        );
 
-      expect(groups, hasLength(1));
-      expect(groups.single.decks.map((d) => d.id), ['d1', 'd2']);
-    });
+        expect(groups, hasLength(1));
+        expect(groups.single.decks.map((d) => d.id), ['d1', 'd2']);
+      },
+    );
   });
 
   group('decksTabViewProvider — optimistic deletions (milestone R1)', () {
     late ProviderContainer container;
 
     setUp(() async {
-      container = ProviderContainer(overrides: [
-        deckRepositoryProvider.overrideWithValue(FakeDeckRepository(decks: [
-          _deck('d-bio', courseId: 'c-bio'),
-          _deck('d-chem', courseId: 'c-chem'),
-          _deck('d-home', courseId: 'c-default'),
-        ])),
-        courseRepositoryProvider
-            .overrideWithValue(FakeCourseRepository(courses: [
-          _course('c-default',
-              name: 'Uncategorized',
-              isDefault: true,
-              createdAt: DateTime.utc(2026, 1)),
-          _course('c-bio', name: 'Biology', createdAt: DateTime.utc(2026, 2)),
-          _course('c-chem', name: 'Chemistry', createdAt: DateTime.utc(2026, 3)),
-        ])),
-      ]);
+      container = ProviderContainer(
+        overrides: [
+          deckRepositoryProvider.overrideWithValue(
+            FakeDeckRepository(
+              decks: [
+                _deck('d-bio', courseId: 'c-bio'),
+                _deck('d-chem', courseId: 'c-chem'),
+                _deck('d-home', courseId: 'c-default'),
+              ],
+            ),
+          ),
+          courseRepositoryProvider.overrideWithValue(
+            FakeCourseRepository(
+              courses: [
+                _course(
+                  'c-default',
+                  name: 'Uncategorized',
+                  isDefault: true,
+                  createdAt: DateTime.utc(2026, 1),
+                ),
+                _course(
+                  'c-bio',
+                  name: 'Biology',
+                  createdAt: DateTime.utc(2026, 2),
+                ),
+                _course(
+                  'c-chem',
+                  name: 'Chemistry',
+                  createdAt: DateTime.utc(2026, 3),
+                ),
+              ],
+            ),
+          ),
+        ],
+      );
       addTearDown(container.dispose);
+      container.listen(decksProvider, (_, _) {}, fireImmediately: true);
+      container.listen(coursesProvider, (_, _) {}, fireImmediately: true);
       await container.read(tabDecksProvider.future);
       await container.read(coursesProvider.future);
     });
@@ -203,8 +240,9 @@ void main() {
     test('a pending-deleted deck drops out of its group', () {
       container.read(pendingDeletionsProvider.notifier).addDeck('d-chem');
 
-      final chem =
-          currentGroups().firstWhere((g) => g.course.name == 'Chemistry');
+      final chem = currentGroups().firstWhere(
+        (g) => g.course.name == 'Chemistry',
+      );
       expect(chem.decks, isEmpty);
     });
 
@@ -212,9 +250,7 @@ void main() {
       final pending = container.read(pendingDeletionsProvider.notifier);
       pending.addDeck('d-chem');
       expect(
-        currentGroups()
-            .firstWhere((g) => g.course.name == 'Chemistry')
-            .decks,
+        currentGroups().firstWhere((g) => g.course.name == 'Chemistry').decks,
         isEmpty,
       );
 
@@ -230,64 +266,100 @@ void main() {
   });
 
   group('decksTabViewProvider — offline (milestone E1)', () {
-    test('serves cached decks while the Supabase refresh is still in flight',
-        () async {
-      final container = ProviderContainer(overrides: [
-        deckRepositoryProvider
-            .overrideWithValue(FakeDeckRepository()..hangForever = true),
-        courseRepositoryProvider
-            .overrideWithValue(FakeCourseRepository(courses: const [])),
-        localDeckStoreProvider.overrideWithValue(_SeededLocalDeckStore()),
-      ]);
-      addTearDown(container.dispose);
+    test(
+      'serves cached decks while the Supabase refresh is still in flight',
+      () async {
+        final container = ProviderContainer(
+          overrides: [
+            deckRepositoryProvider.overrideWithValue(
+              FakeDeckRepository()..hangForever = true,
+            ),
+            courseRepositoryProvider.overrideWithValue(
+              FakeCourseRepository(courses: const []),
+            ),
+            localDeckStoreProvider.overrideWithValue(_SeededLocalDeckStore()),
+          ],
+        );
+        addTearDown(container.dispose);
 
-      await container.read(cachedTabDecksProvider.future);
-      final groups = container.read(decksTabViewProvider).requireValue;
+        container.listen(decksProvider, (_, _) {}, fireImmediately: true);
+        await container.read(decksProvider.future);
+        final groups = container.read(decksTabViewProvider).requireValue;
 
-      expect(groups.single.decks.map((d) => d.name), ['Cached deck', 'Locked deck']);
-    });
+        expect(groups.single.decks.map((d) => d.name), [
+          'Cached deck',
+          'Locked deck',
+        ]);
+      },
+    );
 
     test('offline, a deck with no mirrored cards is flagged locked', () async {
-      final container = ProviderContainer(overrides: [
-        deckRepositoryProvider
-            .overrideWithValue(FakeDeckRepository()..hangForever = true),
-        courseRepositoryProvider
-            .overrideWithValue(FakeCourseRepository(courses: const [])),
-        localDeckStoreProvider.overrideWithValue(_SeededLocalDeckStore()),
-        onlineStatusProvider.overrideWith((ref) => Stream.value(false)),
-        studiableOfflineDeckIdsProvider
-            .overrideWith((ref) async => const <String>{'cached-1'}),
-      ]);
+      final container = ProviderContainer(
+        overrides: [
+          deckRepositoryProvider.overrideWithValue(
+            FakeDeckRepository()..hangForever = true,
+          ),
+          courseRepositoryProvider.overrideWithValue(
+            FakeCourseRepository(courses: const []),
+          ),
+          localDeckStoreProvider.overrideWithValue(_SeededLocalDeckStore()),
+          onlineStatusProvider.overrideWith((ref) => Stream.value(false)),
+          studiableOfflineDeckIdsProvider.overrideWith(
+            (ref) async => const <String>{'cached-1'},
+          ),
+        ],
+      );
       addTearDown(container.dispose);
       container.listen(onlineStatusProvider, (_, _) {}, fireImmediately: true);
 
-      await container.read(cachedTabDecksProvider.future);
+      container.listen(decksProvider, (_, _) {}, fireImmediately: true);
+      await container.read(decksProvider.future);
       await container.read(onlineStatusProvider.future);
       await container.read(studiableOfflineDeckIdsProvider.future);
-      final decks = container.read(decksTabViewProvider).requireValue.single.decks;
+      final decks = container
+          .read(decksTabViewProvider)
+          .requireValue
+          .single
+          .decks;
 
-      expect(decks.firstWhere((d) => d.id == 'cached-1').isLockedOffline, isFalse);
-      expect(decks.firstWhere((d) => d.id == 'cached-2').isLockedOffline, isTrue);
+      expect(
+        decks.firstWhere((d) => d.id == 'cached-1').isLockedOffline,
+        isFalse,
+      );
+      expect(
+        decks.firstWhere((d) => d.id == 'cached-2').isLockedOffline,
+        isTrue,
+      );
     });
 
     test('online, no deck is ever locked whatever is mirrored', () async {
-      final container = ProviderContainer(overrides: [
-        deckRepositoryProvider
-            .overrideWithValue(FakeDeckRepository()..hangForever = true),
-        courseRepositoryProvider
-            .overrideWithValue(FakeCourseRepository(courses: const [])),
-        localDeckStoreProvider.overrideWithValue(_SeededLocalDeckStore()),
-        onlineStatusProvider.overrideWith((ref) => Stream.value(true)),
-        studiableOfflineDeckIdsProvider
-            .overrideWith((ref) async => const <String>{}),
-      ]);
+      final container = ProviderContainer(
+        overrides: [
+          deckRepositoryProvider.overrideWithValue(
+            FakeDeckRepository()..hangForever = true,
+          ),
+          courseRepositoryProvider.overrideWithValue(
+            FakeCourseRepository(courses: const []),
+          ),
+          localDeckStoreProvider.overrideWithValue(_SeededLocalDeckStore()),
+          onlineStatusProvider.overrideWith((ref) => Stream.value(true)),
+          studiableOfflineDeckIdsProvider.overrideWith(
+            (ref) async => const <String>{},
+          ),
+        ],
+      );
       addTearDown(container.dispose);
       container.listen(onlineStatusProvider, (_, _) {}, fireImmediately: true);
 
-      await container.read(cachedTabDecksProvider.future);
+      container.listen(decksProvider, (_, _) {}, fireImmediately: true);
+      await container.read(decksProvider.future);
       await container.read(onlineStatusProvider.future);
       await container.read(studiableOfflineDeckIdsProvider.future);
-      final decks = container.read(decksTabViewProvider).requireValue.single.decks;
+      final decks = container
+          .read(decksTabViewProvider)
+          .requireValue
+          .single
+          .decks;
 
       expect(decks.every((d) => !d.isLockedOffline), isTrue);
     });
@@ -297,10 +369,13 @@ void main() {
     Future<ProviderContainer> containerWith(Map<String, Object> initial) async {
       SharedPreferences.setMockInitialValues(initial);
       final sp = await SharedPreferences.getInstance();
-      final c = ProviderContainer(overrides: [
-        decksAccordionPreferencesProvider
-            .overrideWithValue(DecksAccordionPreferences(sp)),
-      ]);
+      final c = ProviderContainer(
+        overrides: [
+          decksAccordionPreferencesProvider.overrideWithValue(
+            DecksAccordionPreferences(sp),
+          ),
+        ],
+      );
       addTearDown(c.dispose);
       return c;
     }
@@ -314,9 +389,10 @@ void main() {
       final c = await containerWith({});
       await c.read(expandedCoursesProvider.future);
 
-      await c
-          .read(expandedCoursesProvider.notifier)
-          .setExpanded({'c-1', 'c-2'});
+      await c.read(expandedCoursesProvider.notifier).setExpanded({
+        'c-1',
+        'c-2',
+      });
 
       expect(c.read(expandedCoursesProvider).asData?.value, {'c-1', 'c-2'});
 

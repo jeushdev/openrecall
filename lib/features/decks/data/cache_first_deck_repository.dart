@@ -47,7 +47,7 @@ class CacheFirstDeckRepository implements DeckRepository {
     try {
       final remote = await _remote.fetchDecks();
       await _local.refreshDeckMeta(remote);
-      return remote;
+      return _local.isNoop ? remote : await _local.cachedDeckSummaries();
     } catch (_) {
       final cached = await _local.cachedDeckSummaries();
       if (cached.isEmpty) rethrow;
@@ -62,13 +62,9 @@ class CacheFirstDeckRepository implements DeckRepository {
       if (await _local.isDownloaded(deckId)) {
         await _local.mirrorCards(deckId, cards);
       }
-      return cards;
+      return _local.isNoop ? cards : await _local.cards(deckId);
     } catch (_) {
-      // "Downloaded" is header-row existence, which since spec-v4 is true for
-      // every listed deck. Only a mirrored card set makes a deck usable
-      // offline — otherwise this returned an empty deck rather than the
-      // "unavailable offline" state (spec.md §10).
-      if (await _local.hasMirroredCards(deckId)) return _local.cards(deckId);
+      if (await _local.isCardSetComplete(deckId)) return _local.cards(deckId);
       if (_local.isNoop) rethrow;
       throw DeckUnavailableOfflineException(deckId);
     }
@@ -136,14 +132,15 @@ class CacheFirstDeckRepository implements DeckRepository {
   @override
   Future<Deck> createDeck(String name, {String? courseId}) async {
     try {
-      return await _remote.createDeck(name, courseId: courseId);
+      final deck = await _remote.createDeck(name, courseId: courseId);
+      await _local.saveRemoteDeck(deck);
+      return deck;
     } catch (_) {
       if (_local.isNoop) rethrow;
       final id = newUuid();
       // An offline create with no course resolves to the mirrored default
       // course, matching the server `decks_fill_default_course` trigger.
-      final resolvedCourseId =
-          courseId ?? await _courseLocal.defaultCourseId();
+      final resolvedCourseId = courseId ?? await _courseLocal.defaultCourseId();
       await _local.createDeck(id: id, name: name, courseId: resolvedCourseId);
       final now = DateTime.now().toUtc();
       return Deck(
@@ -164,7 +161,13 @@ class CacheFirstDeckRepository implements DeckRepository {
     String? courseId,
   }) async {
     try {
-      return await _remote.updateDeck(id: id, name: name, courseId: courseId);
+      final deck = await _remote.updateDeck(
+        id: id,
+        name: name,
+        courseId: courseId,
+      );
+      await _local.saveRemoteDeck(deck);
+      return deck;
     } catch (_) {
       if (_local.isNoop) rethrow;
       await _local.updateDeck(id: id, name: name, courseId: courseId);
@@ -191,6 +194,7 @@ class CacheFirstDeckRepository implements DeckRepository {
   Future<void> deleteDeck(String id) async {
     try {
       await _remote.deleteDeck(id);
+      await _local.removeRemoteDeck(id);
     } catch (_) {
       if (_local.isNoop) rethrow;
       await _local.deleteDeck(id);
@@ -228,7 +232,10 @@ class CacheFirstDeckRepository implements DeckRepository {
   }
 
   @override
-  Future<List<FlashCard>> addCards(String deckId, List<ParsedCard> cards) async {
+  Future<List<FlashCard>> addCards(
+    String deckId,
+    List<ParsedCard> cards,
+  ) async {
     try {
       return await _remote.addCards(deckId, cards);
     } catch (_) {

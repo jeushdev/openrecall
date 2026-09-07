@@ -21,18 +21,19 @@ final offlineDeckIdsProvider = FutureProvider<Set<String>>((ref) {
   return ref.watch(localDeckStoreProvider).pinnedDeckIds();
 });
 
-/// The ids of decks whose cards are mirrored locally — the ones actually
-/// studiable with no connection (milestone E1). Everything else renders locked
-/// while offline.
+/// The ids of decks whose full card set is explicitly verified complete. This
+/// includes valid empty decks and excludes metadata-only and legacy rows.
 final studiableOfflineDeckIdsProvider = FutureProvider<Set<String>>((ref) {
-  return ref.watch(localDeckStoreProvider).mirroredCardDeckIds();
+  return ref.watch(localDeckStoreProvider).completeCardDeckIds();
 });
 
 /// Whether deck [deckId] holds local work not yet synced to Supabase. The
 /// "Keep available offline" toggle reads this to decide whether unpinning needs
 /// a data-loss warning (spec-v4 §O4).
-final deckHasUnsyncedWorkProvider =
-    FutureProvider.family<bool, String>((ref, deckId) {
+final deckHasUnsyncedWorkProvider = FutureProvider.family<bool, String>((
+  ref,
+  deckId,
+) {
   return ref.watch(localDeckStoreProvider).deckHasUnsyncedWork(deckId);
 });
 
@@ -51,8 +52,8 @@ final offlineDownloadSourceProvider = Provider<OfflineDownloadSource>((ref) {
 /// [OfflineController].
 final downloadProgressProvider =
     NotifierProvider<DownloadProgressController, DownloadProgress?>(
-  DownloadProgressController.new,
-);
+      DownloadProgressController.new,
+    );
 
 class DownloadProgressController extends Notifier<DownloadProgress?> {
   @override
@@ -121,8 +122,11 @@ class OfflineController extends AsyncNotifier<void> {
     progress.report(DownloadProgress(done: 0, total: total));
     final all = <FlashCard>[];
     for (var offset = 0; offset < total; offset += kDownloadPageSize) {
-      final page = await source.fetchCardsPage(deckId,
-          offset: offset, limit: kDownloadPageSize);
+      final page = await source.fetchCardsPage(
+        deckId,
+        offset: offset,
+        limit: kDownloadPageSize,
+      );
       if (page.isEmpty) break;
       all.addAll(page);
       progress.report(DownloadProgress(done: all.length, total: total));

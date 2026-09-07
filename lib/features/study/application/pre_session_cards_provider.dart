@@ -27,8 +27,9 @@ class DeckLoadTimeoutException implements Exception {
 
 /// How long the pre-session card fetch may run before it gives up with a
 /// [DeckLoadTimeoutException]. Overridden short in tests.
-final preSessionLoadTimeoutProvider =
-    Provider<Duration>((ref) => const Duration(seconds: 6));
+final preSessionLoadTimeoutProvider = Provider<Duration>(
+  (ref) => const Duration(seconds: 6),
+);
 
 /// Awaits [fetch], but no longer than [timeout] — a stall becomes a
 /// [DeckLoadTimeoutException] instead of an open-ended hang.
@@ -55,7 +56,7 @@ Future<List<FlashCard>> fetchDeckCardsBounded(
 ///   [preSessionLoadTimeoutProvider].
 Future<List<FlashCard>> loadStudyDeckCards(Ref ref, String deckId) async {
   final local = ref.read(localDeckStoreProvider);
-  if (await local.isDownloaded(deckId)) {
+  if (await local.isCardSetComplete(deckId)) {
     return local.cards(deckId);
   }
   return fetchDeckCardsBounded(
@@ -67,7 +68,6 @@ Future<List<FlashCard>> loadStudyDeckCards(Ref ref, String deckId) async {
 
 /// The pre-session card load, keyed by deck id. The study screen watches this
 /// for the mode picker; [invalidate] it to drive a Retry.
-final preSessionCardsProvider =
-    FutureProvider.family<List<FlashCard>, String>(
+final preSessionCardsProvider = FutureProvider.family<List<FlashCard>, String>(
   (ref, deckId) => loadStudyDeckCards(ref, deckId),
 );
