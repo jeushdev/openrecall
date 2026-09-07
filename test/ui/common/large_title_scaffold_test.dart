@@ -4,32 +4,14 @@ import 'package:open_recall/theme/app_theme.dart';
 import 'package:open_recall/ui/common/large_title_scaffold.dart';
 import 'package:open_recall/ui/common/navigation_obstruction.dart';
 
-const _phoneSizes = <Size>[
-  Size(320, 568),
-  Size(360, 640),
-  Size(360, 800),
-  Size(393, 873),
-  Size(412, 915),
-  Size(480, 960),
-];
-
-const _textScales = <double>[1, 1.3, 1.5, 2];
-
-void _configureView(WidgetTester tester, Size size, {double bottomInset = 24}) {
-  tester.view.physicalSize = size;
-  tester.view.devicePixelRatio = 1;
-  tester.view.viewPadding = FakeViewPadding(top: 24, bottom: bottomInset);
-  addTearDown(tester.view.resetPhysicalSize);
-  addTearDown(tester.view.resetDevicePixelRatio);
-  addTearDown(tester.view.resetViewPadding);
-}
+import '../../support/responsive_test_harness.dart';
 
 Future<void> _pumpResponsiveHeader(
   WidgetTester tester, {
   required Size size,
   required double textScale,
 }) async {
-  _configureView(tester, size);
+  configureResponsiveView(tester, viewport: size);
   await tester.pumpWidget(
     MaterialApp(
       theme: AppTheme.light,
@@ -72,6 +54,8 @@ void _expectHeaderContentSeparated(WidgetTester tester, String reason) {
 }
 
 void main() {
+  setUpAll(loadAppFonts);
+
   testWidgets('shows the title and an action, renders sliver content', (
     tester,
   ) async {
@@ -101,8 +85,8 @@ void main() {
   testWidgets('long titles and actions stay separate throughout collapse', (
     tester,
   ) async {
-    for (final size in _phoneSizes) {
-      for (final scale in _textScales) {
+    for (final size in responsiveViewports) {
+      for (final scale in responsiveTextScales) {
         await _pumpResponsiveHeader(tester, size: size, textScale: scale);
         final reason = '$size at text scale $scale';
         _expectHeaderContentSeparated(tester, '$reason expanded');
@@ -124,7 +108,7 @@ void main() {
   testWidgets('uses inherited navigation clearance exactly once', (
     tester,
   ) async {
-    _configureView(tester, const Size(320, 568));
+    configureResponsiveView(tester, viewport: const Size(320, 568));
     var pressed = false;
     await tester.pumpWidget(
       MaterialApp(
@@ -174,7 +158,7 @@ void main() {
   testWidgets('standalone screens reserve only the system bottom inset', (
     tester,
   ) async {
-    _configureView(tester, const Size(320, 568));
+    configureResponsiveView(tester, viewport: const Size(320, 568));
     await tester.pumpWidget(
       MaterialApp(
         theme: AppTheme.light,

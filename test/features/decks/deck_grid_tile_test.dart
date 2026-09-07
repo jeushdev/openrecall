@@ -8,6 +8,8 @@ import 'package:open_recall/features/decks/presentation/widgets/deck_grid_tile.d
 import 'package:open_recall/routing/app_routes.dart';
 import 'package:open_recall/theme/app_theme.dart';
 
+import '../../support/responsive_test_harness.dart';
+
 Widget _host(DeckTileView deck) {
   final router = GoRouter(
     initialLocation: '/home',
@@ -76,6 +78,8 @@ Widget _gridHost({
 }
 
 void main() {
+  setUpAll(loadAppFonts);
+
   testWidgets('an unlocked tile opens the deck on tap', (tester) async {
     await tester.pumpWidget(
       _host(
@@ -117,22 +121,9 @@ void main() {
   testWidgets(
     'grid content fits the responsive viewport and text-scale matrix',
     (tester) async {
-      const viewports = [
-        Size(320, 568),
-        Size(360, 640),
-        Size(360, 800),
-        Size(393, 873),
-        Size(412, 915),
-        Size(480, 960),
-      ];
-      const scales = [1.0, 1.3, 1.5, 2.0];
-      tester.view.devicePixelRatio = 1;
-      addTearDown(tester.view.resetPhysicalSize);
-      addTearDown(tester.view.resetDevicePixelRatio);
-
-      for (final viewport in viewports) {
-        for (final scale in scales) {
-          tester.view.physicalSize = viewport;
+      for (final viewport in responsiveViewports) {
+        for (final scale in responsiveTextScales) {
+          configureResponsiveView(tester, viewport: viewport);
           await tester.pumpWidget(_gridHost(textScale: scale));
           await tester.pumpAndSettle();
 
@@ -173,10 +164,7 @@ void main() {
   );
 
   testWidgets('responsive grid content renders in dark theme', (tester) async {
-    tester.view.physicalSize = const Size(320, 568);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.resetPhysicalSize);
-    addTearDown(tester.view.resetDevicePixelRatio);
+    configureResponsiveView(tester, viewport: const Size(320, 568));
 
     await tester.pumpWidget(
       _gridHost(textScale: 2, brightness: Brightness.dark),

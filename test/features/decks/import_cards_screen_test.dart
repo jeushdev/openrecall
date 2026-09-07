@@ -9,16 +9,17 @@ import 'package:open_recall/routing/app_routes.dart';
 import 'package:open_recall/theme/app_theme.dart';
 
 import '../../support/fake_deck_repository.dart';
+import '../../support/responsive_test_harness.dart';
 
 DeckSummary _deck(String id, {String name = 'Cell structure'}) => DeckSummary(
-      id: id,
-      name: name,
-      courseId: null,
-      lastStudiedAt: null,
-      totalCards: 0,
-      dueCards: 0,
-      masteryPercent: 0,
-    );
+  id: id,
+  name: name,
+  courseId: null,
+  lastStudiedAt: null,
+  totalCards: 0,
+  dueCards: 0,
+  masteryPercent: 0,
+);
 
 class _Recorder {
   String? location;
@@ -36,12 +37,16 @@ Future<void> _pump(
   WidgetTester tester, {
   required FakeDeckRepository decks,
   _Recorder? rec,
+  double textScale = 1,
 }) async {
   final recorder = rec ?? _Recorder();
   final router = GoRouter(
     initialLocation: '/',
     routes: [
-      GoRoute(path: '/', builder: (_, _) => const Scaffold(body: Text('home'))),
+      GoRoute(
+        path: '/',
+        builder: (_, _) => const Scaffold(body: Text('home')),
+      ),
       GoRoute(
         path: AppRoutes.importCardsPath,
         name: AppRoutes.importCardsName,
@@ -67,15 +72,23 @@ Future<void> _pump(
     ],
   );
 
-  await tester.pumpWidget(ProviderScope(
-    overrides: [deckRepositoryProvider.overrideWithValue(decks)],
-    child: MaterialApp.router(theme: AppTheme.light, routerConfig: router),
-  ));
+  await tester.pumpWidget(
+    ProviderScope(
+      overrides: [deckRepositoryProvider.overrideWithValue(decks)],
+      child: MaterialApp.router(
+        theme: AppTheme.light,
+        routerConfig: router,
+        builder: (context, child) =>
+            withTextScale(textScale: textScale, child: child!),
+      ),
+    ),
+  );
   router.push('/deck/deck-1/import');
   await tester.pumpAndSettle();
 }
 
-bool _addCardEnabled(WidgetTester tester) => tester
+bool _addCardEnabled(WidgetTester tester) =>
+    tester
         .widget<FilledButton>(find.widgetWithText(FilledButton, 'Add card'))
         .onPressed !=
     null;
@@ -84,6 +97,8 @@ Future<void> _enter(WidgetTester tester, String label, String text) =>
     tester.enterText(find.widgetWithText(TextFormField, label), text);
 
 void main() {
+  setUpAll(loadAppFonts);
+
   testWidgets('the app bar shows the deck name', (tester) async {
     await _pump(
       tester,
@@ -99,8 +114,9 @@ void main() {
     );
   });
 
-  testWidgets('Add card is disabled until both Front and Back are filled',
-      (tester) async {
+  testWidgets('Add card is disabled until both Front and Back are filled', (
+    tester,
+  ) async {
     await _pump(tester, decks: FakeDeckRepository(decks: [_deck('deck-1')]));
 
     expect(_addCardEnabled(tester), isFalse);
@@ -114,8 +130,9 @@ void main() {
     expect(_addCardEnabled(tester), isTrue);
   });
 
-  testWidgets('a manual add writes the card, clears the fields and stays put',
-      (tester) async {
+  testWidgets('a manual add writes the card, clears the fields and stays put', (
+    tester,
+  ) async {
     _useTallSurface(tester);
     final decks = FakeDeckRepository(decks: [_deck('deck-1')]);
     await _pump(tester, decks: decks);
@@ -133,8 +150,10 @@ void main() {
 
     expect(
       decks.calls,
-      contains('addCard(deck=deck-1, front=Capital of France, back=Paris, '
-          'keywords=[Paris], concept=false)'),
+      contains(
+        'addCard(deck=deck-1, front=Capital of France, back=Paris, '
+        'keywords=[Paris], concept=false)',
+      ),
     );
     expect(find.text('Card added'), findsOneWidget);
     expect(find.byType(ImportCardsScreen), findsOneWidget);
@@ -143,8 +162,9 @@ void main() {
     expect(find.widgetWithText(InputChip, 'Paris'), findsNothing);
   });
 
-  testWidgets('a keyword absent from Front and Back is rejected as a chip',
-      (tester) async {
+  testWidgets('a keyword absent from Front and Back is rejected as a chip', (
+    tester,
+  ) async {
     _useTallSurface(tester);
     final decks = FakeDeckRepository(decks: [_deck('deck-1')]);
     await _pump(tester, decks: decks);
@@ -158,8 +178,10 @@ void main() {
     await tester.testTextInput.receiveAction(TextInputAction.done);
     await tester.pump();
 
-    expect(find.text('Keyword must appear in the front or back text.'),
-        findsOneWidget);
+    expect(
+      find.text('Keyword must appear in the front or back text.'),
+      findsOneWidget,
+    );
     expect(find.widgetWithText(InputChip, 'Berlin'), findsNothing);
 
     await tester.tap(find.widgetWithText(FilledButton, 'Add card'));
@@ -167,13 +189,16 @@ void main() {
 
     expect(
       decks.calls,
-      contains('addCard(deck=deck-1, front=Capital of France, back=Paris, '
-          'keywords=[], concept=false)'),
+      contains(
+        'addCard(deck=deck-1, front=Capital of France, back=Paris, '
+        'keywords=[], concept=false)',
+      ),
     );
   });
 
-  testWidgets('a failed manual write surfaces an error and keeps the text',
-      (tester) async {
+  testWidgets('a failed manual write surfaces an error and keeps the text', (
+    tester,
+  ) async {
     final decks = FakeDeckRepository(decks: [_deck('deck-1')]);
     await _pump(tester, decks: decks);
 
@@ -190,45 +215,54 @@ void main() {
     expect(find.text('Capital of France'), findsOneWidget);
   });
 
-  testWidgets('the bulk panel starts open and flags bad lines after the debounce',
-      (tester) async {
-    _useTallSurface(tester);
-    await _pump(tester, decks: FakeDeckRepository(decks: [_deck('deck-1')]));
+  testWidgets(
+    'the bulk panel starts open and flags bad lines after the debounce',
+    (tester) async {
+      _useTallSurface(tester);
+      await _pump(tester, decks: FakeDeckRepository(decks: [_deck('deck-1')]));
 
-    await tester.enterText(
-      find.widgetWithText(TextField, 'Paste your cards here'),
-      'Q1 | A1\n\nbroken line',
-    );
-    await tester.pump(const Duration(milliseconds: 400));
+      await tester.enterText(
+        find.widgetWithText(TextField, 'Paste your cards here'),
+        'Q1 | A1\n\nbroken line',
+      );
+      await tester.pump(const Duration(milliseconds: 400));
 
-    expect(find.textContaining('1 ready'), findsOneWidget);
-    expect(find.textContaining('1 with a problem'), findsOneWidget);
-  });
+      expect(find.textContaining('1 ready'), findsOneWidget);
+      expect(find.textContaining('1 with a problem'), findsOneWidget);
+    },
+  );
 
-  testWidgets('adding the parsed bulk lines calls addCards and keeps failures',
-      (tester) async {
-    _useTallSurface(tester);
-    final decks = FakeDeckRepository(decks: [_deck('deck-1')]);
-    await _pump(tester, decks: decks);
+  testWidgets(
+    'adding the parsed bulk lines calls addCards and keeps failures',
+    (tester) async {
+      _useTallSurface(tester);
+      final decks = FakeDeckRepository(decks: [_deck('deck-1')]);
+      await _pump(tester, decks: decks);
 
-    await tester.enterText(
-      find.widgetWithText(TextField, 'Paste your cards here'),
-      'Q1 | A1\n\nbroken line\n\nQ2 | A2',
-    );
-    await tester.pump(const Duration(milliseconds: 400));
+      await tester.enterText(
+        find.widgetWithText(TextField, 'Paste your cards here'),
+        'Q1 | A1\n\nbroken line\n\nQ2 | A2',
+      );
+      await tester.pump(const Duration(milliseconds: 400));
 
-    await tester.tap(find.widgetWithText(FilledButton, 'Add 2 cards'));
-    await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, 'Add 2 cards'));
+      await tester.pumpAndSettle();
 
-    expect(decks.calls, contains('addCards(deck-1, 2)'));
-    expect(find.text('broken line'), findsOneWidget);
-  });
+      expect(decks.calls, contains('addCards(deck-1, 2)'));
+      expect(find.text('broken line'), findsOneWidget);
+    },
+  );
 
-  testWidgets('the footer "View cards" link opens the card list', (tester) async {
+  testWidgets('the footer "View cards" link opens the card list', (
+    tester,
+  ) async {
     _useTallSurface(tester);
     final rec = _Recorder();
-    await _pump(tester,
-        decks: FakeDeckRepository(decks: [_deck('deck-1')]), rec: rec);
+    await _pump(
+      tester,
+      decks: FakeDeckRepository(decks: [_deck('deck-1')]),
+      rec: rec,
+    );
 
     await tester.tap(find.text('View cards'));
     await tester.pumpAndSettle();
@@ -236,16 +270,76 @@ void main() {
     expect(rec.location, '/deck/deck-1/cards');
   });
 
-  testWidgets('the footer "Start session" link starts a session for the deck',
-      (tester) async {
+  testWidgets('the footer "Start session" link starts a session for the deck', (
+    tester,
+  ) async {
     _useTallSurface(tester);
     final rec = _Recorder();
-    await _pump(tester,
-        decks: FakeDeckRepository(decks: [_deck('deck-1')]), rec: rec);
+    await _pump(
+      tester,
+      decks: FakeDeckRepository(decks: [_deck('deck-1')]),
+      rec: rec,
+    );
 
     await tester.tap(find.text('Start session'));
     await tester.pumpAndSettle();
 
     expect(rec.location, '/study/deck-1');
   });
+
+  final responsiveCases = <({Size size, double scale})>[
+    for (final size in responsiveViewports) (size: size, scale: 1),
+    (size: const Size(320, 568), scale: 2),
+    (size: const Size(360, 640), scale: 2),
+    (size: const Size(412, 915), scale: 2),
+  ];
+
+  for (final testCase in responsiveCases) {
+    testWidgets('import form and footer remain reachable at '
+        '${testCase.size.width.toInt()}x${testCase.size.height.toInt()} '
+        'and ${testCase.scale}x text', (tester) async {
+      final keyboardInset = testCase.scale == 2 ? 260.0 : 0.0;
+      configureResponsiveView(
+        tester,
+        viewport: testCase.size,
+        viewInsets: EdgeInsets.only(bottom: keyboardInset),
+      );
+      await _pump(
+        tester,
+        decks: FakeDeckRepository(
+          decks: [_deck('deck-1', name: 'Responsive Biology')],
+        ),
+        textScale: testCase.scale,
+      );
+
+      await _enter(tester, 'Front', 'A long responsive card prompt');
+      await _enter(tester, 'Back', 'A complete responsive card answer');
+      await tester.pump();
+      final add = find.widgetWithText(FilledButton, 'Add card');
+      await tester.scrollUntilVisible(
+        add,
+        250,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.pump();
+      expect(add.hitTestable(), findsOneWidget);
+      expect(
+        tester.getBottomRight(add).dy,
+        lessThanOrEqualTo(testCase.size.height - keyboardInset),
+      );
+
+      configureResponsiveView(tester, viewport: testCase.size);
+      await tester.pump();
+      final start = find.text('Start session');
+      await tester.scrollUntilVisible(
+        start,
+        400,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.pump();
+      expect(start.hitTestable(), findsOneWidget);
+      expectTextIsComplete(tester, start);
+      expect(tester.takeException(), isNull);
+    });
+  }
 }

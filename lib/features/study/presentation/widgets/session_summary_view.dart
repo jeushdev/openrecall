@@ -75,10 +75,10 @@ class _SessionSummaryViewState extends State<SessionSummaryView>
 
   /// The mode-specific phrasing for the "recalled on the first try" metric.
   String get _firstTryLabel => switch (widget.mode) {
-        StudyMode.flip => 'Recalled on the first flip',
-        StudyMode.cloze => 'Typed right on the first try',
-        StudyMode.feynman => 'Recalled on the first pass',
-      };
+    StudyMode.flip => 'Recalled on the first flip',
+    StudyMode.cloze => 'Typed right on the first try',
+    StudyMode.feynman => 'Recalled on the first pass',
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -296,26 +296,68 @@ class _SessionBlock extends StatelessWidget {
           for (final row in rows)
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 5),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      row.label,
-                      style: AppType.bodyLarge
-                          .copyWith(color: tokens.textPrimary),
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Text(
-                    '${(row.value * t).round()}',
-                    style: AppType.numericLarge
-                        .copyWith(color: tokens.textPrimary),
-                  ),
-                ],
+              child: _MetricRow(
+                label: row.label,
+                value: '${(row.value * t).round()}',
+                tokens: tokens,
               ),
             ),
         ],
       ),
+    );
+  }
+}
+
+class _MetricRow extends StatelessWidget {
+  const _MetricRow({
+    required this.label,
+    required this.value,
+    required this.tokens,
+  });
+
+  final String label;
+  final String value;
+  final AppTokens tokens;
+
+  @override
+  Widget build(BuildContext context) {
+    final labelStyle = AppType.bodyLarge.copyWith(color: tokens.textPrimary);
+    final valueStyle = AppType.numericLarge.copyWith(color: tokens.textPrimary);
+    final scaler = MediaQuery.textScalerOf(context);
+    final direction = Directionality.of(context);
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final valuePainter = TextPainter(
+          text: TextSpan(text: value, style: valueStyle),
+          textDirection: direction,
+          textScaler: scaler,
+          maxLines: 1,
+        )..layout();
+        const minimumReadableLabelWidth = 80.0;
+        final stacks =
+            valuePainter.width + 16 + minimumReadableLabelWidth >
+            constraints.maxWidth;
+
+        if (stacks) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(label, style: labelStyle),
+              const SizedBox(height: 2),
+              Text(value, textAlign: TextAlign.end, style: valueStyle),
+            ],
+          );
+        }
+
+        return Row(
+          children: [
+            Expanded(child: Text(label, style: labelStyle)),
+            const SizedBox(width: 16),
+            Text(value, style: valueStyle),
+          ],
+        );
+      },
     );
   }
 }

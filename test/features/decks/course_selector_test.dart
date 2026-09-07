@@ -4,15 +4,15 @@ import 'package:open_recall/features/decks/presentation/widgets/course_selector.
 import 'package:open_recall/theme/app_theme.dart';
 
 import '../../support/fake_course_repository.dart';
+import '../../support/responsive_test_harness.dart';
 
 void main() {
+  setUpAll(loadAppFonts);
+
   testWidgets('grows selected chips to show a long course name in full', (
     tester,
   ) async {
-    tester.view.physicalSize = const Size(320, 568);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.resetPhysicalSize);
-    addTearDown(tester.view.resetDevicePixelRatio);
+    configureResponsiveView(tester, viewport: const Size(320, 568));
 
     const name = 'Advanced cellular and molecular biology';
     await tester.pumpWidget(
@@ -43,23 +43,11 @@ void main() {
   testWidgets('course labels stay complete across the responsive matrix', (
     tester,
   ) async {
-    const viewports = [
-      Size(320, 568),
-      Size(360, 640),
-      Size(360, 800),
-      Size(393, 873),
-      Size(412, 915),
-      Size(480, 960),
-    ];
-    const scales = [1.0, 1.3, 1.5, 2.0];
     const longName = 'Advanced cellular and molecular biology';
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.resetPhysicalSize);
-    addTearDown(tester.view.resetDevicePixelRatio);
 
-    for (final viewport in viewports) {
-      for (final scale in scales) {
-        tester.view.physicalSize = viewport;
+    for (final viewport in responsiveViewports) {
+      for (final scale in responsiveTextScales) {
+        configureResponsiveView(tester, viewport: viewport);
         await tester.pumpWidget(
           MaterialApp(
             theme: AppTheme.light,
@@ -103,10 +91,7 @@ void main() {
   testWidgets('the last course stays reachable and selectable by scrolling', (
     tester,
   ) async {
-    tester.view.physicalSize = const Size(320, 568);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.resetPhysicalSize);
-    addTearDown(tester.view.resetDevicePixelRatio);
+    configureResponsiveView(tester, viewport: const Size(320, 568));
     String? selected;
 
     await tester.pumpWidget(

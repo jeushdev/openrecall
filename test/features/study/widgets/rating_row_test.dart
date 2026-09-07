@@ -4,6 +4,8 @@ import 'package:open_recall/features/study/domain/flip_rating.dart';
 import 'package:open_recall/features/study/presentation/widgets/rating_row.dart';
 import 'package:open_recall/theme/app_theme.dart';
 
+import '../../../support/responsive_test_harness.dart';
+
 Future<void> _pumpRow(
   WidgetTester tester, {
   required bool enabled,
@@ -11,10 +13,7 @@ Future<void> _pumpRow(
   Size size = const Size(800, 600),
   double textScale = 1,
 }) {
-  tester.view.physicalSize = size;
-  tester.view.devicePixelRatio = 1;
-  addTearDown(tester.view.resetPhysicalSize);
-  addTearDown(tester.view.resetDevicePixelRatio);
+  configureResponsiveView(tester, viewport: size);
   return tester.pumpWidget(
     MaterialApp(
       theme: AppTheme.light,
@@ -35,6 +34,8 @@ Future<void> _pumpRow(
 }
 
 void main() {
+  setUpAll(loadAppFonts);
+
   group('RatingRow', () {
     testWidgets('renders one button per FlipRating (four)', (tester) async {
       await _pumpRow(tester, enabled: true);
@@ -60,18 +61,8 @@ void main() {
     testWidgets('keeps every label complete across the responsive matrix', (
       tester,
     ) async {
-      const sizes = [
-        Size(320, 568),
-        Size(360, 640),
-        Size(360, 800),
-        Size(393, 873),
-        Size(412, 915),
-        Size(480, 960),
-      ];
-      const scales = [1.0, 1.3, 1.5, 2.0];
-
-      for (final size in sizes) {
-        for (final scale in scales) {
+      for (final size in responsiveViewports) {
+        for (final scale in responsiveTextScales) {
           await _pumpRow(tester, enabled: true, size: size, textScale: scale);
           expect(tester.takeException(), isNull, reason: '$size at $scale');
           for (final rating in FlipRating.values) {

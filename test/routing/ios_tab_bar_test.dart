@@ -10,40 +10,27 @@ import 'package:open_recall/theme/app_tokens.dart';
 
 import '../support/fake_auth_repository.dart';
 import '../support/fake_deck_repository.dart';
-
-const _phoneSizes = <Size>[
-  Size(320, 568),
-  Size(360, 640),
-  Size(360, 800),
-  Size(393, 873),
-  Size(412, 915),
-  Size(480, 960),
-];
-
-const _textScales = <double>[1, 1.3, 1.5, 2];
+import '../support/responsive_test_harness.dart';
 
 Future<void> _pumpBar(
   WidgetTester tester, {
   required Size size,
   required double textScale,
 }) async {
-  tester.view.physicalSize = size;
-  tester.view.devicePixelRatio = 1;
-  tester.view.viewPadding = const FakeViewPadding(bottom: 24);
-  addTearDown(tester.view.resetPhysicalSize);
-  addTearDown(tester.view.resetDevicePixelRatio);
-  addTearDown(tester.view.resetViewPadding);
+  configureResponsiveView(
+    tester,
+    viewport: size,
+    viewPadding: const EdgeInsets.only(bottom: 24),
+  );
 
   await tester.pumpWidget(
     MaterialApp(
       theme: ThemeData(extensions: const [AppTokens.light]),
-      builder: (context, child) => MediaQuery(
-        data: MediaQuery.of(context)
-            .copyWith(textScaler: TextScaler.linear(textScale)),
-        child: child!,
-      ),
-      home: Scaffold(
-        bottomNavigationBar: IosTabBar(currentIndex: 0, onSelectTab: (_) {}),
+      home: withTextScale(
+        textScale: textScale,
+        child: Scaffold(
+          bottomNavigationBar: IosTabBar(currentIndex: 0, onSelectTab: (_) {}),
+        ),
       ),
     ),
   );
@@ -74,11 +61,13 @@ Color _iconColor(WidgetTester tester, String key) {
 }
 
 void main() {
+  setUpAll(loadAppFonts);
+
   testWidgets('labels fit their tab targets across the responsive matrix', (
     tester,
   ) async {
-    for (final size in _phoneSizes) {
-      for (final scale in _textScales) {
+    for (final size in responsiveViewports) {
+      for (final scale in responsiveTextScales) {
         await _pumpBar(tester, size: size, textScale: scale);
 
         expect(

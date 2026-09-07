@@ -3,31 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:open_recall/theme/app_theme.dart';
 import 'package:open_recall/ui/common/bounded_bottom_sheet.dart';
 
-const _viewports = <Size>[
-  Size(320, 568),
-  Size(360, 640),
-  Size(360, 800),
-  Size(393, 873),
-  Size(412, 915),
-  Size(480, 960),
-];
-
-const _textScales = <double>[1, 1.3, 1.5, 2];
-
-void _configureView(
-  WidgetTester tester, {
-  required Size viewport,
-  double keyboardInset = 0,
-}) {
-  tester.view.physicalSize = viewport;
-  tester.view.devicePixelRatio = 1;
-  tester.view.viewPadding = const FakeViewPadding(top: 24, bottom: 24);
-  tester.view.viewInsets = FakeViewPadding(bottom: keyboardInset);
-  addTearDown(tester.view.resetPhysicalSize);
-  addTearDown(tester.view.resetDevicePixelRatio);
-  addTearDown(tester.view.resetViewPadding);
-  addTearDown(tester.view.resetViewInsets);
-}
+import '../../support/responsive_test_harness.dart';
 
 Widget _host({
   required double textScale,
@@ -36,25 +12,23 @@ Widget _host({
 }) {
   return MaterialApp(
     theme: theme ?? AppTheme.light,
-    builder: (context, child) => MediaQuery(
-      data: MediaQuery.of(context)
-          .copyWith(textScaler: TextScaler.linear(textScale)),
-      child: child!,
-    ),
-    home: Builder(
-      builder: (context) => Scaffold(
-        body: Center(
-          child: FilledButton(
-            onPressed: () => showModalBottomSheet<void>(
-              context: context,
-              isScrollControlled: true,
-              useSafeArea: true,
-              builder: (_) => BoundedBottomSheetBody(
-                padding: const EdgeInsets.all(20),
-                child: sheetChild,
+    home: withTextScale(
+      textScale: textScale,
+      child: Builder(
+        builder: (context) => Scaffold(
+          body: Center(
+            child: FilledButton(
+              onPressed: () => showModalBottomSheet<void>(
+                context: context,
+                isScrollControlled: true,
+                useSafeArea: true,
+                builder: (_) => BoundedBottomSheetBody(
+                  padding: const EdgeInsets.all(20),
+                  child: sheetChild,
+                ),
               ),
+              child: const Text('Open'),
             ),
-            child: const Text('Open'),
           ),
         ),
       ),
@@ -63,17 +37,19 @@ Widget _host({
 }
 
 void main() {
-  for (final viewport in _viewports) {
-    for (final textScale in _textScales) {
+  setUpAll(loadAppFonts);
+
+  for (final viewport in responsiveViewports) {
+    for (final textScale in responsiveTextScales) {
       testWidgets(
         'keeps overflowing actions reachable at '
         '${viewport.width.toInt()}x${viewport.height.toInt()} and $textScale',
         (tester) async {
           const keyboardInset = 240.0;
-          _configureView(
+          configureResponsiveView(
             tester,
             viewport: viewport,
-            keyboardInset: keyboardInset,
+            viewInsets: const EdgeInsets.only(bottom: keyboardInset),
           );
           var tapped = false;
           await tester.pumpWidget(
@@ -125,7 +101,7 @@ void main() {
   }
 
   testWidgets('a short sheet retains its natural height', (tester) async {
-    _configureView(tester, viewport: const Size(412, 915));
+    configureResponsiveView(tester, viewport: const Size(412, 915));
     await tester.pumpWidget(
       _host(textScale: 1, sheetChild: const Text('Short sheet')),
     );
@@ -138,7 +114,7 @@ void main() {
   });
 
   testWidgets('uses the active dark theme inside the modal', (tester) async {
-    _configureView(tester, viewport: const Size(393, 873));
+    configureResponsiveView(tester, viewport: const Size(393, 873));
     await tester.pumpWidget(
       _host(
         textScale: 1.5,

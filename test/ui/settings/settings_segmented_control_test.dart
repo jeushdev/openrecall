@@ -3,14 +3,15 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:open_recall/theme/app_theme.dart';
 import 'package:open_recall/ui/settings/settings_segmented_control.dart';
 
+import '../../support/responsive_test_harness.dart';
+
 void main() {
+  setUpAll(loadAppFonts);
+
   testWidgets('grows to contain wrapped labels at enlarged text scale', (
     tester,
   ) async {
-    tester.view.physicalSize = const Size(320, 568);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.resetPhysicalSize);
-    addTearDown(tester.view.resetDevicePixelRatio);
+    configureResponsiveView(tester, viewport: const Size(320, 568));
 
     await tester.pumpWidget(
       MaterialApp(
@@ -47,22 +48,9 @@ void main() {
   testWidgets('labels stay contained and selectable across the matrix', (
     tester,
   ) async {
-    const viewports = [
-      Size(320, 568),
-      Size(360, 640),
-      Size(360, 800),
-      Size(393, 873),
-      Size(412, 915),
-      Size(480, 960),
-    ];
-    const scales = [1.0, 1.3, 1.5, 2.0];
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.resetPhysicalSize);
-    addTearDown(tester.view.resetDevicePixelRatio);
-
-    for (final viewport in viewports) {
-      for (final scale in scales) {
-        tester.view.physicalSize = viewport;
+    for (final viewport in responsiveViewports) {
+      for (final scale in responsiveTextScales) {
+        configureResponsiveView(tester, viewport: viewport);
         var selected = -1;
         await tester.pumpWidget(
           MaterialApp(
