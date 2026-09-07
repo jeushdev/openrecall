@@ -4,6 +4,15 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../connectivity/connectivity_service.dart';
 import '../local_db/local_db_providers.dart';
 import 'sync_service.dart';
+import '../../features/home/application/home_providers.dart';
+import '../../features/stats/application/stats_providers.dart';
+
+void _invalidateSessionReads(Ref ref) {
+  ref.invalidate(recentCompletedSessionsProvider);
+  ref.invalidate(completedSessionsProvider);
+  ref.invalidate(activeSessionProgressProvider);
+  ref.invalidate(sessionCountsByDeckProvider);
+}
 
 /// The reconnect sync engine, or `null` when Supabase has not been initialized
 /// (which is the case in unit tests that build this graph without going through
@@ -43,6 +52,7 @@ final manualSyncProvider = Provider<Future<void> Function()>((ref) {
     await ref.read(syncServiceProvider)?.syncPending(force: true);
     ref.invalidate(pendingSyncProvider);
     ref.invalidate(pendingSyncCountProvider);
+    _invalidateSessionReads(ref);
   };
 });
 
@@ -59,6 +69,7 @@ final syncCoordinatorProvider = Provider<void>((ref) {
       ref.read(syncServiceProvider)?.syncPending().then((_) {
         ref.invalidate(pendingSyncProvider);
         ref.invalidate(pendingSyncCountProvider);
+        _invalidateSessionReads(ref);
       });
     }
   }, fireImmediately: true);

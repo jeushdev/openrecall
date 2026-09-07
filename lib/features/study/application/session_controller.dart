@@ -11,6 +11,8 @@ import '../../decks/domain/deck_repository.dart';
 import '../../decks/domain/study_mode.dart';
 import '../../notifications/application/notification_providers.dart';
 import '../../notifications/data/notification_service.dart';
+import '../../home/application/home_providers.dart';
+import '../../stats/application/stats_providers.dart';
 import '../data/cache_first_study_repository.dart';
 import '../data/supabase_study_repository.dart';
 import '../domain/cloze_outcome.dart';
@@ -60,8 +62,8 @@ final studyRepositoryProvider = Provider<StudyRepository>((ref) {
 /// in-flight background writes or drop the resumable state.
 final sessionControllerProvider =
     NotifierProvider<SessionController, AsyncValue<StudySessionState?>>(
-  SessionController.new,
-);
+      SessionController.new,
+    );
 
 /// The last DB-confirmed mastery/fail baseline for one card, plus the intent
 /// not yet written. Drives the guarded background write.
@@ -96,19 +98,30 @@ class SessionController extends Notifier<AsyncValue<StudySessionState?>> {
   /// (spec §10). Never awaited, never throws into a study interaction.
   void _triggerSync() {
     final sync = ref.read(syncServiceProvider);
-    if (sync != null) unawaited(sync.syncPending());
+    if (sync != null) {
+      unawaited(sync.syncPending().then((_) => _refreshSessionReads()));
+    }
+  }
+
+  void _refreshSessionReads() {
+    ref.invalidate(recentCompletedSessionsProvider);
+    ref.invalidate(completedSessionsProvider);
+    ref.invalidate(activeSessionProgressProvider);
+    ref.invalidate(sessionCountsByDeckProvider);
   }
 
   /// Fire-and-forget a notification call. Study interactions must never block on
   /// or fail because of a reminder write (see CLAUDE.md "Performance").
   void _notify(Future<void> Function() action) {
-    unawaited(Future(() async {
-      try {
-        await action();
-      } catch (_) {
-        // A missing permission or platform hiccup must not surface here.
-      }
-    }));
+    unawaited(
+      Future(() async {
+        try {
+          await action();
+        } catch (_) {
+          // A missing permission or platform hiccup must not surface here.
+        }
+      }),
+    );
   }
 
   final Map<String, _CardSync> _sync = {};
@@ -181,6 +194,7 @@ class SessionController extends Notifier<AsyncValue<StudySessionState?>> {
 
     if (state.hasValue) {
       ref.invalidate(decksProvider);
+      _refreshSessionReads();
       // The user is back studying — drop any pending "come back" reminder.
       _notify(_notifications.cancelReturnReminder);
     }
@@ -222,6 +236,7 @@ class SessionController extends Notifier<AsyncValue<StudySessionState?>> {
 
     if (state.hasValue) {
       ref.invalidate(decksProvider);
+      _refreshSessionReads();
       _notify(_notifications.cancelReturnReminder);
     }
   }
@@ -245,7 +260,10 @@ class SessionController extends Notifier<AsyncValue<StudySessionState?>> {
       cappedLength: cap,
       cardScope: cardScope,
     );
-    final rows = await _study.createSessionCards(session.id, seedsFrom(ordered));
+    final rows = await _study.createSessionCards(
+      session.id,
+      seedsFrom(ordered),
+    );
 
     try {
       await _decks.markDeckStudied(deckId);
@@ -321,11 +339,13 @@ class SessionController extends Notifier<AsyncValue<StudySessionState?>> {
     }
 
     if (effects.isFail && effects.newPosition != null) {
-      unawaited(_study.updateSessionCard(
-        sessionCardId: effects.sessionCardId,
-        position: effects.newPosition,
-        consecutiveFails: effects.newConsecutiveFails,
-      ));
+      unawaited(
+        _study.updateSessionCard(
+          sessionCardId: effects.sessionCardId,
+          position: effects.newPosition,
+          consecutiveFails: effects.newConsecutiveFails,
+        ),
+      );
     }
 
     if (result.state.phase == SessionPhase.completed) {
@@ -337,19 +357,24 @@ class SessionController extends Notifier<AsyncValue<StudySessionState?>> {
   /// (spec §7) and attaches them; otherwise returns [next] unchanged.
   StudySessionState _attachOutcomeIfDone(StudySessionState next) {
     if (next.phase != SessionPhase.completed) return next;
-    final afterLevels = _deckMasteryAtStart.entries
-        .map((e) => _sync[e.key]?.desiredMastery ?? e.value);
-    return next.withOutcome(SessionOutcome(
-      masteryPercentBefore:
-          masteryPercentFromLevels(_deckMasteryAtStart.values),
-      masteryPercentAfter: masteryPercentFromLevels(afterLevels),
-      cardsStudied: next.totalCards,
-      mastered: next.masteredCardIds.length,
-      parked: next.parkedCardIds.length,
-      firstTryMastered:
-          next.masteredCardIds.difference(_missedCardIds).length,
-      requeues: _requeues,
-    ));
+    final afterLevels = _deckMasteryAtStart.entries.map(
+      (e) => _sync[e.key]?.desiredMastery ?? e.value,
+    );
+    return next.withOutcome(
+      SessionOutcome(
+        masteryPercentBefore: masteryPercentFromLevels(
+          _deckMasteryAtStart.values,
+        ),
+        masteryPercentAfter: masteryPercentFromLevels(afterLevels),
+        cardsStudied: next.totalCards,
+        mastered: next.masteredCardIds.length,
+        parked: next.parkedCardIds.length,
+        firstTryMastered: next.masteredCardIds
+            .difference(_missedCardIds)
+            .length,
+        requeues: _requeues,
+      ),
+    );
   }
 
   /// Parks the prompted card.
@@ -362,10 +387,9 @@ class SessionController extends Notifier<AsyncValue<StudySessionState?>> {
     state = AsyncData(_attachOutcomeIfDone(next));
 
     if (sessionCardId != null) {
-      unawaited(_study.updateSessionCard(
-        sessionCardId: sessionCardId,
-        isParked: true,
-      ));
+      unawaited(
+        _study.updateSessionCard(sessionCardId: sessionCardId, isParked: true),
+      );
     }
     if (next.phase == SessionPhase.completed) {
       unawaited(_finishSession());
@@ -381,10 +405,12 @@ class SessionController extends Notifier<AsyncValue<StudySessionState?>> {
     state = AsyncData(current.declinePark());
 
     if (sessionCardId != null) {
-      unawaited(_study.updateSessionCard(
-        sessionCardId: sessionCardId,
-        consecutiveFails: 0,
-      ));
+      unawaited(
+        _study.updateSessionCard(
+          sessionCardId: sessionCardId,
+          consecutiveFails: 0,
+        ),
+      );
     }
   }
 
@@ -396,6 +422,7 @@ class SessionController extends Notifier<AsyncValue<StudySessionState?>> {
     if (current == null) return;
     ref.invalidate(deckCardsProvider(current.deckId));
     ref.invalidate(decksProvider);
+    _refreshSessionReads();
     _triggerSync();
 
     if (!current.isComplete) {
@@ -403,10 +430,12 @@ class SessionController extends Notifier<AsyncValue<StudySessionState?>> {
       // this session (spec §8 — the "most recent session" reminder).
       final outstanding = current.queue.length + current.parkedCardIds.length;
       if (outstanding > 0) {
-        _notify(() => _notifications.scheduleReturnReminder(
-              deckName: current.deckName,
-              unfinishedCount: outstanding,
-            ));
+        _notify(
+          () => _notifications.scheduleReturnReminder(
+            deckName: current.deckName,
+            unfinishedCount: outstanding,
+          ),
+        );
       }
     }
   }
@@ -435,23 +464,27 @@ class SessionController extends Notifier<AsyncValue<StudySessionState?>> {
     // Spec §8: a completed session still leaves parked cards for next time.
     final parked = current.parkedCardIds.length;
     if (parked > 0) {
-      _notify(() => _notifications.scheduleReturnReminder(
-            deckName: current.deckName,
-            unfinishedCount: parked,
-          ));
+      _notify(
+        () => _notifications.scheduleReturnReminder(
+          deckName: current.deckName,
+          unfinishedCount: parked,
+        ),
+      );
     } else {
       _notify(_notifications.cancelReturnReminder);
     }
 
     ref.invalidate(deckCardsProvider(current.deckId));
     ref.invalidate(decksProvider);
+    _refreshSessionReads();
     _triggerSync();
   }
 
   void _scheduleCardWrite(String cardId) {
     final prev = _writeChains[cardId] ?? Future<void>.value();
-    _writeChains[cardId] =
-        prev.then((_) => _flushCardWrite(cardId)).catchError((_) {});
+    _writeChains[cardId] = prev
+        .then((_) => _flushCardWrite(cardId))
+        .catchError((_) {});
   }
 
   Future<void> _flushCardWrite(String cardId) async {
@@ -504,9 +537,7 @@ class SessionController extends Notifier<AsyncValue<StudySessionState?>> {
   Future<void> _flushAllPendingWrites() async {
     // Drain the chains, then sweep once more for anything still dirty.
     await Future.wait(_writeChains.values);
-    final sweep = [
-      for (final cardId in _sync.keys) _flushCardWrite(cardId),
-    ];
+    final sweep = [for (final cardId in _sync.keys) _flushCardWrite(cardId)];
     await Future.wait(sweep);
   }
 

@@ -17,25 +17,52 @@ class SupabaseStatsRepository implements StatsRepository {
 
   final SupabaseClient _client;
 
+  Future<List<Map<String, dynamic>>> _completedRows(
+    int limit, {
+    required String orderBy,
+  }) async {
+    const pageSize = 200;
+    final result = <Map<String, dynamic>>[];
+    while (result.length < limit) {
+      final remaining = limit - result.length;
+      final take = remaining < pageSize ? remaining : pageSize;
+      final page = await _client
+          .from('study_sessions')
+          .select(
+            'id, deck_id, study_mode, length_mode, capped_length, '
+            'card_scope, mastery_delta, cards_reviewed, started_at, '
+            'completed_at',
+          )
+          .eq('status', 'completed')
+          .not('completed_at', 'is', null)
+          .order(orderBy, ascending: false)
+          .range(result.length, result.length + take - 1);
+      result.addAll(page.cast<Map<String, dynamic>>());
+      if (page.length < take) break;
+    }
+    return result;
+  }
+
   @override
   Future<List<CompletedSessionActivity>> fetchRecentCompletedSessions({
     int limit = activityFeedLimit,
   }) async {
-    final rows = await _client
-        .from('study_sessions')
-        .select('deck_id, completed_at, mastery_delta, study_mode, cards_reviewed')
-        .eq('status', 'completed')
-        .not('completed_at', 'is', null)
-        .order('completed_at', ascending: false)
-        .limit(limit);
+    final rows = await _completedRows(limit, orderBy: 'completed_at');
     return [
       for (final row in rows)
         CompletedSessionActivity(
+          sessionId: row['id'] as String,
           deckId: row['deck_id'] as String,
+          startedAt: DateTime.parse(row['started_at'] as String),
           completedAt: DateTime.parse(row['completed_at'] as String),
           masteryDelta: row['mastery_delta'] as int?,
           studyMode: studyModeFromDb(row['study_mode'] as String),
           cardsReviewed: row['cards_reviewed'] as int?,
+          lengthMode: sessionLengthModeFromDb(row['length_mode'] as String),
+          cappedLength: row['capped_length'] as int?,
+          cardScope: row['card_scope'] == null
+              ? CardScope.due
+              : cardScopeFromDb(row['card_scope'] as String),
         ),
     ];
   }
@@ -57,13 +84,14 @@ class SupabaseStatsRepository implements StatsRepository {
     return counts;
   }
 
-
   @override
   Future<List<ActiveSessionProgress>> fetchActiveSessions() async {
     final sessions = await _client
         .from('study_sessions')
-        .select('id, deck_id, study_mode, length_mode, card_scope, '
-            'capped_length, started_at')
+        .select(
+          'id, deck_id, study_mode, length_mode, card_scope, '
+          'capped_length, started_at',
+        )
         .eq('status', 'active')
         .order('started_at', ascending: false);
     if (sessions.isEmpty) return const [];
@@ -125,15 +153,19 @@ class SupabaseStatsRepository implements StatsRepository {
   Future<List<CompletedSession>> fetchCompletedSessions({
     int limit = completedSessionsLimit,
   }) async {
-    final rows = await _client
-        .from('study_sessions')
-        .select('started_at, completed_at, cards_reviewed')
-        .eq('status', 'completed')
-        .order('started_at', ascending: false)
-        .limit(limit);
+    final rows = await _completedRows(limit, orderBy: 'started_at');
     return [
       for (final row in rows)
         CompletedSession(
+          sessionId: row['id'] as String,
+          deckId: row['deck_id'] as String,
+          studyMode: studyModeFromDb(row['study_mode'] as String),
+          lengthMode: sessionLengthModeFromDb(row['length_mode'] as String),
+          cappedLength: row['capped_length'] as int?,
+          cardScope: row['card_scope'] == null
+              ? CardScope.due
+              : cardScopeFromDb(row['card_scope'] as String),
+          masteryDelta: row['mastery_delta'] as int?,
           startedAt: DateTime.parse(row['started_at'] as String),
           completedAt: row['completed_at'] == null
               ? null

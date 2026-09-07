@@ -15,11 +15,11 @@ class FakeStatsRepository implements StatsRepository {
     List<CompletedSession>? completedSessions,
     List<ActiveSessionProgress>? activeSessions,
     Map<String, int>? sessionCountsByDeck,
-  })  : _recentCompletedSessions = [...?recentCompletedSessions],
-        _runThroughs = {...?runThroughs},
-        _completedSessions = [...?completedSessions],
-        _activeSessions = [...?activeSessions],
-        _sessionCountsByDeck = {...?sessionCountsByDeck};
+  }) : _recentCompletedSessions = [...?recentCompletedSessions],
+       _runThroughs = {...?runThroughs},
+       _completedSessions = [...?completedSessions],
+       _activeSessions = [...?activeSessions],
+       _sessionCountsByDeck = {...?sessionCountsByDeck};
 
   final List<CompletedSessionActivity> _recentCompletedSessions;
   final Map<String, int> _runThroughs;
@@ -35,6 +35,8 @@ class FakeStatsRepository implements StatsRepository {
   /// When true, every fetch returns a future that never completes — an
   /// unreachable host, the case [statsLoadTimeoutProvider] bounds.
   bool hangForever = false;
+  bool failRecent = false;
+  bool failCompleted = false;
 
   void _maybeThrow() {
     final error = throwOnNextCall;
@@ -51,6 +53,7 @@ class FakeStatsRepository implements StatsRepository {
     int limit = activityFeedLimit,
   }) async {
     calls.add('fetchRecentCompletedSessions(limit=$limit)');
+    if (failRecent) throw StateError('recent sessions unavailable');
     _maybeThrow();
     if (hangForever) return _hang();
     return List.unmodifiable(_recentCompletedSessions.take(limit));
@@ -63,7 +66,6 @@ class FakeStatsRepository implements StatsRepository {
     if (hangForever) return _hang();
     return Map.unmodifiable(_runThroughs);
   }
-
 
   @override
   Future<List<ActiveSessionProgress>> fetchActiveSessions() async {
@@ -86,6 +88,7 @@ class FakeStatsRepository implements StatsRepository {
     int limit = completedSessionsLimit,
   }) async {
     calls.add('fetchCompletedSessions(limit=$limit)');
+    if (failCompleted) throw StateError('completed sessions unavailable');
     _maybeThrow();
     if (hangForever) return _hang();
     return List.unmodifiable(_completedSessions.take(limit));

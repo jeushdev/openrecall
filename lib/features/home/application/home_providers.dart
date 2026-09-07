@@ -1,9 +1,14 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/local_db/local_db_providers.dart';
 import '../../courses/application/course_providers.dart';
 import '../../decks/application/deck_providers.dart';
 import '../../decks/domain/study_mode.dart';
 import '../../stats/application/stats_providers.dart';
+import '../../stats/data/local_stats_store.dart';
+import '../../stats/domain/active_session.dart';
 
 /// The Home tab's data layer (ui-spec-v4-navigation §3). Every provider here is
 /// a read-only join of things the app already holds plus the two new
@@ -32,11 +37,54 @@ class UnfinishedSession {
 /// The still-`active` sessions, newest first, each joined to its deck name.
 /// Sessions whose deck is no longer in [decksProvider] (deleted, or not
 /// downloaded offline) are dropped rather than shown nameless.
-final activeSessionsProvider = FutureProvider<List<UnfinishedSession>>((ref) async {
-  final sessions = await ref
-      .watch(statsRepositoryProvider)
-      .fetchActiveSessions()
-      .timeout(ref.watch(statsLoadTimeoutProvider));
+final activeSessionProgressProvider =
+    AsyncNotifierProvider<
+      ActiveSessionProgressNotifier,
+      List<ActiveSessionProgress>
+    >(ActiveSessionProgressNotifier.new);
+
+class ActiveSessionProgressNotifier
+    extends AsyncNotifier<List<ActiveSessionProgress>> {
+  @override
+  Future<List<ActiveSessionProgress>> build() async {
+    final local = ref.watch(localStatsStoreProvider);
+    final repository = ref.watch(statsRepositoryProvider);
+    final timeout = ref.watch(statsLoadTimeoutProvider);
+    final sessions = await local.activeSessions();
+    final cache = await local.cacheState(activeSessionsCacheKey);
+    if (cache.hasCachedData || sessions.isNotEmpty) {
+      unawaited(Future<void>(() => _refresh()));
+      return sessions;
+    }
+    final fresh = await repository.fetchActiveSessions().timeout(timeout);
+    ref.invalidate(activeSessionCacheStateProvider);
+    return fresh;
+  }
+
+  Future<void> _refresh() async {
+    try {
+      final fresh = await ref
+          .read(statsRepositoryProvider)
+          .fetchActiveSessions()
+          .timeout(ref.read(statsLoadTimeoutProvider));
+      if (!ref.mounted) return;
+      state = AsyncData(fresh);
+      ref.invalidate(activeSessionCacheStateProvider);
+    } catch (_) {
+      // Cached Dashboard data remains visible on refresh failure.
+    }
+  }
+}
+
+final activeSessionCacheStateProvider = FutureProvider(
+  (ref) =>
+      ref.watch(localStatsStoreProvider).cacheState(activeSessionsCacheKey),
+);
+
+final activeSessionsProvider = FutureProvider<List<UnfinishedSession>>((
+  ref,
+) async {
+  final sessions = await ref.watch(activeSessionProgressProvider.future);
   if (sessions.isEmpty) return const [];
   final decks = await ref.watch(decksProvider.future);
   final nameById = {for (final d in decks) d.id: d.name};
@@ -55,12 +103,42 @@ final activeSessionsProvider = FutureProvider<List<UnfinishedSession>>((ref) asy
 /// Completed-session count per deck id — the ordering key for
 /// [mostReviewedDecksProvider]. Its own provider so a Home rebuild fetches it
 /// once.
-final sessionCountsByDeckProvider = FutureProvider<Map<String, int>>((ref) {
-  return ref
-      .watch(statsRepositoryProvider)
-      .fetchSessionCountsByDeck()
-      .timeout(ref.watch(statsLoadTimeoutProvider));
-});
+final sessionCountsByDeckProvider =
+    AsyncNotifierProvider<SessionCountsByDeckNotifier, Map<String, int>>(
+      SessionCountsByDeckNotifier.new,
+    );
+
+class SessionCountsByDeckNotifier extends AsyncNotifier<Map<String, int>> {
+  @override
+  Future<Map<String, int>> build() async {
+    final local = ref.watch(localStatsStoreProvider);
+    final repository = ref.watch(statsRepositoryProvider);
+    final timeout = ref.watch(statsLoadTimeoutProvider);
+    final counts = await local.sessionCountsByDeck();
+    final cache = await local.cacheState(completedSessionsCacheKey);
+    if (cache.hasCachedData || counts.isNotEmpty) {
+      unawaited(Future<void>(() => _refresh()));
+      return counts;
+    }
+    final fresh = await repository.fetchSessionCountsByDeck().timeout(timeout);
+    ref.invalidate(completedSessionCacheStateProvider);
+    return fresh;
+  }
+
+  Future<void> _refresh() async {
+    try {
+      final fresh = await ref
+          .read(statsRepositoryProvider)
+          .fetchSessionCountsByDeck()
+          .timeout(ref.read(statsLoadTimeoutProvider));
+      if (!ref.mounted) return;
+      state = AsyncData(fresh);
+      ref.invalidate(completedSessionCacheStateProvider);
+    } catch (_) {
+      // Cached Dashboard data remains visible on refresh failure.
+    }
+  }
+}
 
 /// One card in Home's "Most Reviewed Decks" stack.
 class MostReviewedDeck {
@@ -94,14 +172,16 @@ const int mostReviewedDecksLimit = 6;
 /// recently studied, capped at [mostReviewedDecksLimit]. Decks never studied
 /// are eligible only to fill the tail. A pure join of [decksProvider],
 /// [coursesProvider] and [sessionCountsByDeckProvider].
-final mostReviewedDecksProvider =
-    FutureProvider<List<MostReviewedDeck>>((ref) async {
+final mostReviewedDecksProvider = FutureProvider<List<MostReviewedDeck>>((
+  ref,
+) async {
   final counts = await ref.watch(sessionCountsByDeckProvider.future);
   final decks = await ref.watch(decksProvider.future);
   final courses = await ref.watch(coursesProvider.future);
   final courseById = {for (final c in courses) c.id: c};
 
-  final ranked = [...decks]..sort((a, b) {
+  final ranked = [...decks]
+    ..sort((a, b) {
       final byCount = (counts[b.id] ?? 0).compareTo(counts[a.id] ?? 0);
       if (byCount != 0) return byCount;
       final at = a.lastStudiedAt;

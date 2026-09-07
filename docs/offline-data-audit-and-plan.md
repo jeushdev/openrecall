@@ -6,13 +6,13 @@ Audited: 2026-09-07. Scope: native first; web remains online-only.
 
 - **Milestone 1 — Storage contracts and account isolation:** implemented; validation recorded below.
 - **Milestone 2 — Immediate application reads:** implemented; validation recorded below.
-- **Milestone 3 — Durable Dashboard, History, and metrics:** deferred.
+- **Milestone 3 — Durable Dashboard, History, and metrics:** implemented; validation recorded below.
 - **Milestone 4 — Reliable deck packages:** deferred.
 - **Milestone 5 — Local study writes and clear status:** deferred.
 
-Implementation currently stops after milestone 2. Dashboard/History durability,
-offline deck download transaction hardening, local-first study writes, and
-offline-indicator changes remain deferred to milestones 3–5.
+Implementation currently stops after milestone 3. Offline deck download
+transaction hardening, local-first study writes, and offline-indicator changes
+remain deferred to milestones 4–5.
 
 ## Audit: current data flow
 
@@ -199,6 +199,30 @@ Implemented in `Add immediate local-first application reads`:
 - Acceptance: online history survives offline restart; local completions appear
   immediately and exactly once after sync.
 
+Implemented in `Add durable dashboard, history, and profile metrics`:
+
+- Successful recent-session (20) and completed-session metrics (1,000) reads
+  page through Supabase and persist full session metadata into the existing
+  `offline_study_sessions` mirror. Active-session metadata uses that same table,
+  while `cached_active_progress` stores its compact mastered/total projection.
+  No schema or storage package was added.
+- Remote and pending local sessions merge on the normalized session UUID. A
+  remote cache write cannot replace an `is_synced = 0` row, so a locally
+  completed session remains immediately visible and becomes the same row after
+  sync rather than a duplicate.
+- Dashboard, History, and study-metrics sources are SQLite-first async
+  notifiers with bounded background refresh. A failed refresh leaves cached
+  data in `AsyncData`; an uncached failure remains an error. Cache metadata
+  records complete versus capped/partial coverage, and History displays a
+  saved-data notice that explicitly says when older activity may be missing.
+- History Retry invalidates the recent-session and completed-session sources,
+  plus their deck/course label sources. Study start/completion/exit and both
+  manual and reconnect sync invalidate active progress, recent history,
+  completed metrics, and deck session counts.
+- A null SQLite capability performs no cache reads or writes and preserves the
+  online-only path used by web and database-open failures. Deck packages,
+  study commit ordering, and the existing banner/chip behavior are unchanged.
+
 ### 4. Reliable deck packages
 
 - Replace header/nonempty-card checks with completeness checks everywhere.
@@ -238,6 +262,17 @@ refresh replacement/error retention, dirty-row and tombstone preservation,
 authoring metadata refresh, and no-SQLite online-only behavior.
 `flutter analyze --no-pub` reports only the same three pre-existing warnings in
 `home_tab_screen.dart` (unused `style`, `_CardSkeleton`, `_SectionError`).
+
+Milestone 3: 195 focused and regression tests passed with
+`flutter test --no-pub test/core/cache test/core/local_db test/core/sync test/features/stats test/features/home test/features/settings/more_tab_screen_test.dart test/features/study/session_controller_test.dart`.
+Coverage includes persisted history after a real SQLite close/reopen while the
+remote future remains unresolved, ID-based remote/local session merging without
+duplicates, active-progress restoration, cached Dashboard retention after a
+background failure, explicit partial/complete coverage, History Retry reaching
+the failed source, study/sync regression coverage, and null-SQLite online-only
+behavior. `flutter analyze --no-pub` reports only the same three
+pre-existing warnings in `home_tab_screen.dart` (unused `style`,
+`_CardSkeleton`, `_SectionError`).
 
 Later milestones require
 warm-cache airplane-mode restart, unreachable Supabase with a live interface,

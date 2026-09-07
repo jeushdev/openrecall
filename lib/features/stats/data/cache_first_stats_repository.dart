@@ -3,33 +3,30 @@ import '../domain/activity_feed.dart';
 import '../domain/completed_session.dart';
 import '../domain/completed_session_activity.dart';
 import '../domain/stats_repository.dart';
+import '../../../core/local_db/application_cache.dart';
 import 'local_stats_store.dart';
-import 'supabase_stats_repository.dart';
 
-/// Wraps [SupabaseStatsRepository] with the local mirror (engine-v2-spec §6):
-/// hit Supabase, and on failure fall back to [LocalStatsStore]. There are no
-/// writes.
-///
-/// The fallback follows `CacheFirstCourseRepository`'s rule — if the mirror is
-/// absent (no local database) the original error is surfaced rather than a bare
-/// empty result masking an offline failure. When a database exists, an empty
-/// mirror is a legitimate answer (nothing downloaded / no sessions yet).
+/// Persists successful remote session projections into the existing SQLite
+/// session mirror. Providers own the local-first read and background refresh so
+/// a refresh error can never replace visible cached data.
 class CacheFirstStatsRepository implements StatsRepository {
   CacheFirstStatsRepository(this._remote, this._local);
 
-  final SupabaseStatsRepository _remote;
+  final StatsRepository _remote;
   final LocalStatsStore _local;
 
   @override
   Future<List<CompletedSessionActivity>> fetchRecentCompletedSessions({
     int limit = activityFeedLimit,
   }) async {
-    try {
-      return await _remote.fetchRecentCompletedSessions(limit: limit);
-    } catch (_) {
-      if (_local.isNoop) rethrow;
-      return _local.recentCompletedSessions(limit);
-    }
+    final sessions = await _remote.fetchRecentCompletedSessions(limit: limit);
+    await _local.saveRecentCompletedSessions(
+      sessions,
+      coverage: sessions.length < limit
+          ? CacheCoverage.complete
+          : CacheCoverage.partial,
+    );
+    return _local.isNoop ? sessions : _local.recentCompletedSessions(limit);
   }
 
   @override
@@ -42,36 +39,47 @@ class CacheFirstStatsRepository implements StatsRepository {
     }
   }
 
-
   @override
   Future<List<ActiveSessionProgress>> fetchActiveSessions() async {
-    try {
-      return await _remote.fetchActiveSessions();
-    } catch (_) {
-      if (_local.isNoop) rethrow;
-      return _local.activeSessions();
-    }
+    final sessions = await _remote.fetchActiveSessions();
+    await _local.saveActiveSessions(sessions);
+    return _local.isNoop ? sessions : _local.activeSessions();
   }
 
   @override
   Future<Map<String, int>> fetchSessionCountsByDeck() async {
-    try {
-      return await _remote.fetchSessionCountsByDeck();
-    } catch (_) {
-      if (_local.isNoop) rethrow;
-      return _local.sessionCountsByDeck();
+    final sessions = await _remote.fetchCompletedSessions();
+    await _local.saveCompletedSessions(
+      sessions,
+      coverage: sessions.length < completedSessionsLimit
+          ? CacheCoverage.complete
+          : CacheCoverage.partial,
+    );
+    if (!_local.isNoop) return _local.sessionCountsByDeck();
+    if (sessions.isEmpty || sessions.any((session) => session.deckId == null)) {
+      // Compatibility for lean repository projections used by older clients
+      // and tests. The live Supabase projection always carries deck_id.
+      return _remote.fetchSessionCountsByDeck();
     }
+    final counts = <String, int>{};
+    for (final session in sessions) {
+      final deckId = session.deckId!;
+      counts[deckId] = (counts[deckId] ?? 0) + 1;
+    }
+    return counts;
   }
 
   @override
   Future<List<CompletedSession>> fetchCompletedSessions({
     int limit = completedSessionsLimit,
   }) async {
-    try {
-      return await _remote.fetchCompletedSessions(limit: limit);
-    } catch (_) {
-      if (_local.isNoop) rethrow;
-      return _local.completedSessions(limit);
-    }
+    final sessions = await _remote.fetchCompletedSessions(limit: limit);
+    await _local.saveCompletedSessions(
+      sessions,
+      coverage: sessions.length < limit
+          ? CacheCoverage.complete
+          : CacheCoverage.partial,
+    );
+    return _local.isNoop ? sessions : _local.completedSessions(limit);
   }
 }

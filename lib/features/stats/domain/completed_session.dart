@@ -1,5 +1,9 @@
 import 'package:flutter/foundation.dart';
 
+import '../../decks/domain/study_mode.dart';
+import '../../study/domain/session_length.dart';
+import '../../study/domain/study_session.dart';
+
 /// How many completed sessions the profile-metrics fetch pulls, newest first.
 /// One thousand daily sessions is roughly three years of study — beyond that the
 /// lifetime totals under-count slightly, an accepted trade for one lean query
@@ -21,7 +25,24 @@ class CompletedSession {
     required this.startedAt,
     required this.completedAt,
     required this.cardsReviewed,
+    this.sessionId,
+    this.deckId,
+    this.studyMode,
+    this.lengthMode,
+    this.cardScope,
+    this.cappedLength,
+    this.masteryDelta,
   });
+
+  /// Present for durable session rows. Optional for callers that only need the
+  /// legacy metrics projection.
+  final String? sessionId;
+  final String? deckId;
+  final StudyMode? studyMode;
+  final SessionLengthMode? lengthMode;
+  final CardScope? cardScope;
+  final int? cappedLength;
+  final int? masteryDelta;
 
   final DateTime startedAt;
 
@@ -39,8 +60,26 @@ class CompletedSession {
       other is CompletedSession &&
       other.startedAt == startedAt &&
       other.completedAt == completedAt &&
-      other.cardsReviewed == cardsReviewed;
+      other.cardsReviewed == cardsReviewed &&
+      other.sessionId == sessionId &&
+      other.deckId == deckId &&
+      other.studyMode == studyMode &&
+      other.lengthMode == lengthMode &&
+      other.cardScope == cardScope &&
+      other.cappedLength == cappedLength &&
+      other.masteryDelta == masteryDelta;
 
   @override
-  int get hashCode => Object.hash(startedAt, completedAt, cardsReviewed);
+  int get hashCode => Object.hash(
+    startedAt,
+    completedAt,
+    cardsReviewed,
+    sessionId,
+    deckId,
+    studyMode,
+    lengthMode,
+    cardScope,
+    cappedLength,
+    masteryDelta,
+  );
 }

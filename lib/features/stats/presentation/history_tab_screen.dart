@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/local_db/application_cache.dart';
 import '../../../theme/app_tokens.dart';
 import '../../../theme/app_type.dart';
 import '../../../ui/common/large_title_scaffold.dart';
@@ -8,6 +9,7 @@ import '../../../ui/settings/settings_segmented_control.dart';
 import '../../../ui/stats/calendar_heatmap.dart';
 import '../../../ui/stats/session_log_list.dart';
 import '../application/stats_providers.dart';
+import '../data/local_stats_store.dart';
 
 /// The History tab (`/history`, ui-spec-v4-navigation §4, restyled ui-spec-v5
 /// §6.5) — replaces the retired Mastery tab.
@@ -35,6 +37,7 @@ class _HistoryTabScreenState extends ConsumerState<HistoryTabScreen> {
   Widget build(BuildContext context) {
     final activity = ref.watch(dailyActivityProvider);
     final log = ref.watch(historyLogProvider);
+    final retry = ref.read(retryHistorySourcesProvider);
 
     return LargeTitleScaffold(
       title: 'History',
@@ -44,9 +47,10 @@ class _HistoryTabScreenState extends ConsumerState<HistoryTabScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               const SizedBox(height: 8),
+              const _CoverageNotice(),
               _AsyncSection(
                 value: activity,
-                onRetry: () => ref.invalidate(dailyActivityProvider),
+                onRetry: retry,
                 builder: (counts) => Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: CalendarHeatmap(
@@ -71,7 +75,7 @@ class _HistoryTabScreenState extends ConsumerState<HistoryTabScreen> {
               const SizedBox(height: 16),
               _AsyncSection(
                 value: log,
-                onRetry: () => ref.invalidate(historyLogProvider),
+                onRetry: retry,
                 builder: (entries) =>
                     SessionLogList(entries: entries, filter: _filter),
               ),
@@ -79,6 +83,38 @@ class _HistoryTabScreenState extends ConsumerState<HistoryTabScreen> {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _CoverageNotice extends ConsumerWidget {
+  const _CoverageNotice();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final recent = ref.watch(recentSessionCacheStateProvider).asData?.value;
+    final completed = ref
+        .watch(completedSessionCacheStateProvider)
+        .asData
+        ?.value;
+    final states = <SessionCacheState>[?recent, ?completed];
+    if (!states.any((state) => state.hasCachedData)) {
+      return const SizedBox.shrink();
+    }
+    final partial = states.any(
+      (state) =>
+          state.hasCachedData && state.coverage != CacheCoverage.complete,
+    );
+    final tokens = Theme.of(context).extension<AppTokens>()!;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+      child: Text(
+        partial
+            ? 'Saved history is available offline, but older activity may be missing.'
+            : 'Showing saved history while fresh activity is checked.',
+        key: const ValueKey('history-cache-coverage'),
+        style: AppType.caption.copyWith(color: tokens.textSecondary),
+      ),
     );
   }
 }

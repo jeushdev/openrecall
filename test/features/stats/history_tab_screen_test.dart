@@ -159,4 +159,25 @@ void main() {
     expect(find.text('BIOLOGY · DECK D1'), findsOneWidget);
     expect(find.text('Deck d1'), findsNothing);
   });
+
+  testWidgets('Retry refreshes the failed session source', (tester) async {
+    final stats = FakeStatsRepository()..failRecent = true;
+    await _pump(tester, stats: stats);
+
+    expect(find.text("Couldn't load this section."), findsOneWidget);
+    expect(
+      stats.calls.where((call) => call.startsWith('fetchRecent')).length,
+      1,
+    );
+
+    stats.failRecent = false;
+    await tester.tap(find.text('Retry'));
+    await tester.pumpAndSettle();
+
+    expect(
+      stats.calls.where((call) => call.startsWith('fetchRecent')).length,
+      2,
+    );
+    expect(find.text("Couldn't load this section."), findsNothing);
+  });
 }

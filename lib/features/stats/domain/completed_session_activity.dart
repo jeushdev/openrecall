@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
 
 import '../../decks/domain/study_mode.dart';
+import '../../study/domain/session_length.dart';
+import '../../study/domain/study_session.dart';
 
 /// A finished study session as the Mastery tab's activity feed (milestone C)
 /// and the History tab's session log (ui-spec-v4 §4) need it: the deck it
@@ -19,7 +21,18 @@ class CompletedSessionActivity {
     required this.masteryDelta,
     required this.studyMode,
     this.cardsReviewed,
+    this.sessionId,
+    this.startedAt,
+    this.lengthMode,
+    this.cardScope,
+    this.cappedLength,
   });
+
+  final String? sessionId;
+  final DateTime? startedAt;
+  final SessionLengthMode? lengthMode;
+  final CardScope? cardScope;
+  final int? cappedLength;
 
   final String deckId;
   final DateTime completedAt;
@@ -43,9 +56,24 @@ class CompletedSessionActivity {
       other.completedAt == completedAt &&
       other.masteryDelta == masteryDelta &&
       other.studyMode == studyMode &&
-      other.cardsReviewed == cardsReviewed;
+      other.cardsReviewed == cardsReviewed &&
+      other.sessionId == sessionId &&
+      other.startedAt == startedAt &&
+      other.lengthMode == lengthMode &&
+      other.cardScope == cardScope &&
+      other.cappedLength == cappedLength;
 
   @override
-  int get hashCode =>
-      Object.hash(deckId, completedAt, masteryDelta, studyMode, cardsReviewed);
+  int get hashCode => Object.hash(
+    deckId,
+    completedAt,
+    masteryDelta,
+    studyMode,
+    cardsReviewed,
+    sessionId,
+    startedAt,
+    lengthMode,
+    cardScope,
+    cappedLength,
+  );
 }
