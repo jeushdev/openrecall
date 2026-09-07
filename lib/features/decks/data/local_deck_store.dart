@@ -2,6 +2,8 @@ import 'dart:convert';
 
 import 'package:sqflite/sqflite.dart';
 
+import '../../../core/local_db/stale_account_scope.dart';
+
 import '../../../core/local_db/local_deletion.dart';
 import '../domain/card.dart';
 import '../domain/deck.dart';
@@ -61,9 +63,14 @@ class DirtyDeck {
 /// every read returns empty and every write is a no-op, so a cache-first
 /// repository wrapping this store behaves like the plain Supabase one.
 class LocalDeckStore {
-  LocalDeckStore(this._db);
+  LocalDeckStore(this._database, {this.isCurrent});
 
-  final Database? _db;
+  final Database? _database;
+  final bool Function()? isCurrent;
+  Database? get _db {
+    if (isCurrent?.call() == false) throw const StaleAccountScope();
+    return _database;
+  }
 
   /// True when there is no local database, so nothing can be cached or synced.
   bool get isNoop => _db == null;
@@ -82,16 +89,24 @@ class LocalDeckStore {
   Future<Set<String>> pinnedDeckIds() async {
     final db = _db;
     if (db == null) return <String>{};
-    final rows = await db
-        .query('offline_decks', columns: ['id'], where: 'is_pinned = 1');
+    final rows = await db.query(
+      'offline_decks',
+      columns: ['id'],
+      where: 'is_pinned = 1',
+    );
     return {for (final r in rows) r['id'] as String};
   }
 
   Future<bool> isDownloaded(String deckId) async {
     final db = _db;
     if (db == null) return false;
-    final rows = await db.query('offline_decks',
-        columns: ['id'], where: 'id = ?', whereArgs: [deckId], limit: 1);
+    final rows = await db.query(
+      'offline_decks',
+      columns: ['id'],
+      where: 'id = ?',
+      whereArgs: [deckId],
+      limit: 1,
+    );
     return rows.isNotEmpty;
   }
 
@@ -105,8 +120,9 @@ class LocalDeckStore {
   Future<Set<String>> mirroredCardDeckIds() async {
     final db = _db;
     if (db == null) return <String>{};
-    final rows =
-        await db.rawQuery('SELECT DISTINCT deck_id FROM offline_cards');
+    final rows = await db.rawQuery(
+      'SELECT DISTINCT deck_id FROM offline_cards',
+    );
     return {for (final r in rows) r['deck_id'] as String};
   }
 
@@ -114,8 +130,13 @@ class LocalDeckStore {
   Future<bool> hasMirroredCards(String deckId) async {
     final db = _db;
     if (db == null) return false;
-    final rows = await db.query('offline_cards',
-        columns: ['id'], where: 'deck_id = ?', whereArgs: [deckId], limit: 1);
+    final rows = await db.query(
+      'offline_cards',
+      columns: ['id'],
+      where: 'deck_id = ?',
+      whereArgs: [deckId],
+      limit: 1,
+    );
     return rows.isNotEmpty;
   }
 
@@ -133,9 +154,13 @@ class LocalDeckStore {
   }) async {
     final db = _db;
     if (db == null) return;
-    final exists = (await db.query('offline_decks',
-            columns: ['id'], where: 'id = ?', whereArgs: [deckId], limit: 1))
-        .isNotEmpty;
+    final exists = (await db.query(
+      'offline_decks',
+      columns: ['id'],
+      where: 'id = ?',
+      whereArgs: [deckId],
+      limit: 1,
+    )).isNotEmpty;
     if (exists) {
       await db.update(
         'offline_decks',
@@ -163,22 +188,40 @@ class LocalDeckStore {
     await db.transaction((txn) async {
       final unsynced = await _deckHasUnsyncedWork(txn, deckId);
       if (unsynced) {
-        await txn.update('offline_decks', {'is_pinned': 0},
-            where: 'id = ?', whereArgs: [deckId]);
+        await txn.update(
+          'offline_decks',
+          {'is_pinned': 0},
+          where: 'id = ?',
+          whereArgs: [deckId],
+        );
         return;
       }
       final sessionIds = [
-        for (final r in await txn.query('offline_study_sessions',
-            columns: ['id'], where: 'deck_id = ?', whereArgs: [deckId]))
+        for (final r in await txn.query(
+          'offline_study_sessions',
+          columns: ['id'],
+          where: 'deck_id = ?',
+          whereArgs: [deckId],
+        ))
           r['id'] as String,
       ];
       for (final id in sessionIds) {
-        await txn.delete('offline_session_cards',
-            where: 'session_id = ?', whereArgs: [id]);
+        await txn.delete(
+          'offline_session_cards',
+          where: 'session_id = ?',
+          whereArgs: [id],
+        );
       }
-      await txn.delete('offline_study_sessions',
-          where: 'deck_id = ?', whereArgs: [deckId]);
-      await txn.delete('offline_cards', where: 'deck_id = ?', whereArgs: [deckId]);
+      await txn.delete(
+        'offline_study_sessions',
+        where: 'deck_id = ?',
+        whereArgs: [deckId],
+      );
+      await txn.delete(
+        'offline_cards',
+        where: 'deck_id = ?',
+        whereArgs: [deckId],
+      );
       await txn.delete('offline_decks', where: 'id = ?', whereArgs: [deckId]);
     });
   }
@@ -193,22 +236,30 @@ class LocalDeckStore {
     return _deckHasUnsyncedWork(db, deckId);
   }
 
-  Future<bool> _deckHasUnsyncedWork(
-      DatabaseExecutor txn, String deckId) async {
-    final deck = await txn.query('offline_decks',
-        columns: ['is_synced'], where: 'id = ?', whereArgs: [deckId], limit: 1);
+  Future<bool> _deckHasUnsyncedWork(DatabaseExecutor txn, String deckId) async {
+    final deck = await txn.query(
+      'offline_decks',
+      columns: ['is_synced'],
+      where: 'id = ?',
+      whereArgs: [deckId],
+      limit: 1,
+    );
     if (deck.isNotEmpty && (deck.first['is_synced'] as int) == 0) return true;
-    final card = await txn.query('offline_cards',
-        columns: ['id'],
-        where: 'deck_id = ? AND is_synced = 0',
-        whereArgs: [deckId],
-        limit: 1);
+    final card = await txn.query(
+      'offline_cards',
+      columns: ['id'],
+      where: 'deck_id = ? AND is_synced = 0',
+      whereArgs: [deckId],
+      limit: 1,
+    );
     if (card.isNotEmpty) return true;
-    final session = await txn.query('offline_study_sessions',
-        columns: ['id'],
-        where: 'deck_id = ? AND is_synced = 0',
-        whereArgs: [deckId],
-        limit: 1);
+    final session = await txn.query(
+      'offline_study_sessions',
+      columns: ['id'],
+      where: 'deck_id = ? AND is_synced = 0',
+      whereArgs: [deckId],
+      limit: 1,
+    );
     return session.isNotEmpty;
   }
 
@@ -224,8 +275,11 @@ class LocalDeckStore {
     if (db == null) return;
     await db.transaction((txn) async {
       final dirtyIds = {
-        for (final r in await txn.query('offline_decks',
-            columns: ['id'], where: 'is_synced = 0'))
+        for (final r in await txn.query(
+          'offline_decks',
+          columns: ['id'],
+          where: 'is_synced = 0',
+        ))
           r['id'] as String,
       };
       final remoteIds = {for (final d in remote) d.id};
@@ -234,16 +288,21 @@ class LocalDeckStore {
       } else {
         await txn.delete(
           'offline_decks',
-          where: 'is_synced = 1 AND id NOT IN '
+          where:
+              'is_synced = 1 AND id NOT IN '
               "(${List.filled(remoteIds.length, '?').join(',')})",
           whereArgs: remoteIds.toList(),
         );
       }
       for (final d in remote) {
         if (dirtyIds.contains(d.id)) continue;
-        final exists = (await txn.query('offline_decks',
-                columns: ['id'], where: 'id = ?', whereArgs: [d.id], limit: 1))
-            .isNotEmpty;
+        final exists = (await txn.query(
+          'offline_decks',
+          columns: ['id'],
+          where: 'id = ?',
+          whereArgs: [d.id],
+          limit: 1,
+        )).isNotEmpty;
         final meta = {
           'name': d.name,
           'course_id': d.courseId,
@@ -253,8 +312,12 @@ class LocalDeckStore {
           'is_synced': 1,
         };
         if (exists) {
-          await txn.update('offline_decks', meta,
-              where: 'id = ?', whereArgs: [d.id]);
+          await txn.update(
+            'offline_decks',
+            meta,
+            where: 'id = ?',
+            whereArgs: [d.id],
+          );
         } else {
           await txn.insert('offline_decks', {'id': d.id, ...meta});
         }
@@ -270,9 +333,13 @@ class LocalDeckStore {
     final db = _db;
     if (db == null) return;
     await db.transaction((txn) async {
-      final exists = (await txn.query('offline_decks',
-              columns: ['id'], where: 'id = ?', whereArgs: [deckId], limit: 1))
-          .isNotEmpty;
+      final exists = (await txn.query(
+        'offline_decks',
+        columns: ['id'],
+        where: 'id = ?',
+        whereArgs: [deckId],
+        limit: 1,
+      )).isNotEmpty;
       if (!exists) {
         await txn.insert('offline_decks', {
           'id': deckId,
@@ -281,28 +348,37 @@ class LocalDeckStore {
         });
       }
       final dirtyIds = {
-        for (final r in await txn.query('offline_cards',
-            columns: ['id'],
-            where: 'deck_id = ? AND is_synced = 0',
-            whereArgs: [deckId]))
+        for (final r in await txn.query(
+          'offline_cards',
+          columns: ['id'],
+          where: 'deck_id = ? AND is_synced = 0',
+          whereArgs: [deckId],
+        ))
           r['id'] as String,
       };
       final remoteIds = {for (final c in remote) c.id};
       if (remoteIds.isEmpty) {
-        await txn.delete('offline_cards',
-            where: 'deck_id = ? AND is_synced = 1', whereArgs: [deckId]);
+        await txn.delete(
+          'offline_cards',
+          where: 'deck_id = ? AND is_synced = 1',
+          whereArgs: [deckId],
+        );
       } else {
         await txn.delete(
           'offline_cards',
-          where: 'deck_id = ? AND is_synced = 1 AND id NOT IN '
+          where:
+              'deck_id = ? AND is_synced = 1 AND id NOT IN '
               "(${List.filled(remoteIds.length, '?').join(',')})",
           whereArgs: [deckId, ...remoteIds],
         );
       }
       for (final c in remote) {
         if (dirtyIds.contains(c.id)) continue;
-        await txn.insert('offline_cards', _cardValues(c),
-            conflictAlgorithm: ConflictAlgorithm.replace);
+        await txn.insert(
+          'offline_cards',
+          _cardValues(c),
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
       }
     });
   }
@@ -321,38 +397,46 @@ class LocalDeckStore {
     for (final d in decks) {
       final id = d['id'] as String;
       final levels = [
-        for (final r in await db.query('offline_cards',
-            columns: ['mastery_level'], where: 'deck_id = ?', whereArgs: [id]))
+        for (final r in await db.query(
+          'offline_cards',
+          columns: ['mastery_level'],
+          where: 'deck_id = ?',
+          whereArgs: [id],
+        ))
           r['mastery_level'] as int,
       ];
       if (levels.isNotEmpty) {
-        result.add(DeckSummary(
-          id: id,
-          name: d['name'] as String,
-          courseId: d['course_id'] as String?,
-          lastStudiedAt: _parseNullable(d['last_studied_at']),
-          totalCards: levels.length,
-          dueCards: levels.where((l) => l < masteredLevel).length,
-          masteryPercent: masteryPercentFromLevels(levels),
-          masteryLevelSum: levels.fold(0, (a, b) => a + b),
-          position: (d['position'] as int?) ?? 0,
-          createdAt: _parseNullable(d['created_at']),
-        ));
+        result.add(
+          DeckSummary(
+            id: id,
+            name: d['name'] as String,
+            courseId: d['course_id'] as String?,
+            lastStudiedAt: _parseNullable(d['last_studied_at']),
+            totalCards: levels.length,
+            dueCards: levels.where((l) => l < masteredLevel).length,
+            masteryPercent: masteryPercentFromLevels(levels),
+            masteryLevelSum: levels.fold(0, (a, b) => a + b),
+            position: (d['position'] as int?) ?? 0,
+            createdAt: _parseNullable(d['created_at']),
+          ),
+        );
       } else {
         final total = (d['total_cards'] as int?) ?? 0;
         final sum = (d['mastery_level_sum'] as int?) ?? 0;
-        result.add(DeckSummary(
-          id: id,
-          name: d['name'] as String,
-          courseId: d['course_id'] as String?,
-          lastStudiedAt: _parseNullable(d['last_studied_at']),
-          totalCards: total,
-          dueCards: total, // level-per-card unknown; treated as all due
-          masteryPercent: masteryPercentFromLevelSum(sum, total),
-          masteryLevelSum: sum,
-          position: (d['position'] as int?) ?? 0,
-          createdAt: _parseNullable(d['created_at']),
-        ));
+        result.add(
+          DeckSummary(
+            id: id,
+            name: d['name'] as String,
+            courseId: d['course_id'] as String?,
+            lastStudiedAt: _parseNullable(d['last_studied_at']),
+            totalCards: total,
+            dueCards: total, // level-per-card unknown; treated as all due
+            masteryPercent: masteryPercentFromLevelSum(sum, total),
+            masteryLevelSum: sum,
+            position: (d['position'] as int?) ?? 0,
+            createdAt: _parseNullable(d['created_at']),
+          ),
+        );
       }
     }
     return result;
@@ -361,16 +445,24 @@ class LocalDeckStore {
   Future<List<FlashCard>> cards(String deckId) async {
     final db = _db;
     if (db == null) return const [];
-    final rows = await db.query('offline_cards',
-        where: 'deck_id = ?', whereArgs: [deckId], orderBy: 'created_at');
+    final rows = await db.query(
+      'offline_cards',
+      where: 'deck_id = ?',
+      whereArgs: [deckId],
+      orderBy: 'created_at',
+    );
     return rows.map(_cardFromRow).toList();
   }
 
   Future<FlashCard?> cardById(String id) async {
     final db = _db;
     if (db == null) return null;
-    final rows = await db
-        .query('offline_cards', where: 'id = ?', whereArgs: [id], limit: 1);
+    final rows = await db.query(
+      'offline_cards',
+      where: 'id = ?',
+      whereArgs: [id],
+      limit: 1,
+    );
     return rows.isEmpty ? null : _cardFromRow(rows.first);
   }
 
@@ -444,37 +536,55 @@ class LocalDeckStore {
     final db = _db;
     if (db == null) return;
     await db.transaction((txn) async {
-      final row = await txn.query('offline_decks',
-          columns: ['base_updated_at'],
-          where: 'id = ?',
-          whereArgs: [id],
-          limit: 1);
+      final row = await txn.query(
+        'offline_decks',
+        columns: ['base_updated_at'],
+        where: 'id = ?',
+        whereArgs: [id],
+        limit: 1,
+      );
       final createdLocally =
           row.isEmpty || row.first['base_updated_at'] == null;
-      await _writeTombstone(txn, 'deck', id,
-          createdLocally: createdLocally);
+      await _writeTombstone(txn, 'deck', id, createdLocally: createdLocally);
       // A card deleted-then-its-deck-deleted offline: the deck tombstone covers
       // it, so drop any stale card tombstones for this deck.
       final cardIds = [
-        for (final r in await txn.query('offline_cards',
-            columns: ['id'], where: 'deck_id = ?', whereArgs: [id]))
+        for (final r in await txn.query(
+          'offline_cards',
+          columns: ['id'],
+          where: 'deck_id = ?',
+          whereArgs: [id],
+        ))
           r['id'] as String,
       ];
       for (final cid in cardIds) {
-        await txn.delete('offline_deletions',
-            where: 'entity_type = ? AND entity_id = ?', whereArgs: ['card', cid]);
+        await txn.delete(
+          'offline_deletions',
+          where: 'entity_type = ? AND entity_id = ?',
+          whereArgs: ['card', cid],
+        );
       }
       final sessionIds = [
-        for (final r in await txn.query('offline_study_sessions',
-            columns: ['id'], where: 'deck_id = ?', whereArgs: [id]))
+        for (final r in await txn.query(
+          'offline_study_sessions',
+          columns: ['id'],
+          where: 'deck_id = ?',
+          whereArgs: [id],
+        ))
           r['id'] as String,
       ];
       for (final sid in sessionIds) {
-        await txn.delete('offline_session_cards',
-            where: 'session_id = ?', whereArgs: [sid]);
+        await txn.delete(
+          'offline_session_cards',
+          where: 'session_id = ?',
+          whereArgs: [sid],
+        );
       }
-      await txn.delete('offline_study_sessions',
-          where: 'deck_id = ?', whereArgs: [id]);
+      await txn.delete(
+        'offline_study_sessions',
+        where: 'deck_id = ?',
+        whereArgs: [id],
+      );
       await txn.delete('offline_cards', where: 'deck_id = ?', whereArgs: [id]);
       await txn.delete('offline_decks', where: 'id = ?', whereArgs: [id]);
     });
@@ -536,16 +646,22 @@ class LocalDeckStore {
     final db = _db;
     if (db == null) return;
     await db.transaction((txn) async {
-      final row = await txn.query('offline_cards',
-          columns: ['deck_id', 'created_locally'],
-          where: 'id = ?',
-          whereArgs: [id],
-          limit: 1);
+      final row = await txn.query(
+        'offline_cards',
+        columns: ['deck_id', 'created_locally'],
+        where: 'id = ?',
+        whereArgs: [id],
+        limit: 1,
+      );
       if (row.isEmpty) return;
       final createdLocally = (row.first['created_locally'] as int? ?? 0) == 1;
-      await _writeTombstone(txn, 'card', id,
-          deckId: row.first['deck_id'] as String?,
-          createdLocally: createdLocally);
+      await _writeTombstone(
+        txn,
+        'card',
+        id,
+        deckId: row.first['deck_id'] as String?,
+        createdLocally: createdLocally,
+      );
       await txn.delete('offline_cards', where: 'id = ?', whereArgs: [id]);
     });
   }
@@ -633,8 +749,10 @@ class LocalDeckStore {
   Future<List<DirtyCard>> unsyncedCards() async {
     final db = _db;
     if (db == null) return const [];
-    final rows = await db.query('offline_cards',
-        where: 'is_synced = 0 AND content_dirty = 0');
+    final rows = await db.query(
+      'offline_cards',
+      where: 'is_synced = 0 AND content_dirty = 0',
+    );
     return [
       for (final r in rows)
         DirtyCard(
@@ -667,7 +785,9 @@ class LocalDeckStore {
   }
 
   Future<void> markCardContentSynced(
-      String id, DateTime remoteUpdatedAt) async {
+    String id,
+    DateTime remoteUpdatedAt,
+  ) async {
     final db = _db;
     if (db == null) return;
     final iso = remoteUpdatedAt.toUtc().toIso8601String();
@@ -728,8 +848,11 @@ class LocalDeckStore {
   Future<List<LocalDeletion>> _deletions(String entityType) async {
     final db = _db;
     if (db == null) return const [];
-    final rows = await db.query('offline_deletions',
-        where: 'entity_type = ?', whereArgs: [entityType]);
+    final rows = await db.query(
+      'offline_deletions',
+      where: 'entity_type = ?',
+      whereArgs: [entityType],
+    );
     return [
       for (final r in rows)
         LocalDeletion(
@@ -744,8 +867,11 @@ class LocalDeckStore {
   Future<void> _clearDeletion(String entityType, String id) async {
     final db = _db;
     if (db == null) return;
-    await db.delete('offline_deletions',
-        where: 'entity_type = ? AND entity_id = ?', whereArgs: [entityType, id]);
+    await db.delete(
+      'offline_deletions',
+      where: 'entity_type = ? AND entity_id = ?',
+      whereArgs: [entityType, id],
+    );
   }
 
   Future<void> _writeTombstone(
@@ -755,17 +881,13 @@ class LocalDeckStore {
     String? deckId,
     required bool createdLocally,
   }) {
-    return txn.insert(
-      'offline_deletions',
-      {
-        'entity_type': entityType,
-        'entity_id': entityId,
-        'deck_id': deckId,
-        'created_locally': createdLocally ? 1 : 0,
-        'created_at': DateTime.now().toUtc().toIso8601String(),
-      },
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
+    return txn.insert('offline_deletions', {
+      'entity_type': entityType,
+      'entity_id': entityId,
+      'deck_id': deckId,
+      'created_locally': createdLocally ? 1 : 0,
+      'created_at': DateTime.now().toUtc().toIso8601String(),
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
   // ---- mapping ----------------------------------------------------------------
@@ -791,17 +913,17 @@ class LocalDeckStore {
   }
 
   FlashCard _cardFromRow(Map<String, Object?> r) => FlashCard(
-        id: r['id'] as String,
-        deckId: r['deck_id'] as String,
-        front: r['front'] as String,
-        back: r['back'] as String,
-        keywords: _decodeKeywords(r['keywords']),
-        isConcept: (r['is_concept'] as int? ?? 0) == 1,
-        masteryLevel: r['mastery_level'] as int,
-        failCount: r['fail_count'] as int,
-        createdAt: DateTime.parse(r['created_at'] as String),
-        updatedAt: DateTime.parse(r['updated_at'] as String),
-      );
+    id: r['id'] as String,
+    deckId: r['deck_id'] as String,
+    front: r['front'] as String,
+    back: r['back'] as String,
+    keywords: _decodeKeywords(r['keywords']),
+    isConcept: (r['is_concept'] as int? ?? 0) == 1,
+    masteryLevel: r['mastery_level'] as int,
+    failCount: r['fail_count'] as int,
+    createdAt: DateTime.parse(r['created_at'] as String),
+    updatedAt: DateTime.parse(r['updated_at'] as String),
+  );
 
   static List<String> _decodeKeywords(Object? raw) {
     if (raw is! String || raw.isEmpty) return const [];

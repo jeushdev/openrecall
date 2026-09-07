@@ -1,5 +1,7 @@
 import 'package:sqflite/sqflite.dart';
 
+import '../../../core/local_db/stale_account_scope.dart';
+
 import '../../decks/domain/card.dart';
 import '../../study/domain/session_length.dart';
 import '../../study/domain/study_session.dart';
@@ -20,9 +22,14 @@ import '../domain/completed_session_activity.dart';
 /// downloaded decks, and `offline_study_sessions` only holds sessions that ran
 /// on this device. The online path is the source of truth.
 class LocalStatsStore {
-  LocalStatsStore(this._db);
+  LocalStatsStore(this._database, {this.isCurrent});
 
-  final Database? _db;
+  final Database? _database;
+  final bool Function()? isCurrent;
+  Database? get _db {
+    if (isCurrent?.call() == false) throw const StaleAccountScope();
+    return _database;
+  }
 
   bool get isNoop => _db == null;
 
@@ -37,7 +44,13 @@ class LocalStatsStore {
     if (db == null) return const [];
     final rows = await db.query(
       'offline_study_sessions',
-      columns: ['deck_id', 'completed_at', 'mastery_delta', 'study_mode', 'cards_reviewed'],
+      columns: [
+        'deck_id',
+        'completed_at',
+        'mastery_delta',
+        'study_mode',
+        'cards_reviewed',
+      ],
       where: 'status = ? AND completed_at IS NOT NULL',
       whereArgs: ['completed'],
       orderBy: 'completed_at DESC',
@@ -66,11 +79,8 @@ class LocalStatsStore {
       'WHERE status = ? AND card_scope = ? GROUP BY deck_id',
       ['completed', 'all'],
     );
-    return {
-      for (final r in rows) r['deck_id'] as String: r['c'] as int,
-    };
+    return {for (final r in rows) r['deck_id'] as String: r['c'] as int};
   }
-
 
   /// Every locally-mirrored still-`active` session with its mastered/total
   /// figures (ui-spec-v4 §3), newest first. Progress is recomputed from
@@ -113,19 +123,21 @@ class LocalStatsStore {
         final level = r['mastery_level'] as int? ?? 0;
         if (parked || level >= masteredLevel) mastered++;
       }
-      result.add(ActiveSessionProgress(
-        sessionId: s['id'] as String,
-        deckId: s['deck_id'] as String,
-        studyMode: studyModeFromDb(s['study_mode'] as String),
-        lengthMode: sessionLengthModeFromDb(s['length_mode'] as String),
-        cardScope: s['card_scope'] == null
-            ? CardScope.due
-            : cardScopeFromDb(s['card_scope'] as String),
-        cappedLength: s['capped_length'] as int?,
-        startedAt: DateTime.parse(s['started_at'] as String),
-        masteredCards: mastered,
-        totalCards: rows.length,
-      ));
+      result.add(
+        ActiveSessionProgress(
+          sessionId: s['id'] as String,
+          deckId: s['deck_id'] as String,
+          studyMode: studyModeFromDb(s['study_mode'] as String),
+          lengthMode: sessionLengthModeFromDb(s['length_mode'] as String),
+          cardScope: s['card_scope'] == null
+              ? CardScope.due
+              : cardScopeFromDb(s['card_scope'] as String),
+          cappedLength: s['capped_length'] as int?,
+          startedAt: DateTime.parse(s['started_at'] as String),
+          masteredCards: mastered,
+          totalCards: rows.length,
+        ),
+      );
     }
     return result;
   }
@@ -140,9 +152,7 @@ class LocalStatsStore {
       'WHERE status = ? GROUP BY deck_id',
       ['completed'],
     );
-    return {
-      for (final r in rows) r['deck_id'] as String: r['c'] as int,
-    };
+    return {for (final r in rows) r['deck_id'] as String: r['c'] as int};
   }
 
   /// Every locally-recorded `completed` session, most-recent first, capped at

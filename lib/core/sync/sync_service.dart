@@ -22,11 +22,8 @@ class SyncOutcome {
 
   const SyncOutcome.idle() : this._(SyncOutcomeKind.idle);
   const SyncOutcome.running() : this._(SyncOutcomeKind.running);
-  const SyncOutcome.ok(this.at)
-      : kind = SyncOutcomeKind.ok,
-        error = null;
-  const SyncOutcome.failed(this.error, this.at)
-      : kind = SyncOutcomeKind.failed;
+  const SyncOutcome.ok(this.at) : kind = SyncOutcomeKind.ok, error = null;
+  const SyncOutcome.failed(this.error, this.at) : kind = SyncOutcomeKind.failed;
 
   final SyncOutcomeKind kind;
   final Object? error;
@@ -38,13 +35,15 @@ class SyncOutcome {
 /// The `items` payload for the `set_deck_positions` RPC — one `{id, position}`
 /// per dirty deck. `position` is client-authoritative after an offline drag
 /// (milestone E3).
-List<Map<String, Object?>> deckPositionItems(List<DirtyDeck> dirty) =>
-    [for (final d in dirty) {'id': d.id, 'position': d.position}];
+List<Map<String, Object?>> deckPositionItems(List<DirtyDeck> dirty) => [
+  for (final d in dirty) {'id': d.id, 'position': d.position},
+];
 
 /// The `items` payload for the `set_course_positions` RPC. See
 /// [deckPositionItems].
-List<Map<String, Object?>> coursePositionItems(List<DirtyCourse> dirty) =>
-    [for (final c in dirty) {'id': c.id, 'position': c.position}];
+List<Map<String, Object?>> coursePositionItems(List<DirtyCourse> dirty) => [
+  for (final c in dirty) {'id': c.id, 'position': c.position},
+];
 
 /// Pushes everything the local mirror has marked `is_synced = 0` (or left as a
 /// tombstone) up to Supabase when connectivity returns (spec §10,
@@ -76,8 +75,9 @@ class SyncService {
     this._deckLocal,
     this._courseLocal,
     this._studyLocal,
-    this._connectivity,
-  );
+    this._connectivity, {
+    this.isCurrent,
+  });
 
   final SupabaseClient _client;
   final LocalDeckStore _deckLocal;
@@ -90,6 +90,17 @@ class SyncService {
   late final SupabaseDeckRepository _cards = SupabaseDeckRepository(_client);
 
   bool _running = false;
+  bool _disposed = false;
+  String? _runningOwner;
+  final bool Function()? isCurrent;
+
+  void _checkScope() {
+    if (_disposed ||
+        isCurrent?.call() == false ||
+        (_runningOwner != null && currentUserId() != _runningOwner)) {
+      throw StateError('Account changed during sync');
+    }
+  }
 
   final _outcomes = StreamController<SyncOutcome>.broadcast();
 
@@ -123,7 +134,10 @@ class SyncService {
   String? currentUserId() => _client.auth.currentUser?.id;
 
   /// Frees the outcome stream. Call when the owning provider is disposed.
-  void dispose() => _outcomes.close();
+  void dispose() {
+    _disposed = true;
+    _outcomes.close();
+  }
 
   /// Pushes every queued local write to Supabase in foreign-key order.
   ///
@@ -133,7 +147,7 @@ class SyncService {
   /// (capped at five minutes) throttles the next non-forced call — [force]
   /// bypasses it, which is what the tappable chip does.
   Future<void> syncPending({bool force = false}) async {
-    if (_running) return;
+    if (_running || _disposed || isCurrent?.call() == false) return;
     if (_deckLocal.isNoop && _courseLocal.isNoop && _studyLocal.isNoop) return;
     if (!force &&
         _nextAllowedAt != null &&
@@ -145,6 +159,7 @@ class SyncService {
     if (userId == null) return;
 
     _running = true;
+    _runningOwner = userId;
     _emit(const SyncOutcome.running());
     try {
       final before = await _pendingCount();
@@ -170,13 +185,16 @@ class SyncService {
       _registerFailure(e);
     } finally {
       _running = false;
+      _runningOwner = null;
     }
   }
 
   void _registerFailure(Object error) {
     _consecutiveFailures++;
-    final seconds =
-        (1 << (_consecutiveFailures - 1)).clamp(1, _maxBackoff.inSeconds);
+    final seconds = (1 << (_consecutiveFailures - 1)).clamp(
+      1,
+      _maxBackoff.inSeconds,
+    );
     _nextAllowedAt = DateTime.now().add(Duration(seconds: seconds));
     _emit(SyncOutcome.failed(error, DateTime.now()));
   }
@@ -201,13 +219,19 @@ class SyncService {
     final dirty = await _courseLocal.unsyncedCourses();
     for (final course in dirty) {
       try {
-        final row = await _client.from('courses').upsert({
-          'id': course.id,
-          'user_id': userId,
-          'name': course.name,
-          'accent_color': course.accentColor,
-          'is_default': course.isDefault,
-        }).select().single();
+        _checkScope();
+        final row = await _client
+            .from('courses')
+            .upsert({
+              'id': course.id,
+              'user_id': userId,
+              'name': course.name,
+              'accent_color': course.accentColor,
+              'is_default': course.isDefault,
+            })
+            .select()
+            .single();
+        _checkScope();
         await _courseLocal.markCourseSynced(
           course.id,
           DateTime.parse(row['updated_at'] as String),
@@ -228,12 +252,18 @@ class SyncService {
         // fills the user's default course; fall back to the locally-known
         // default so an upsert-as-update still lands a valid FK.
         final courseId = deck.courseId ?? await _courseLocal.defaultCourseId();
-        final row = await _client.from('decks').upsert({
-          'id': deck.id,
-          'user_id': userId,
-          'name': deck.name,
-          'course_id': ?courseId,
-        }).select().single();
+        _checkScope();
+        final row = await _client
+            .from('decks')
+            .upsert({
+              'id': deck.id,
+              'user_id': userId,
+              'name': deck.name,
+              'course_id': ?courseId,
+            })
+            .select()
+            .single();
+        _checkScope();
         await _deckLocal.markDeckSynced(
           deck.id,
           DateTime.parse(row['updated_at'] as String),
@@ -254,8 +284,11 @@ class SyncService {
   Future<void> pushDeckPositions(List<DirtyDeck> dirty) async {
     if (dirty.isEmpty) return;
     try {
-      await _client.rpc('set_deck_positions',
-          params: {'items': deckPositionItems(dirty)});
+      _checkScope();
+      await _client.rpc(
+        'set_deck_positions',
+        params: {'items': deckPositionItems(dirty)},
+      );
     } catch (_) {
       // Best-effort — retried on the next trigger.
     }
@@ -266,8 +299,11 @@ class SyncService {
   Future<void> pushCoursePositions(List<DirtyCourse> dirty) async {
     if (dirty.isEmpty) return;
     try {
-      await _client.rpc('set_course_positions',
-          params: {'items': coursePositionItems(dirty)});
+      _checkScope();
+      await _client.rpc(
+        'set_course_positions',
+        params: {'items': coursePositionItems(dirty)},
+      );
     } catch (_) {
       // Best-effort — retried on the next trigger.
     }
@@ -279,17 +315,23 @@ class SyncService {
       try {
         // Plain last-write-wins upsert of the full row. The guarded
         // compare-and-set is the mastery-only path's job (pushCards), not this.
-        final row = await _client.from('cards').upsert({
-          'id': card.id,
-          'deck_id': card.deckId,
-          'front': card.front,
-          'back': card.back,
-          'keywords': card.keywords,
-          'is_concept': card.isConcept,
-          'mastery_level': card.masteryLevel,
-          'fail_count': card.failCount,
-          'created_at': card.createdAt.toUtc().toIso8601String(),
-        }).select().single();
+        _checkScope();
+        final row = await _client
+            .from('cards')
+            .upsert({
+              'id': card.id,
+              'deck_id': card.deckId,
+              'front': card.front,
+              'back': card.back,
+              'keywords': card.keywords,
+              'is_concept': card.isConcept,
+              'mastery_level': card.masteryLevel,
+              'fail_count': card.failCount,
+              'created_at': card.createdAt.toUtc().toIso8601String(),
+            })
+            .select()
+            .single();
+        _checkScope();
         await _deckLocal.markCardContentSynced(
           card.id,
           DateTime.parse(row['updated_at'] as String),
@@ -303,6 +345,7 @@ class SyncService {
   @visibleForTesting
   Future<void> pushCards() async {
     for (final card in await _deckLocal.unsyncedCards()) {
+      _checkScope();
       var row = await _cards.updateCardMasteryGuarded(
         cardId: card.id,
         masteryLevel: card.masteryLevel,
@@ -312,7 +355,9 @@ class SyncService {
       if (row == null) {
         // The server row moved since we last mirrored it. Re-read and retry
         // once with the fresh timestamp — our offline edit is the later write.
+        _checkScope();
         final fresh = await _cards.readCardMasteryState(card.id);
+        _checkScope();
         row = await _cards.updateCardMasteryGuarded(
           cardId: card.id,
           masteryLevel: card.masteryLevel,
@@ -321,6 +366,7 @@ class SyncService {
         );
       }
       if (row != null) {
+        _checkScope();
         await _deckLocal.markCardSynced(card.id, row.updatedAt);
       }
     }
@@ -330,9 +376,11 @@ class SyncService {
   Future<void> pushSessions() async {
     final dirty = await _studyLocal.unsyncedSessions();
     if (dirty.isEmpty) return;
-    await _client
-        .from('study_sessions')
-        .upsert([for (final s in dirty) s.values]);
+    _checkScope();
+    await _client.from('study_sessions').upsert([
+      for (final s in dirty) s.values,
+    ]);
+    _checkScope();
     await _studyLocal.markSessionsSynced([for (final s in dirty) s.id]);
   }
 
@@ -340,9 +388,11 @@ class SyncService {
   Future<void> pushSessionCards() async {
     final dirty = await _studyLocal.unsyncedSessionCards();
     if (dirty.isEmpty) return;
-    await _client
-        .from('session_cards')
-        .upsert([for (final sc in dirty) sc.values]);
+    _checkScope();
+    await _client.from('session_cards').upsert([
+      for (final sc in dirty) sc.values,
+    ]);
+    _checkScope();
     await _studyLocal.markSessionCardsSynced([for (final sc in dirty) sc.id]);
   }
 
@@ -376,8 +426,10 @@ class SyncService {
     for (final tombstone in tombstones) {
       try {
         if (!tombstone.createdLocally) {
+          _checkScope();
           await _client.from(table).delete().eq('id', tombstone.entityId);
         }
+        _checkScope();
         await clear(tombstone.entityId);
       } catch (_) {
         // Best-effort — the tombstone stays for the next trigger.

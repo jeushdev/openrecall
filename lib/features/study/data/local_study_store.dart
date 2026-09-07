@@ -1,5 +1,7 @@
 import 'package:sqflite/sqflite.dart';
 
+import '../../../core/local_db/stale_account_scope.dart';
+
 import '../domain/session_card.dart';
 import '../domain/session_length.dart';
 import '../domain/study_session.dart';
@@ -26,9 +28,14 @@ class LocalSessionCardRow {
 /// As with [LocalDeckStore], a `null` database makes every method a no-op so a
 /// cache-first repository degrades cleanly to online-only.
 class LocalStudyStore {
-  LocalStudyStore(this._db);
+  LocalStudyStore(this._database, {this.isCurrent});
 
-  final Database? _db;
+  final Database? _database;
+  final bool Function()? isCurrent;
+  Database? get _db {
+    if (isCurrent?.call() == false) throw const StaleAccountScope();
+    return _database;
+  }
 
   bool get isNoop => _db == null;
 
@@ -41,31 +48,32 @@ class LocalStudyStore {
   }) async {
     final db = _db;
     if (db == null) return;
-    await db.insert(
-      'offline_study_sessions',
-      {
-        'id': session.id,
-        'deck_id': session.deckId,
-        'user_id': userId,
-        'status': session.status.name,
-        'study_mode': session.studyMode.name,
-        'length_mode': session.lengthMode.db,
-        'capped_length': session.cappedLength,
-        'card_scope': session.cardScope.db,
-        'mastery_delta': session.masteryDelta,
-        'started_at': session.startedAt.toUtc().toIso8601String(),
-        'completed_at': session.completedAt?.toUtc().toIso8601String(),
-        'is_synced': synced ? 1 : 0,
-      },
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
+    await db.insert('offline_study_sessions', {
+      'id': session.id,
+      'deck_id': session.deckId,
+      'user_id': userId,
+      'status': session.status.name,
+      'study_mode': session.studyMode.name,
+      'length_mode': session.lengthMode.db,
+      'capped_length': session.cappedLength,
+      'card_scope': session.cardScope.db,
+      'mastery_delta': session.masteryDelta,
+      'started_at': session.startedAt.toUtc().toIso8601String(),
+      'completed_at': session.completedAt?.toUtc().toIso8601String(),
+      'is_synced': synced ? 1 : 0,
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
   Future<bool> hasSession(String sessionId) async {
     final db = _db;
     if (db == null) return false;
-    final rows = await db.query('offline_study_sessions',
-        columns: ['id'], where: 'id = ?', whereArgs: [sessionId], limit: 1);
+    final rows = await db.query(
+      'offline_study_sessions',
+      columns: ['id'],
+      where: 'id = ?',
+      whereArgs: [sessionId],
+      limit: 1,
+    );
     return rows.isNotEmpty;
   }
 
@@ -77,19 +85,15 @@ class LocalStudyStore {
     if (db == null) return;
     final batch = db.batch();
     for (final sc in rows) {
-      batch.insert(
-        'offline_session_cards',
-        {
-          'id': sc.id,
-          'session_id': sc.sessionId,
-          'card_id': sc.cardId,
-          'position': sc.position,
-          'consecutive_fails': sc.consecutiveFails,
-          'is_parked': sc.isParked ? 1 : 0,
-          'is_synced': synced ? 1 : 0,
-        },
-        conflictAlgorithm: ConflictAlgorithm.replace,
-      );
+      batch.insert('offline_session_cards', {
+        'id': sc.id,
+        'session_id': sc.sessionId,
+        'card_id': sc.cardId,
+        'position': sc.position,
+        'consecutive_fails': sc.consecutiveFails,
+        'is_parked': sc.isParked ? 1 : 0,
+        'is_synced': synced ? 1 : 0,
+      }, conflictAlgorithm: ConflictAlgorithm.replace);
     }
     await batch.commit(noResult: true);
   }
@@ -112,12 +116,19 @@ class LocalStudyStore {
       if (isParked != null) 'is_parked': isParked ? 1 : 0,
       'is_synced': synced ? 1 : 0,
     };
-    final count = await db.update('offline_session_cards', values,
-        where: 'id = ?', whereArgs: [sessionCardId]);
+    final count = await db.update(
+      'offline_session_cards',
+      values,
+      where: 'id = ?',
+      whereArgs: [sessionCardId],
+    );
     return count > 0;
   }
 
-  Future<bool> abandonActiveSessions(String deckId, {required bool synced}) async {
+  Future<bool> abandonActiveSessions(
+    String deckId, {
+    required bool synced,
+  }) async {
     final db = _db;
     if (db == null) return false;
     final count = await db.update(
@@ -157,8 +168,10 @@ class LocalStudyStore {
   Future<List<LocalSessionRow>> unsyncedSessions() async {
     final db = _db;
     if (db == null) return const [];
-    final rows =
-        await db.query('offline_study_sessions', where: 'is_synced = 0');
+    final rows = await db.query(
+      'offline_study_sessions',
+      where: 'is_synced = 0',
+    );
     return [
       for (final r in rows)
         LocalSessionRow({
@@ -181,8 +194,10 @@ class LocalStudyStore {
   Future<List<LocalSessionCardRow>> unsyncedSessionCards() async {
     final db = _db;
     if (db == null) return const [];
-    final rows =
-        await db.query('offline_session_cards', where: 'is_synced = 0');
+    final rows = await db.query(
+      'offline_session_cards',
+      where: 'is_synced = 0',
+    );
     return [
       for (final r in rows)
         LocalSessionCardRow({
@@ -196,8 +211,8 @@ class LocalStudyStore {
     ];
   }
 
-  Future<void> markSessionsSynced(List<String> ids) => _markSynced(
-      'offline_study_sessions', ids);
+  Future<void> markSessionsSynced(List<String> ids) =>
+      _markSynced('offline_study_sessions', ids);
 
   Future<void> markSessionCardsSynced(List<String> ids) =>
       _markSynced('offline_session_cards', ids);

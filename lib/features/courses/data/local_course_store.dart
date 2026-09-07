@@ -1,5 +1,7 @@
 import 'package:sqflite/sqflite.dart';
 
+import '../../../core/local_db/stale_account_scope.dart';
+
 import '../../../core/local_db/local_deletion.dart';
 import '../domain/course.dart';
 
@@ -44,9 +46,14 @@ class DirtyCourse {
 /// return empty and every write a no-op, so a cache-first repository wrapping
 /// this store behaves like the plain Supabase one.
 class LocalCourseStore {
-  LocalCourseStore(this._db);
+  LocalCourseStore(this._database, {this.isCurrent});
 
-  final Database? _db;
+  final Database? _database;
+  final bool Function()? isCurrent;
+  Database? get _db {
+    if (isCurrent?.call() == false) throw const StaleAccountScope();
+    return _database;
+  }
 
   bool get isNoop => _db == null;
 
@@ -60,8 +67,11 @@ class LocalCourseStore {
     if (db == null) return;
     await db.transaction((txn) async {
       final dirtyIds = {
-        for (final r in await txn.query('offline_courses',
-            columns: ['id'], where: 'is_synced = 0'))
+        for (final r in await txn.query(
+          'offline_courses',
+          columns: ['id'],
+          where: 'is_synced = 0',
+        ))
           r['id'] as String,
       };
       final remoteIds = {for (final c in remote) c.id};
@@ -70,15 +80,19 @@ class LocalCourseStore {
       } else {
         await txn.delete(
           'offline_courses',
-          where: 'is_synced = 1 AND id NOT IN '
+          where:
+              'is_synced = 1 AND id NOT IN '
               "(${List.filled(remoteIds.length, '?').join(',')})",
           whereArgs: remoteIds.toList(),
         );
       }
       for (final c in remote) {
         if (dirtyIds.contains(c.id)) continue;
-        await txn.insert('offline_courses', _syncedValues(c),
-            conflictAlgorithm: ConflictAlgorithm.replace);
+        await txn.insert(
+          'offline_courses',
+          _syncedValues(c),
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
       }
     });
   }
@@ -87,8 +101,7 @@ class LocalCourseStore {
   Future<List<Course>> cachedCourses() async {
     final db = _db;
     if (db == null) return const [];
-    final rows =
-        await db.query('offline_courses', orderBy: 'position, name');
+    final rows = await db.query('offline_courses', orderBy: 'position, name');
     return rows.map(_fromRow).toList();
   }
 
@@ -117,8 +130,12 @@ class LocalCourseStore {
   Future<String?> defaultCourseId() async {
     final db = _db;
     if (db == null) return null;
-    final rows = await db.query('offline_courses',
-        columns: ['id'], where: 'is_default = 1', limit: 1);
+    final rows = await db.query(
+      'offline_courses',
+      columns: ['id'],
+      where: 'is_default = 1',
+      limit: 1,
+    );
     return rows.isEmpty ? null : rows.first['id'] as String;
   }
 
@@ -188,11 +205,13 @@ class LocalCourseStore {
     final db = _db;
     if (db == null) return;
     await db.transaction((txn) async {
-      final row = await txn.query('offline_courses',
-          columns: ['base_updated_at'],
-          where: 'id = ?',
-          whereArgs: [id],
-          limit: 1);
+      final row = await txn.query(
+        'offline_courses',
+        columns: ['base_updated_at'],
+        where: 'id = ?',
+        whereArgs: [id],
+        limit: 1,
+      );
       final createdLocally =
           row.isEmpty || row.first['base_updated_at'] == null;
 
@@ -203,17 +222,13 @@ class LocalCourseStore {
         where: 'course_id = ?',
         whereArgs: [id],
       );
-      await txn.insert(
-        'offline_deletions',
-        {
-          'entity_type': 'course',
-          'entity_id': id,
-          'deck_id': null,
-          'created_locally': createdLocally ? 1 : 0,
-          'created_at': now,
-        },
-        conflictAlgorithm: ConflictAlgorithm.replace,
-      );
+      await txn.insert('offline_deletions', {
+        'entity_type': 'course',
+        'entity_id': id,
+        'deck_id': null,
+        'created_locally': createdLocally ? 1 : 0,
+        'created_at': now,
+      }, conflictAlgorithm: ConflictAlgorithm.replace);
       await txn.delete('offline_courses', where: 'id = ?', whereArgs: [id]);
     });
   }
@@ -242,70 +257,80 @@ class LocalCourseStore {
   Future<List<LocalDeletion>> courseDeletions() async {
     final db = _db;
     if (db == null) return const [];
-    final rows = await db.query('offline_deletions',
-        where: 'entity_type = ?', whereArgs: ['course']);
+    final rows = await db.query(
+      'offline_deletions',
+      where: 'entity_type = ?',
+      whereArgs: ['course'],
+    );
     return rows.map(_deletionFromRow).toList();
   }
 
   Future<void> clearCourseDeletion(String id) async {
     final db = _db;
     if (db == null) return;
-    await db.delete('offline_deletions',
-        where: 'entity_type = ? AND entity_id = ?', whereArgs: ['course', id]);
+    await db.delete(
+      'offline_deletions',
+      where: 'entity_type = ? AND entity_id = ?',
+      whereArgs: ['course', id],
+    );
   }
 
   // ---- mapping ----------------------------------------------------------------
 
   Future<Map<String, Object?>?> _rowById(String id) async {
-    final rows = await _db!
-        .query('offline_courses', where: 'id = ?', whereArgs: [id], limit: 1);
+    final rows = await _db!.query(
+      'offline_courses',
+      where: 'id = ?',
+      whereArgs: [id],
+      limit: 1,
+    );
     return rows.isEmpty ? null : rows.first;
   }
 
   /// Column values for a row pulled from Supabase — synced, with the compare-
   /// and-set base pinned to the remote `updated_at`.
   Map<String, Object?> _syncedValues(Course c) => {
-        'id': c.id,
-        'name': c.name,
-        'accent_color': c.accentColor,
-        'is_default': c.isDefault ? 1 : 0,
-        'user_id': c.userId.isEmpty ? null : c.userId,
-        'created_at': c.createdAt.toUtc().toIso8601String(),
-        'updated_at': c.updatedAt.toUtc().toIso8601String(),
-        'base_updated_at': c.updatedAt.toUtc().toIso8601String(),
-        'is_synced': 1,
-      };
+    'id': c.id,
+    'name': c.name,
+    'accent_color': c.accentColor,
+    'is_default': c.isDefault ? 1 : 0,
+    'user_id': c.userId.isEmpty ? null : c.userId,
+    'created_at': c.createdAt.toUtc().toIso8601String(),
+    'updated_at': c.updatedAt.toUtc().toIso8601String(),
+    'base_updated_at': c.updatedAt.toUtc().toIso8601String(),
+    'is_synced': 1,
+  };
 
   Course _fromRow(Map<String, Object?> r) => Course(
-        id: r['id'] as String,
-        userId: (r['user_id'] as String?) ?? '',
-        name: r['name'] as String,
-        accentColor: r['accent_color'] as String,
-        isDefault: (r['is_default'] as int) == 1,
-        createdAt: _parseOrEpoch(r['created_at']),
-        updatedAt: _parseOrEpoch(r['updated_at']),
-        position: (r['position'] as int?) ?? 0,
-      );
+    id: r['id'] as String,
+    userId: (r['user_id'] as String?) ?? '',
+    name: r['name'] as String,
+    accentColor: r['accent_color'] as String,
+    isDefault: (r['is_default'] as int) == 1,
+    createdAt: _parseOrEpoch(r['created_at']),
+    updatedAt: _parseOrEpoch(r['updated_at']),
+    position: (r['position'] as int?) ?? 0,
+  );
 
   DirtyCourse _dirtyFromRow(Map<String, Object?> r) => DirtyCourse(
-        id: r['id'] as String,
-        userId: r['user_id'] as String?,
-        name: r['name'] as String,
-        accentColor: r['accent_color'] as String,
-        isDefault: (r['is_default'] as int) == 1,
-        updatedAt: _parseOrEpoch(r['updated_at']),
-        baseUpdatedAt: (r['base_updated_at'] as String?) == null
-            ? null
-            : DateTime.parse(r['base_updated_at'] as String),
-        position: (r['position'] as int?) ?? 0,
-      );
+    id: r['id'] as String,
+    userId: r['user_id'] as String?,
+    name: r['name'] as String,
+    accentColor: r['accent_color'] as String,
+    isDefault: (r['is_default'] as int) == 1,
+    updatedAt: _parseOrEpoch(r['updated_at']),
+    baseUpdatedAt: (r['base_updated_at'] as String?) == null
+        ? null
+        : DateTime.parse(r['base_updated_at'] as String),
+    position: (r['position'] as int?) ?? 0,
+  );
 
   LocalDeletion _deletionFromRow(Map<String, Object?> r) => LocalDeletion(
-        entityType: r['entity_type'] as String,
-        entityId: r['entity_id'] as String,
-        deckId: r['deck_id'] as String?,
-        createdLocally: (r['created_locally'] as int) == 1,
-      );
+    entityType: r['entity_type'] as String,
+    entityId: r['entity_id'] as String,
+    deckId: r['deck_id'] as String?,
+    createdLocally: (r['created_locally'] as int) == 1,
+  );
 
   static DateTime _parseOrEpoch(Object? value) => value == null
       ? DateTime.fromMillisecondsSinceEpoch(0, isUtc: true)

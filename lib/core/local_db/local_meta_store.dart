@@ -19,6 +19,9 @@ class LocalMetaStore {
   /// Every mirrored table, wiped on an account switch. `offline_meta` itself is
   /// deliberately absent — the marker must survive the wipe.
   static const _mirrorTables = <String>[
+    'cached_profile',
+    'application_cache',
+    'cached_active_progress',
     'offline_cards',
     'offline_session_cards',
     'offline_study_sessions',
@@ -30,16 +33,47 @@ class LocalMetaStore {
   Future<String?> lastUserId() async {
     final db = _db;
     if (db == null) return null;
-    final rows = await db.query('offline_meta',
-        columns: ['value'], where: 'key = ?', whereArgs: [_userKey], limit: 1);
+    final rows = await db.query(
+      'offline_meta',
+      columns: ['value'],
+      where: 'key = ?',
+      whereArgs: [_userKey],
+      limit: 1,
+    );
     return rows.isEmpty ? null : rows.first['value'] as String?;
   }
 
   Future<void> setLastUserId(String id) async {
     final db = _db;
     if (db == null) return;
-    await db.insert('offline_meta', {'key': _userKey, 'value': id},
-        conflictAlgorithm: ConflictAlgorithm.replace);
+    await db.insert('offline_meta', {
+      'key': _userKey,
+      'value': id,
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
+  }
+
+  /// Ownership and mirror removal are one transaction. An interrupted switch
+  /// cannot leave the new owner marker pointing at the old owner's data.
+  Future<void> switchAccount(String id) async {
+    final db = _db;
+    if (db == null) return;
+    await db.transaction((txn) async {
+      final rows = await txn.query(
+        'offline_meta',
+        where: 'key = ?',
+        whereArgs: [_userKey],
+      );
+      final previous = rows.isEmpty ? null : rows.single['value'];
+      if (previous != null && previous != id) {
+        for (final table in _mirrorTables) {
+          await txn.delete(table);
+        }
+      }
+      await txn.insert('offline_meta', {
+        'key': _userKey,
+        'value': id,
+      }, conflictAlgorithm: ConflictAlgorithm.replace);
+    });
   }
 
   /// Deletes every mirrored row — decks, cards, sessions, courses, tombstones.

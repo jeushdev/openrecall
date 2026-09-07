@@ -2,6 +2,8 @@ import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 import 'package:sqflite/sqflite.dart';
 
+import 'local_meta_store.dart';
+
 /// The device-local SQLite database (spec §10). Holds a per-deck mirror of the
 /// `cards`, `study_sessions` and `session_cards` a downloaded deck needs to run
 /// a study session with zero connectivity, plus small `offline_decks` /
@@ -26,6 +28,28 @@ class AppDatabase {
 
   final Database _db;
 
+  int _scopeGeneration = 0;
+  int get scopeGeneration => _scopeGeneration;
+  bool _scopeReady = true;
+  bool get scopeReady => _scopeReady;
+  String? _scopeUserId;
+  Future<void> _scopeWork = Future<void>.value();
+
+  /// Serialize switches, revoking existing stores before any asynchronous work.
+  /// The final switch alone can reopen access to the shared database.
+  Future<void> scopeAccount(String userId) {
+    if (_scopeUserId == userId && scopeReady) return Future<void>.value();
+    _scopeUserId = userId;
+    final generation = ++_scopeGeneration;
+    _scopeReady = false;
+    final next = _scopeWork.then((_) async {
+      await LocalMetaStore(_db).switchAccount(userId);
+      if (generation == scopeGeneration) _scopeReady = true;
+    });
+    _scopeWork = next.catchError((Object _) {});
+    return next;
+  }
+
   /// The open handle. Only valid after [open].
   Database get db => _db;
 
@@ -33,7 +57,7 @@ class AppDatabase {
 
   /// Bump this and add a step to [_onUpgrade] whenever [schemaStatements]
   /// changes.
-  static const _version = 6;
+  static const _version = 7;
 
   /// Opens (creating on first run) the database. [path] overrides the platform
   /// default and is only passed by tests.
@@ -69,6 +93,7 @@ class AppDatabase {
   /// install executes exactly this list.
   @visibleForTesting
   static const List<String> schemaStatements = <String>[
+    ...applicationSchemaStatements,
     // A deck's Library tile / Overview header offline, plus the columns the
     // offline-authoring sync surface needs (spec-v4). `course_id` mirrors
     // `decks.course_id`. `is_synced` flips to 0 on a local create / rename /
@@ -91,6 +116,8 @@ class AppDatabase {
       base_updated_at   TEXT,
       is_synced         INTEGER NOT NULL DEFAULT 1,
       is_pinned         INTEGER NOT NULL DEFAULT 0,
+      cards_complete    INTEGER NOT NULL DEFAULT 0,
+      downloaded_at     TEXT,
       mastery_level_sum INTEGER NOT NULL DEFAULT 0,
       total_cards       INTEGER NOT NULL DEFAULT 0,
       position          INTEGER NOT NULL DEFAULT 0
@@ -303,6 +330,18 @@ class AppDatabase {
     ''',
   ];
 
+  static const applicationSchemaStatements = <String>[
+    'CREATE TABLE cached_profile (id TEXT PRIMARY KEY, email TEXT NOT NULL, username TEXT)',
+    "CREATE TABLE application_cache (key TEXT PRIMARY KEY, fetched_at TEXT NOT NULL, coverage TEXT NOT NULL DEFAULT 'complete' CHECK (coverage IN ('partial', 'complete')))",
+    'CREATE TABLE cached_active_progress (session_id TEXT PRIMARY KEY, mastered INTEGER NOT NULL, total INTEGER NOT NULL)',
+  ];
+
+  static const upgradeToV7Statements = <String>[
+    ...applicationSchemaStatements,
+    'ALTER TABLE offline_decks ADD COLUMN cards_complete INTEGER NOT NULL DEFAULT 0',
+    'ALTER TABLE offline_decks ADD COLUMN downloaded_at TEXT',
+  ];
+
   static Future<void> _createSchema(Database db, int version) async {
     final batch = db.batch();
     for (final statement in schemaStatements) {
@@ -339,6 +378,11 @@ class AppDatabase {
     }
     if (oldVersion < 6) {
       for (final statement in upgradeToV6Statements) {
+        batch.execute(statement);
+      }
+    }
+    if (oldVersion < 7) {
+      for (final statement in upgradeToV7Statements) {
         batch.execute(statement);
       }
     }

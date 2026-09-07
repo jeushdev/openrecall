@@ -21,6 +21,7 @@ final syncServiceProvider = Provider<SyncService?>((ref) {
     ref.watch(localCourseStoreProvider),
     ref.watch(localStudyStoreProvider),
     ref.watch(connectivityServiceProvider),
+    isCurrent: ref.watch(localDeckStoreProvider).isCurrent,
   );
   ref.onDispose(service.dispose);
   return service;

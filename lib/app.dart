@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/local_db/mirror_scope_guard.dart';
+import 'core/local_db/local_db_providers.dart';
 import 'core/sync/sync_providers.dart';
 import 'core/ui/app_messenger.dart';
 import 'core/ui/web_app_frame.dart';
@@ -16,12 +17,27 @@ class OpenRecallApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final scope = ref.watch(mirrorScopeGuardProvider);
+    if (ref.watch(localStorageAvailableProvider) &&
+        (scope.isLoading || scope.hasError)) {
+      return MaterialApp(
+        home: Scaffold(
+          body: Center(
+            child: scope.hasError
+                ? TextButton(
+                    onPressed: () => ref.invalidate(mirrorScopeGuardProvider),
+                    child: const Text('Retry local storage'),
+                  )
+                : const CircularProgressIndicator(),
+          ),
+        ),
+      );
+    }
     final router = ref.watch(appRouterProvider);
     // Keeps the sync-on-reconnect subscription alive for the app's lifetime
     // (spec §10).
     ref.watch(syncCoordinatorProvider);
     // Drops the local mirror if the signed-in account changes (design spec §E.3).
-    ref.watch(mirrorScopeGuardProvider);
 
     // System / Light / Dark override (`docs/spec-v5-dark-mode.md` §4). Falls
     // back to System until the preference read resolves — with the cold-start

@@ -446,12 +446,13 @@ _Schema _build(List<String> statements) {
     } else if (s.startsWith('alter table ')) {
       final m = RegExp(r'^alter table (\w+) add column (\w+) ?(.*)$')
           .firstMatch(s)!;
-      schema.tables.putIfAbsent(m.group(1)!, () => {})[m.group(2)!] =
-          m.group(3)!.trim();
+      schema.tables.putIfAbsent(m.group(1)!, () => {})[m.group(2)!] = m
+          .group(3)!
+          .trim();
     } else if (s.startsWith('create index ') ||
         s.startsWith('create unique index ')) {
-      final m =
-          RegExp(r'^create (unique )?index (\w+) on (.+)$').firstMatch(s)!;
+      final m = RegExp(r'^create (unique )?index (\w+) on (.+)$')
+          .firstMatch(s)!;
       schema.indexes[m.group(2)!] = '${m.group(1) ?? ''}${m.group(3)}';
     } else {
       fail('unrecognised schema statement: $s');
@@ -470,6 +471,7 @@ void main() {
       ...AppDatabase.upgradeToV4Statements,
       ...AppDatabase.upgradeToV5Statements,
       ...AppDatabase.upgradeToV6Statements,
+      ...AppDatabase.upgradeToV7Statements,
     ]);
     final upgradedFromV2 = _build([
       ..._v2Schema,
@@ -477,64 +479,90 @@ void main() {
       ...AppDatabase.upgradeToV4Statements,
       ...AppDatabase.upgradeToV5Statements,
       ...AppDatabase.upgradeToV6Statements,
+      ...AppDatabase.upgradeToV7Statements,
     ]);
     final upgradedFromV3 = _build([
       ..._v3Schema,
       ...AppDatabase.upgradeToV4Statements,
       ...AppDatabase.upgradeToV5Statements,
       ...AppDatabase.upgradeToV6Statements,
+      ...AppDatabase.upgradeToV7Statements,
     ]);
     final upgradedFromV4 = _build([
       ..._v4Schema,
       ...AppDatabase.upgradeToV5Statements,
       ...AppDatabase.upgradeToV6Statements,
+      ...AppDatabase.upgradeToV7Statements,
     ]);
-    final upgradedFromV5 =
-        _build([..._v5Schema, ...AppDatabase.upgradeToV6Statements]);
+    final upgradedFromV5 = _build([
+      ..._v5Schema,
+      ...AppDatabase.upgradeToV6Statements,
+      ...AppDatabase.upgradeToV7Statements,
+    ]);
 
-    test('a v1 database upgraded to the current version matches a fresh install '
-        '— tables', () {
-      expect(upgradedFromV1.tables, equals(fresh.tables));
-    });
+    test(
+      'a v1 database upgraded to the current version matches a fresh install '
+      '— tables',
+      () {
+        expect(upgradedFromV1.tables, equals(fresh.tables));
+      },
+    );
 
-    test('a v1 database upgraded to the current version matches a fresh install '
-        '— indexes', () {
-      expect(upgradedFromV1.indexes, equals(fresh.indexes));
-    });
+    test(
+      'a v1 database upgraded to the current version matches a fresh install '
+      '— indexes',
+      () {
+        expect(upgradedFromV1.indexes, equals(fresh.indexes));
+      },
+    );
 
-    test('a v2 database upgraded to the current version matches a fresh install',
-        () {
-      expect(upgradedFromV2.tables, equals(fresh.tables));
-      expect(upgradedFromV2.indexes, equals(fresh.indexes));
-    });
+    test(
+      'a v2 database upgraded to the current version matches a fresh install',
+      () {
+        expect(upgradedFromV2.tables, equals(fresh.tables));
+        expect(upgradedFromV2.indexes, equals(fresh.indexes));
+      },
+    );
 
-    test('a v3 database upgraded to the current version matches a fresh install',
-        () {
-      expect(upgradedFromV3.tables, equals(fresh.tables));
-      expect(upgradedFromV3.indexes, equals(fresh.indexes));
-    });
+    test(
+      'a v3 database upgraded to the current version matches a fresh install',
+      () {
+        expect(upgradedFromV3.tables, equals(fresh.tables));
+        expect(upgradedFromV3.indexes, equals(fresh.indexes));
+      },
+    );
 
-    test('a v4 database upgraded to the current version matches a fresh install',
-        () {
-      expect(upgradedFromV4.tables, equals(fresh.tables));
-      expect(upgradedFromV4.indexes, equals(fresh.indexes));
-    });
+    test(
+      'a v4 database upgraded to the current version matches a fresh install',
+      () {
+        expect(upgradedFromV4.tables, equals(fresh.tables));
+        expect(upgradedFromV4.indexes, equals(fresh.indexes));
+      },
+    );
 
     test('a v5 database upgraded to v6 matches a fresh v6 install', () {
       expect(upgradedFromV5.tables, equals(fresh.tables));
       expect(upgradedFromV5.indexes, equals(fresh.indexes));
     });
 
-    test('the fresh schema carries the milestone-E3 reorder + meta additions',
-        () {
-      expect(fresh.tables['offline_decks']!['position'],
-          'integer not null default 0');
-      expect(fresh.tables['offline_courses']!['position'],
-          'integer not null default 0');
-      expect(fresh.tables['offline_cards']!['created_locally'],
-          'integer not null default 0');
-      expect(fresh.tables.containsKey('offline_meta'), isTrue);
-    });
+    test(
+      'the fresh schema carries the milestone-E3 reorder + meta additions',
+      () {
+        expect(
+          fresh.tables['offline_decks']!['position'],
+          'integer not null default 0',
+        );
+        expect(
+          fresh.tables['offline_courses']!['position'],
+          'integer not null default 0',
+        );
+        expect(
+          fresh.tables['offline_cards']!['created_locally'],
+          'integer not null default 0',
+        );
+        expect(fresh.tables.containsKey('offline_meta'), isTrue);
+      },
+    );
 
     test('the fresh schema carries the milestone-D cards_reviewed column', () {
       expect(
@@ -553,8 +581,10 @@ void main() {
         'integer not null default 0',
       );
       expect(fresh.tables['offline_courses']!.containsKey('is_synced'), isTrue);
-      expect(fresh.tables['offline_cards']!['content_dirty'],
-          'integer not null default 0');
+      expect(
+        fresh.tables['offline_cards']!['content_dirty'],
+        'integer not null default 0',
+      );
       expect(fresh.tables.containsKey('offline_deletions'), isTrue);
     });
 
