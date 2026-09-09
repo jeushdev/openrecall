@@ -112,6 +112,18 @@ class _StudySessionScreenState extends ConsumerState<StudySessionScreen> {
     _leave();
   }
 
+  /// Clears the completed session before returning through the ordinary study
+  /// entry route. Deliberately omit a mode here so the normal setup flow owns
+  /// the next session's mode (and Feynman timer) selection.
+  void _studyAgainFromSummary() {
+    ref.read(sessionControllerProvider.notifier).reset();
+    context.pushReplacementNamed(
+      AppRoutes.studySessionName,
+      pathParameters: {'deckId': widget.deckId},
+      queryParameters: {'scope': widget.scope.db},
+    );
+  }
+
   String? _deckName() {
     final decks = ref.read(decksProvider).value;
     if (decks == null) return null;
@@ -238,6 +250,7 @@ class _StudySessionScreenState extends ConsumerState<StudySessionScreen> {
                 mode: state.session.studyMode,
                 parkedCardIds: state.parkedCardIds.toList(),
               ),
+          onStudyAgain: _studyAgainFromSummary,
           onDone: _doneFromSummary,
         );
       }

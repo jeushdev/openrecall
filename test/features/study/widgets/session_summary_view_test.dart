@@ -23,6 +23,7 @@ Widget _host({
   bool dark = false,
   bool hasParked = true,
   VoidCallback? onDrill,
+  VoidCallback? onStudyAgain,
   VoidCallback? onDone,
 }) {
   return MaterialApp(
@@ -35,6 +36,7 @@ Widget _host({
         outcome: _outcome,
         hasParked: hasParked,
         onDrillParked: onDrill ?? () {},
+        onStudyAgain: onStudyAgain ?? () {},
         onDone: onDone ?? () {},
       ),
     ),
@@ -57,6 +59,7 @@ void main() {
         'and ${testCase.scale}x text', (tester) async {
       configureResponsiveView(tester, viewport: testCase.size);
       var drilled = false;
+      var studiedAgain = false;
       var done = false;
       await tester.pumpWidget(
         _host(
@@ -64,6 +67,7 @@ void main() {
           textScale: testCase.scale,
           dark: testCase.size == const Size(412, 915),
           onDrill: () => drilled = true,
+          onStudyAgain: () => studiedAgain = true,
           onDone: () => done = true,
         ),
       );
@@ -86,6 +90,13 @@ void main() {
       expectTextIsComplete(tester, find.text('Drill parked cards now'));
       await tester.tap(drill);
       expect(drilled, isTrue);
+
+      final studyAgain = find.widgetWithText(OutlinedButton, 'Study again');
+      await tester.ensureVisible(studyAgain);
+      await tester.pump();
+      expect(studyAgain.hitTestable(), findsOneWidget);
+      await tester.tap(studyAgain);
+      expect(studiedAgain, isTrue);
 
       final doneButton = find.widgetWithText(TextButton, 'Done');
       await tester.ensureVisible(doneButton);

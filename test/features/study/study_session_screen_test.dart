@@ -56,6 +56,7 @@ Widget _host({
         routes: [
           GoRoute(
             path: 'study/:deckId',
+            name: AppRoutes.studySessionName,
             builder: (_, state) {
               final args = state.extra as StudySessionArgs?;
               return StudySessionScreen(
@@ -436,13 +437,54 @@ void main() {
 
     expect(find.text('This session'), findsOneWidget);
 
-    final done = find.widgetWithText(TextButton, 'Done');
-    await tester.ensureVisible(done);
+    await tester.scrollUntilVisible(
+      find.text('Done'),
+      200,
+      scrollable: find.byType(Scrollable),
+    );
     await tester.pumpAndSettle();
+    final done = find.widgetWithText(TextButton, 'Done');
     await tester.tap(done);
     await tester.pumpAndSettle();
     expect(find.text('Home'), findsOneWidget);
     expect(find.byType(StudySessionScreen), findsNothing);
+  });
+
+  testWidgets('Study again starts a fresh same-deck session via setup', (
+    tester,
+  ) async {
+    final study = FakeStudyRepository();
+    await _open(
+      tester,
+      decks: FakeDeckRepository(cards: [_card('a')]),
+      study: study,
+      scope: 'all',
+    );
+
+    await tester.tap(find.byType(FlipCard));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Mastered'));
+    await tester.pumpAndSettle();
+
+    await tester.scrollUntilVisible(
+      find.text('Study again'),
+      200,
+      scrollable: find.byType(Scrollable),
+    );
+    expect(find.widgetWithText(OutlinedButton, 'Study again'), findsOneWidget);
+    expect(study.sessions, hasLength(1));
+    expect(study.sessions.single.status.name, 'completed');
+
+    await tester.tap(find.text('Study again'));
+    await tester.pumpAndSettle();
+
+    // A new route enters the usual setup flow. Its single available mode then
+    // starts a new session; the completed one is never re-attached.
+    expect(find.byType(FlipCard), findsOneWidget);
+    expect(study.sessions, hasLength(2));
+    expect(study.sessions.first.status.name, 'completed');
+    expect(study.sessions.last.status.name, 'active');
+    expect(study.sessions.first.id, isNot(study.sessions.last.id));
   });
 
   testWidgets('the close button leaves the session active and pops', (

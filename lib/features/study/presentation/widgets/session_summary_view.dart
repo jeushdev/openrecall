@@ -33,6 +33,7 @@ class SessionSummaryView extends StatefulWidget {
     required this.outcome,
     required this.hasParked,
     required this.onDrillParked,
+    required this.onStudyAgain,
     required this.onDone,
   });
 
@@ -44,6 +45,7 @@ class SessionSummaryView extends StatefulWidget {
   final bool hasParked;
 
   final VoidCallback onDrillParked;
+  final VoidCallback onStudyAgain;
   final VoidCallback onDone;
 
   @override
@@ -160,6 +162,14 @@ class _SessionSummaryViewState extends State<SessionSummaryView>
                     ),
                     const SizedBox(height: 8),
                   ],
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton(
+                      onPressed: widget.onStudyAgain,
+                      child: const Text('Study again'),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
                   Center(
                     child: TextButton(
                       onPressed: widget.onDone,
