@@ -8,6 +8,7 @@ import 'core/sync/sync_providers.dart';
 import 'core/ui/app_messenger.dart';
 import 'core/ui/web_app_frame.dart';
 import 'features/settings/application/settings_providers.dart';
+import 'features/study/application/study_feedback_service.dart';
 import 'routing/app_router.dart';
 import 'theme/app_theme.dart';
 
@@ -37,6 +38,9 @@ class OpenRecallApp extends ConsumerWidget {
     // Keeps the sync-on-reconnect subscription alive for the app's lifetime
     // (spec §10).
     ref.watch(syncCoordinatorProvider);
+    // Load the opt-in sound gate once and retain its player for the app's
+    // lifetime. Events remain silent until the preference resolves.
+    ref.watch(studyFeedbackServiceProvider);
     // Drops the local mirror if the signed-in account changes (design spec §E.3).
 
     // System / Light / Dark override (`docs/spec-v5-dark-mode.md` §4). Falls

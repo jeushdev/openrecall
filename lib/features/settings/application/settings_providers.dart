@@ -10,6 +10,7 @@ import '../../auth/application/auth_providers.dart';
 import '../../notifications/application/notification_providers.dart';
 import '../data/notification_preferences.dart';
 import '../data/study_appearance_preferences.dart';
+import '../data/study_sound_preferences.dart';
 import '../data/supabase_account_repository.dart';
 import '../data/theme_mode_preference.dart';
 import '../domain/account_repository.dart';
@@ -33,6 +34,63 @@ final studyAppearancePreferencesProvider = Provider<StudyAppearancePreferences>(
     return StudyAppearancePreferences();
   },
 );
+
+/// Device-local store for the opt-in study-sound preference.
+final studySoundPreferencesProvider = Provider<StudySoundPreferences>((ref) {
+  return StudySoundPreferences();
+});
+
+/// Whether meaningful study transitions may play bundled sound cues.
+///
+/// Reads degrade to the safe default (off). Writes are optimistic, serialized,
+/// and roll back to the last successfully persisted value when the latest write
+/// fails, so rapid toggles cannot finish out of order on disk.
+final studySoundsEnabledProvider =
+    AsyncNotifierProvider<StudySoundsEnabledController, bool>(
+      StudySoundsEnabledController.new,
+    );
+
+class StudySoundsEnabledController extends AsyncNotifier<bool> {
+  Future<void> _writeChain = Future<void>.value();
+  bool _confirmed = false;
+  int _revision = 0;
+
+  StudySoundPreferences get _prefs => ref.read(studySoundPreferencesProvider);
+
+  @override
+  Future<bool> build() async {
+    try {
+      _confirmed = await _prefs.isEnabled();
+    } catch (_) {
+      _confirmed = false;
+    }
+    return _confirmed;
+  }
+
+  Future<void> setEnabled(bool value) {
+    final revision = ++_revision;
+    state = AsyncData(value);
+
+    final previous = _writeChain;
+    final operation = () async {
+      try {
+        await previous;
+      } catch (_) {
+        // A failed earlier request must not block the latest preference write.
+      }
+      try {
+        await _prefs.setEnabled(value);
+        _confirmed = value;
+      } catch (_) {
+        if (revision == _revision) state = AsyncData(_confirmed);
+        return;
+      }
+      if (revision == _revision) state = AsyncData(value);
+    }();
+    _writeChain = operation;
+    return operation;
+  }
+}
 
 /// Device-local store for the theme override (`docs/spec-v5-dark-mode.md` §4).
 final themeModePreferenceProvider = Provider<ThemeModePreference>((ref) {

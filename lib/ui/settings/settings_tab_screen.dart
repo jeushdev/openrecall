@@ -56,6 +56,7 @@ class SettingsTabScreen extends ConsumerWidget {
     final lastFeynman = ref.watch(lastFeynmanTimerProvider);
     final version = ref.watch(appVersionProvider);
     final reminders = ref.watch(notificationsEnabledProvider);
+    final studySounds = ref.watch(studySoundsEnabledProvider);
     final accountBusy = ref.watch(accountActionsProvider).isLoading;
     final tokens = Theme.of(context).extension<AppTokens>()!;
 
@@ -132,6 +133,25 @@ class SettingsTabScreen extends ConsumerWidget {
                         (value: CardFontSize.xlarge, label: 'XL'),
                       ],
                     ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 28),
+
+              IosSection(
+                header: 'Study feedback',
+                children: [
+                  _ToggleRow(
+                    label: 'Study sounds',
+                    caption:
+                        'Play a short cue when you master a card or finish a '
+                        'session.',
+                    value: studySounds.asData?.value ?? false,
+                    onChanged: studySounds.isLoading
+                        ? null
+                        : ref
+                              .read(studySoundsEnabledProvider.notifier)
+                              .setEnabled,
                   ),
                 ],
               ),

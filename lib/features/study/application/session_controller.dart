@@ -26,6 +26,7 @@ import '../domain/study_repository.dart';
 import '../domain/study_session.dart';
 import '../domain/study_session_state.dart';
 import 'pre_session_cards_provider.dart';
+import 'study_feedback_service.dart';
 
 /// Thrown by [SessionController.start] when nothing in the deck qualifies for
 /// the picked mode — the study screen shows a "nothing to study" message
@@ -94,6 +95,7 @@ class SessionController extends Notifier<AsyncValue<StudySessionState?>> {
   StudyRepository get _study => ref.read(studyRepositoryProvider);
   NotificationService get _notifications =>
       ref.read(notificationServiceProvider);
+  StudyFeedbackService get _feedback => ref.read(studyFeedbackServiceProvider);
 
   /// Kick a best-effort sync of anything the local mirror queued while offline
   /// (spec §10). Never awaited, never throws into a study interaction.
@@ -347,6 +349,12 @@ class SessionController extends Notifier<AsyncValue<StudySessionState?>> {
     final current = _state;
     if (current == null || current.phase != SessionPhase.studying) return;
 
+    final activeItem = current.current!;
+    final transitionId = StudyFeedbackTransitionId(
+      sessionId: current.session.id,
+      sessionCardId: activeItem.sessionCardId,
+      queuePosition: activeItem.position,
+    );
     final result = current.applyResult(masteryLevel: masteryLevel);
     final effects = result.effects;
 
@@ -356,6 +364,17 @@ class SessionController extends Notifier<AsyncValue<StudySessionState?>> {
     }
 
     state = AsyncData(_attachOutcomeIfDone(result.state));
+
+    // Select exactly one typed event for this accepted transition. Completion
+    // is checked first so the final mastered card never also emits mastery.
+    final feedbackEvent = result.state.phase == SessionPhase.completed
+        ? StudyFeedbackEvent.sessionCompleted
+        : effects.isFail
+        ? null
+        : StudyFeedbackEvent.cardMastered;
+    if (feedbackEvent != null) {
+      _feedback.handle(feedbackEvent, transitionId);
+    }
 
     final sync = _sync[effects.cardId];
     if (sync != null) {
@@ -408,9 +427,21 @@ class SessionController extends Notifier<AsyncValue<StudySessionState?>> {
     final current = _state;
     if (current == null || current.phase != SessionPhase.parkPrompt) return;
     final sessionCardId = current.pendingParkSessionCardId;
+    final parkedItem = current.queue.firstWhere(
+      (item) => item.sessionCardId == sessionCardId,
+    );
+    final transitionId = StudyFeedbackTransitionId(
+      sessionId: current.session.id,
+      sessionCardId: parkedItem.sessionCardId,
+      queuePosition: parkedItem.position,
+    );
 
     final next = current.confirmPark();
     state = AsyncData(_attachOutcomeIfDone(next));
+
+    if (next.phase == SessionPhase.completed) {
+      _feedback.handle(StudyFeedbackEvent.sessionCompleted, transitionId);
+    }
 
     if (sessionCardId != null) {
       _scheduleSessionWrite(

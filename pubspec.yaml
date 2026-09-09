@@ -7,6 +7,7 @@ environment:
   sdk: ^3.13.2
 
 dependencies:
+  audioplayers: ^6.8.1
   connectivity_plus: ^7.3.1
   flutter:
     sdk: flutter
@@ -39,6 +40,8 @@ flutter:
     - .env
     - assets/fonts/Figtree-OFL.txt
     - assets/fonts/Inter-OFL.txt
+    - assets/sounds/card_mastered.wav
+    - assets/sounds/session_completed.wav
   fonts:
     # Bundled, not fetched at runtime (ui-spec-v3 §1): the app reads its theme
     # before runApp to avoid a flash, and is offline-first — a network font
