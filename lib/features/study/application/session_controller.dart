@@ -21,6 +21,7 @@ import '../domain/flip_rating.dart';
 import '../domain/session_length.dart';
 import '../domain/session_outcome.dart';
 import '../domain/session_queue_selection.dart';
+import '../domain/study_attempt.dart';
 import '../domain/study_queue_item.dart';
 import '../domain/study_repository.dart';
 import '../domain/study_session.dart';
@@ -339,8 +340,32 @@ class SessionController extends Notifier<AsyncValue<StudySessionState?>> {
   /// Applies a Cloze card's auto-derived outcome to the current card
   /// (`docs/spec.md` §6) — synchronous and optimistic, exactly like [rate].
   /// The widget has already aggregated the per-blank results into a single
-  /// [ClozeOutcome]; the mode has no manual rating row.
-  void submitCloze(ClozeOutcome outcome) => _applyResult(outcome.masteryLevel);
+  /// [ClozeOutcome]; the mode has no manual rating row. The attempt identity
+  /// prevents a delayed result from applying to the card that replaced it.
+  void submitCloze(StudyAttemptId attemptId, ClozeResult result) {
+    final current = _state;
+    if (current == null ||
+        current.phase != SessionPhase.studying ||
+        current.currentAttemptId != attemptId) {
+      return;
+    }
+
+    // Record false for an unassisted submission, while OR-merging any hint
+    // already captured before a widget remount with the widget's own value.
+    final hintUsed = current.hintUsedFor(attemptId) || result.hintUsed;
+    state = AsyncData(
+      current.recordAttemptMetadata(attemptId, hintUsed: hintUsed),
+    );
+    _applyResult(result.outcome.masteryLevel);
+  }
+
+  /// Synchronously records the first effective hint for the active attempt.
+  void recordClozeHintUsed(StudyAttemptId attemptId) {
+    final current = _state;
+    if (current == null) return;
+    final next = current.recordAttemptMetadata(attemptId, hintUsed: true);
+    if (!identical(next, current)) state = AsyncData(next);
+  }
 
   /// The shared optimistic-progression path for every mode: advance the
   /// in-memory queue now, then fire the guarded `cards` write and the

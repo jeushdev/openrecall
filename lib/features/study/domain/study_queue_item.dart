@@ -15,6 +15,7 @@ class StudyQueueItem {
     required this.consecutiveFails,
     required this.isParked,
     required this.masteryLevel,
+    this.requeueCount = 0,
   });
 
   final String sessionCardId;
@@ -24,6 +25,11 @@ class StudyQueueItem {
   final bool isParked;
   final int masteryLevel;
 
+  /// The number of below-Mastered results for this card in this live session.
+  /// This is deliberately in-memory only: it identifies a returning attempt,
+  /// not the card's lifetime failure history.
+  final int requeueCount;
+
   String get cardId => card.id;
 
   StudyQueueItem copyWith({
@@ -31,6 +37,7 @@ class StudyQueueItem {
     int? consecutiveFails,
     bool? isParked,
     int? masteryLevel,
+    int? requeueCount,
   }) => StudyQueueItem(
     sessionCardId: sessionCardId,
     card: card,
@@ -38,6 +45,7 @@ class StudyQueueItem {
     consecutiveFails: consecutiveFails ?? this.consecutiveFails,
     isParked: isParked ?? this.isParked,
     masteryLevel: masteryLevel ?? this.masteryLevel,
+    requeueCount: requeueCount ?? this.requeueCount,
   );
 
   @override
@@ -48,7 +56,8 @@ class StudyQueueItem {
       other.position == position &&
       other.consecutiveFails == consecutiveFails &&
       other.isParked == isParked &&
-      other.masteryLevel == masteryLevel;
+      other.masteryLevel == masteryLevel &&
+      other.requeueCount == requeueCount;
 
   @override
   int get hashCode => Object.hash(
@@ -58,5 +67,6 @@ class StudyQueueItem {
     consecutiveFails,
     isParked,
     masteryLevel,
+    requeueCount,
   );
 }

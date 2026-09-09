@@ -90,7 +90,14 @@ void main() {
         );
 
         if (mode == StudyMode.cloze) {
-          controller.submitCloze(ClozeOutcome.correct);
+          final attemptId = container
+              .read(sessionControllerProvider)
+              .value!
+              .currentAttemptId!;
+          controller.submitCloze(
+            attemptId,
+            const ClozeResult(outcome: ClozeOutcome.correct, hintUsed: false),
+          );
         } else {
           controller.rate(FlipRating.mastered);
         }

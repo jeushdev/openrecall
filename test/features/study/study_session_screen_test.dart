@@ -45,6 +45,7 @@ Widget _host({
   required FakeStudyRepository study,
   String scope = 'due',
   double textScale = 1,
+  ProviderContainer? container,
 }) {
   final router = GoRouter(
     initialLocation: '/home',
@@ -76,20 +77,24 @@ Widget _host({
       ),
     ],
   );
+  final app = MaterialApp.router(
+    theme: AppTheme.light,
+    routerConfig: router,
+    builder: (context, child) => MediaQuery(
+      data: MediaQuery.of(context)
+          .copyWith(textScaler: TextScaler.linear(textScale)),
+      child: child!,
+    ),
+  );
+  if (container != null) {
+    return UncontrolledProviderScope(container: container, child: app);
+  }
   return ProviderScope(
     overrides: [
       deckRepositoryProvider.overrideWithValue(decks),
       studyRepositoryProvider.overrideWithValue(study),
     ],
-    child: MaterialApp.router(
-      theme: AppTheme.light,
-      routerConfig: router,
-      builder: (context, child) => MediaQuery(
-        data: MediaQuery.of(context)
-            .copyWith(textScaler: TextScaler.linear(textScale)),
-        child: child!,
-      ),
-    ),
+    child: app,
   );
 }
 
@@ -99,9 +104,16 @@ Future<void> _open(
   required FakeStudyRepository study,
   String scope = 'due',
   double textScale = 1,
+  ProviderContainer? container,
 }) async {
   await tester.pumpWidget(
-    _host(decks: decks, study: study, scope: scope, textScale: textScale),
+    _host(
+      decks: decks,
+      study: study,
+      scope: scope,
+      textScale: textScale,
+      container: container,
+    ),
   );
   GoRouter.of(tester.element(find.text('Home')))
       .go('/home/study/deck-1?scope=$scope');
@@ -307,6 +319,61 @@ void main() {
     expect(find.byType(SessionSummaryView), findsOneWidget);
   });
 
+  testWidgets('Cloze assistance survives navigation while reveal resets', (
+    tester,
+  ) async {
+    final decks = FakeDeckRepository(
+      cards: [
+        _card('a', front: 'Paris is the capital', keywords: ['Paris']),
+      ],
+    );
+    final study = FakeStudyRepository();
+    final container = ProviderContainer(
+      overrides: [
+        deckRepositoryProvider.overrideWithValue(decks),
+        studyRepositoryProvider.overrideWithValue(study),
+      ],
+    );
+    addTearDown(container.dispose);
+    await _open(tester, decks: decks, study: study, container: container);
+    await tester.tap(find.text('Cloze Type-in'));
+    await tester.pumpAndSettle();
+
+    final attempt = container
+        .read(sessionControllerProvider)
+        .value!
+        .currentAttemptId!;
+    await tester.tap(find.widgetWithText(TextButton, 'Hint'));
+    await tester.pump();
+    expect(
+      container
+          .read(sessionControllerProvider)
+          .value!
+          .attemptMetadata[attempt]
+          ?.hintUsed,
+      isTrue,
+    );
+    expect(find.byKey(const Key('cloze-hint-preview')), findsOneWidget);
+
+    await tester.tap(find.byIcon(Icons.close));
+    await tester.pumpAndSettle();
+    _goWithMode(tester, StudyMode.cloze);
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('cloze-hint-preview')), findsNothing);
+    await tester.enterText(find.byType(TextField), 'Paris');
+    await tester.tap(find.widgetWithText(FilledButton, 'Check'));
+    await tester.pumpAndSettle();
+    expect(
+      container
+          .read(sessionControllerProvider)
+          .value!
+          .attemptMetadata[attempt]
+          ?.hintUsed,
+      isTrue,
+    );
+  });
+
   testWidgets('Cloze field and submit stay reachable above the keyboard', (
     tester,
   ) async {
@@ -467,6 +534,56 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('1 / 3'), findsOneWidget);
+  });
+
+  testWidgets('only an actual retry shows the Returning card indicator', (
+    tester,
+  ) async {
+    await _open(
+      tester,
+      decks: FakeDeckRepository(cards: [_card('a'), _card('b')]),
+      study: FakeStudyRepository(),
+    );
+
+    expect(find.text('Returning card'), findsNothing);
+    await tester.tap(find.byType(FlipCard));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Unfamiliar'));
+    await tester.pumpAndSettle();
+
+    // Card b is unrelated to a's retry and must not inherit its label.
+    expect(find.text('front-b'), findsOneWidget);
+    expect(find.text('Returning card'), findsNothing);
+
+    await tester.tap(find.byType(FlipCard));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Mastered'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('front-a'), findsOneWidget);
+    expect(find.text('Returning card'), findsOneWidget);
+  });
+
+  testWidgets('a one-card returning indicator fits a narrow layout', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 568);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await _open(
+      tester,
+      decks: FakeDeckRepository(cards: [_card('a')]),
+      study: FakeStudyRepository(),
+    );
+    await tester.tap(find.byType(FlipCard));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Unfamiliar'));
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+    expect(find.text('Returning card').hitTestable(), findsOneWidget);
   });
 
   testWidgets('a larger "Card text size" preset scales only the card context', (

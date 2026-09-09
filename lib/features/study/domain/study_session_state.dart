@@ -4,6 +4,7 @@ import '../../decks/domain/card.dart';
 import 'flip_rating.dart';
 import 'requeue.dart';
 import 'session_outcome.dart';
+import 'study_attempt.dart';
 import 'study_queue_item.dart';
 import 'study_session.dart';
 
@@ -19,6 +20,10 @@ enum SessionPhase {
   /// Every queued card is Mastered or parked (spec §5). Terminal.
   completed,
 }
+
+/// Whether the current card is a new attempt or has returned after a
+/// below-Mastered result in this live session.
+enum CardAppearance { firstAttempt, returning }
 
 /// The side effects a rating produces that the controller must persist. Pure
 /// data — [StudySessionState.applyRating] returns one alongside the next state.
@@ -70,6 +75,7 @@ class StudySessionState {
     required this.totalCards,
     required this.phase,
     required this.pendingParkSessionCardId,
+    required this.attemptMetadata,
     this.outcome,
   });
 
@@ -92,6 +98,7 @@ class StudySessionState {
       totalCards: items.length,
       phase: queue.isEmpty ? SessionPhase.completed : SessionPhase.studying,
       pendingParkSessionCardId: null,
+      attemptMetadata: const {},
     );
   }
 
@@ -113,11 +120,54 @@ class StudySessionState {
   /// [SessionPhase.parkPrompt].
   final String? pendingParkSessionCardId;
 
+  /// Attempt activity retained for the lifetime of this in-memory session,
+  /// including after cards leave the queue.
+  final Map<StudyAttemptId, StudyAttemptMetadata> attemptMetadata;
+
   /// The Session Summary figures (spec §7), set by the controller once [phase]
   /// reaches [SessionPhase.completed]. `null` until then.
   final SessionOutcome? outcome;
 
   StudyQueueItem? get current => queue.isEmpty ? null : queue.first;
+
+  StudyAttemptId? get currentAttemptId {
+    final item = current;
+    if (item == null) return null;
+    return StudyAttemptId(
+      sessionId: session.id,
+      sessionCardId: item.sessionCardId,
+      queuePosition: item.position,
+    );
+  }
+
+  bool hintUsedFor(StudyAttemptId attemptId) =>
+      attemptMetadata[attemptId]?.hintUsed ?? false;
+
+  /// Records activity only for the card attempt that is actively studying.
+  /// Logical OR makes assistance impossible to erase with a later write.
+  StudySessionState recordAttemptMetadata(
+    StudyAttemptId attemptId, {
+    required bool hintUsed,
+  }) {
+    if (phase != SessionPhase.studying || currentAttemptId != attemptId) {
+      return this;
+    }
+    final previous = attemptMetadata[attemptId];
+    final next = previous == null
+        ? StudyAttemptMetadata(hintUsed: hintUsed)
+        : previous.merge(hintUsed: hintUsed);
+    if (previous == next) return this;
+    return _copy(attemptMetadata: {...attemptMetadata, attemptId: next});
+  }
+
+  /// The current card's retry appearance, or `null` when there is no card.
+  CardAppearance? get currentCardAppearance {
+    final item = current;
+    if (item == null) return null;
+    return item.requeueCount == 0
+        ? CardAppearance.firstAttempt
+        : CardAppearance.returning;
+  }
 
   int get resolvedCount => masteredCardIds.length + parkedCardIds.length;
 
@@ -173,6 +223,7 @@ class StudySessionState {
       position: newPosition,
       consecutiveFails: fails,
       masteryLevel: masteryLevel,
+      requeueCount: item.requeueCount + 1,
     );
     final newQueue = [...rest, requeued]
       ..sort((a, b) => a.position.compareTo(b.position));
@@ -250,6 +301,7 @@ class StudySessionState {
     String? pendingParkSessionCardId,
     bool clearPending = false,
     SessionOutcome? outcome,
+    Map<StudyAttemptId, StudyAttemptMetadata>? attemptMetadata,
   }) {
     final nextQueue = queue ?? this.queue;
     return StudySessionState(
@@ -264,6 +316,9 @@ class StudySessionState {
       pendingParkSessionCardId: clearPending
           ? null
           : (pendingParkSessionCardId ?? this.pendingParkSessionCardId),
+      attemptMetadata: Map.unmodifiable(
+        attemptMetadata ?? this.attemptMetadata,
+      ),
       outcome: outcome ?? this.outcome,
     );
   }

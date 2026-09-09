@@ -9,6 +9,14 @@ import 'flip_rating.dart';
 /// - [missed] — marked wrong, no override → Forgotten.
 enum ClozeOutcome { correct, overridden, missed }
 
+/// The complete result emitted at the Cloze widget/controller boundary.
+class ClozeResult {
+  const ClozeResult({required this.outcome, required this.hintUsed});
+
+  final ClozeOutcome outcome;
+  final bool hintUsed;
+}
+
 extension ClozeOutcomeX on ClozeOutcome {
   /// The `cards.mastery_level` this outcome writes.
   int get masteryLevel => switch (this) {

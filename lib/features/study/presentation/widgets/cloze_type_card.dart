@@ -5,6 +5,7 @@ import '../../../../theme/app_tokens.dart';
 import '../../../../theme/app_type.dart';
 import '../../../decks/domain/card.dart';
 import '../../domain/cloze_blank.dart';
+import '../../domain/cloze_hint.dart';
 import '../../domain/cloze_outcome.dart';
 import '../../domain/letter_diff.dart';
 import '../../domain/levenshtein.dart';
@@ -21,16 +22,26 @@ import 'stacked_deck.dart';
 ///
 /// Once the last blank resolves the widget derives a single [ClozeOutcome]
 /// (all blanks right first try → correct; any override → overridden; any real
-/// miss → missed) and calls [onOutcome] exactly once. There is no manual
+/// miss → missed) and calls [onResult] exactly once. There is no manual
 /// rating row in this mode (§6).
 ///
 /// All state is widget-local and resets when [card] changes; the study screen
 /// also re-keys it per queue position, so a requeue always starts fresh.
 class ClozeTypeCard extends StatefulWidget {
-  const ClozeTypeCard({super.key, required this.card, required this.onOutcome});
+  const ClozeTypeCard({
+    super.key,
+    required this.card,
+    required this.onResult,
+    required this.onHintUsed,
+    this.initialHintUsed = false,
+  });
 
   final FlashCard card;
-  final ValueChanged<ClozeOutcome> onOutcome;
+  final ValueChanged<ClozeResult> onResult;
+  final VoidCallback onHintUsed;
+
+  /// Session-recorded assistance, restored when this live attempt remounts.
+  final bool initialHintUsed;
 
   @override
   State<ClozeTypeCard> createState() => _ClozeTypeCardState();
@@ -43,6 +54,7 @@ class _ClozeTypeCardState extends State<ClozeTypeCard> {
   late List<ClozeSegment> _front;
   late List<ClozeSegment> _back;
   late List<String> _answers;
+  late ClozeHint _hint;
 
   /// The blank currently being filled; equals `_answers.length` once every
   /// blank is resolved.
@@ -54,10 +66,12 @@ class _ClozeTypeCardState extends State<ClozeTypeCard> {
   /// Whether the active blank is frozen on its miss review (diff + override).
   bool _reviewing = false;
   bool _emitted = false;
+  late bool _hintUsed;
 
   @override
   void initState() {
     super.initState();
+    _hintUsed = widget.initialHintUsed;
     _split();
   }
 
@@ -72,6 +86,7 @@ class _ClozeTypeCardState extends State<ClozeTypeCard> {
       _attempts.clear();
       _reviewing = false;
       _emitted = false;
+      _hintUsed = widget.initialHintUsed;
       _split();
       setState(() {});
     }
@@ -102,6 +117,7 @@ class _ClozeTypeCardState extends State<ClozeTypeCard> {
       for (final s in back)
         if (s.isBlank) s.text,
     ];
+    _hint = ClozeHint.initial(_answers.isEmpty ? '' : _answers.first);
     // A Cloze-eligible card whose keywords never literally appear has nothing
     // to answer — treat it as fully correct, mirroring how the interim
     // tap-to-reveal card auto-completed a zero-blank card.
@@ -139,6 +155,9 @@ class _ClozeTypeCardState extends State<ClozeTypeCard> {
     setState(() {
       _reviewing = false;
       _active++;
+      if (_active < _answers.length) {
+        _hint = ClozeHint.initial(_answers[_active]);
+      }
     });
     if (_active >= _answers.length) {
       _emit(_derive());
@@ -158,7 +177,21 @@ class _ClozeTypeCardState extends State<ClozeTypeCard> {
   void _emit(ClozeOutcome outcome) {
     if (_emitted) return;
     _emitted = true;
-    widget.onOutcome(outcome);
+    widget.onResult(ClozeResult(outcome: outcome, hintUsed: _hintUsed));
+  }
+
+  void _revealHint() {
+    if (_reviewing ||
+        _emitted ||
+        _active >= _answers.length ||
+        !_hint.canReveal) {
+      return;
+    }
+    if (!_hintUsed) {
+      _hintUsed = true;
+      widget.onHintUsed();
+    }
+    setState(() => _hint = _hint.revealNext());
   }
 
   @override
@@ -231,16 +264,30 @@ class _ClozeTypeCardState extends State<ClozeTypeCard> {
 
   Widget _input(AppTokens tokens) {
     if (_reviewing) {
-      return _MissReview(
-        answer: _answers[_active],
-        attempt: _attempts[_active] ?? '',
-        tokens: tokens,
-        onRight: _markRight,
-        onNext: _advance,
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton.icon(
+              onPressed: null,
+              icon: const Icon(Icons.lightbulb_outline, size: 18),
+              label: const Text('Hint'),
+            ),
+          ),
+          _MissReview(
+            answer: _answers[_active],
+            attempt: _attempts[_active] ?? '',
+            tokens: tokens,
+            onRight: _markRight,
+            onNext: _advance,
+          ),
+        ],
       );
     }
 
     final canCheck = _controller.text.trim().isNotEmpty;
+    final canHint = !_emitted && _hint.canReveal;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -268,10 +315,38 @@ class _ClozeTypeCardState extends State<ClozeTypeCard> {
             ),
           ),
         ),
+        if (_hint.maskedAnswer case final preview?) ...[
+          const SizedBox(height: 10),
+          Semantics(
+            label: 'Hint: $preview',
+            child: Text(
+              preview,
+              key: const ValueKey('cloze-hint-preview'),
+              softWrap: true,
+              style: AppType.body.copyWith(
+                color: tokens.textSecondary,
+                letterSpacing: 1.2,
+              ),
+            ),
+          ),
+        ],
         const SizedBox(height: 12),
-        FilledButton(
-          onPressed: canCheck ? _submit : null,
-          child: const Text('Check'),
+        Wrap(
+          alignment: WrapAlignment.end,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            TextButton.icon(
+              onPressed: canHint ? _revealHint : null,
+              icon: const Icon(Icons.lightbulb_outline, size: 18),
+              label: const Text('Hint'),
+            ),
+            FilledButton(
+              onPressed: canCheck ? _submit : null,
+              child: const Text('Check'),
+            ),
+          ],
         ),
       ],
     );

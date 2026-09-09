@@ -4,11 +4,12 @@ import 'package:open_recall/features/decks/domain/study_mode.dart';
 import 'package:open_recall/features/study/domain/flip_rating.dart';
 import 'package:open_recall/features/study/domain/session_length.dart';
 import 'package:open_recall/features/study/domain/session_status.dart';
+import 'package:open_recall/features/study/domain/study_attempt.dart';
 import 'package:open_recall/features/study/domain/study_queue_item.dart';
 import 'package:open_recall/features/study/domain/study_session.dart';
 import 'package:open_recall/features/study/domain/study_session_state.dart';
 
-FlashCard _card(String id) => FlashCard(
+FlashCard _card(String id, {int historicalFails = 0}) => FlashCard(
   id: id,
   deckId: 'deck-1',
   front: 'front-$id',
@@ -16,7 +17,7 @@ FlashCard _card(String id) => FlashCard(
   keywords: const [],
   isConcept: false,
   masteryLevel: 0,
-  failCount: 0,
+  failCount: historicalFails,
   createdAt: DateTime.utc(2026),
   updatedAt: DateTime.utc(2026),
 );
@@ -69,6 +70,78 @@ StudySessionState _stateWith(
 }
 
 void main() {
+  group('attempt metadata', () {
+    test('records false activity and merges hint usage with logical OR', () {
+      var state = _stateWith(['a']);
+      final attempt = state.currentAttemptId!;
+
+      state = state.recordAttemptMetadata(attempt, hintUsed: false);
+      expect(state.attemptMetadata[attempt]?.hintUsed, isFalse);
+      state = state.recordAttemptMetadata(attempt, hintUsed: true);
+      state = state.recordAttemptMetadata(attempt, hintUsed: false);
+      expect(state.attemptMetadata[attempt]?.hintUsed, isTrue);
+    });
+
+    test('rejects metadata for an attempt that is no longer active', () {
+      var state = _stateWith(['a', 'b']);
+      final stale = state.currentAttemptId!;
+      state = state.applyRating(FlipRating.mastered).state;
+
+      final unchanged = state.recordAttemptMetadata(stale, hintUsed: true);
+      expect(identical(unchanged, state), isTrue);
+      expect(unchanged.attemptMetadata, isEmpty);
+    });
+
+    test('retains metadata after completion', () {
+      var state = _stateWith(['a']);
+      final attempt = state.currentAttemptId!;
+      state = state.recordAttemptMetadata(attempt, hintUsed: true);
+      state = state.applyRating(FlipRating.mastered).state;
+
+      expect(state.isComplete, isTrue);
+      expect(state.attemptMetadata[attempt]?.hintUsed, isTrue);
+    });
+
+    test('retains older attempt metadata after parking', () {
+      var state = _stateWith(['a']);
+      final assisted = state.currentAttemptId!;
+      state = state.recordAttemptMetadata(assisted, hintUsed: true);
+      state = state.applyRating(FlipRating.forgotten).state;
+      state = state.applyRating(FlipRating.forgotten).state;
+      state = state.applyRating(FlipRating.forgotten).state;
+
+      state = state.confirmPark();
+
+      expect(state.isComplete, isTrue);
+      expect(state.attemptMetadata[assisted]?.hintUsed, isTrue);
+    });
+
+    test('a requeue creates a fresh unassisted attempt identity', () {
+      var state = _stateWith(['a']);
+      final first = state.currentAttemptId!;
+      state = state.recordAttemptMetadata(first, hintUsed: true);
+      state = state.applyRating(FlipRating.forgotten).state;
+
+      expect(state.currentAttemptId, isNot(first));
+      expect(state.hintUsedFor(state.currentAttemptId!), isFalse);
+      expect(state.hintUsedFor(first), isTrue);
+    });
+
+    test('attempt identity includes all three planned components', () {
+      const a = StudyAttemptId(
+        sessionId: 's',
+        sessionCardId: 'sc',
+        queuePosition: 1000,
+      );
+      const retry = StudyAttemptId(
+        sessionId: 's',
+        sessionCardId: 'sc',
+        queuePosition: 2000,
+      );
+      expect(a, isNot(retry));
+    });
+  });
+
   group('initial state', () {
     test('current is the lowest-position card; queue is sorted', () {
       final state = _stateWith(['a', 'b', 'c']);
@@ -82,6 +155,32 @@ void main() {
       final state = _stateWith([]);
       expect(state.current, isNull);
       expect(state.phase, SessionPhase.completed);
+    });
+
+    test('historical failures do not make a fresh card returning', () {
+      final item = StudyQueueItem(
+        sessionCardId: 'sc-a',
+        card: _card('a', historicalFails: 12),
+        position: 1000,
+        consecutiveFails: 0,
+        isParked: false,
+        masteryLevel: 0,
+      );
+      final state = StudySessionState.initial(
+        session: _session(),
+        deckId: 'deck-1',
+        deckName: 'Biology',
+        items: [item],
+      );
+
+      expect(state.currentCardAppearance, CardAppearance.firstAttempt);
+    });
+
+    test('freshly seeded cards start as first attempts', () {
+      expect(
+        _stateWith(['a', 'b']).queue.map((item) => item.requeueCount),
+        everyElement(0),
+      );
     });
   });
 
@@ -120,6 +219,8 @@ void main() {
       final requeued = result.state.queue.firstWhere((i) => i.cardId == 'a');
       expect(requeued.consecutiveFails, 1);
       expect(requeued.masteryLevel, 1);
+      expect(requeued.requeueCount, 1);
+      expect(result.state.currentCardAppearance, CardAppearance.firstAttempt);
       expect(result.effects.isFail, isTrue);
       expect(result.effects.newMasteryLevel, 1);
       expect(result.effects.newConsecutiveFails, 1);
@@ -135,6 +236,24 @@ void main() {
       expect(result.state.queue.single.cardId, 'a');
       expect(result.state.phase, SessionPhase.studying);
       expect(result.state.isComplete, isFalse);
+    });
+
+    test('a one-card retry immediately becomes returning', () {
+      final state = _stateWith(['a']);
+      final retry = state.applyRating(FlipRating.forgotten).state;
+
+      expect(retry.current!.cardId, 'a');
+      expect(retry.current!.requeueCount, 1);
+      expect(retry.currentCardAppearance, CardAppearance.returning);
+    });
+
+    test('each repeated retry keeps the returning appearance', () {
+      var state = _stateWith(['a']);
+      state = state.applyRating(FlipRating.forgotten).state;
+      state = state.applyRating(FlipRating.familiar).state;
+
+      expect(state.current!.requeueCount, 2);
+      expect(state.currentCardAppearance, CardAppearance.returning);
     });
 
     test('the third consecutive fail raises the park prompt', () {
@@ -192,6 +311,8 @@ void main() {
       expect(state.pendingParkSessionCardId, isNull);
       final a = state.queue.firstWhere((i) => i.cardId == 'a');
       expect(a.consecutiveFails, 0);
+      expect(a.requeueCount, 3);
+      expect(state.currentCardAppearance, CardAppearance.returning);
     });
 
     test('after declining, it takes three more fails to be prompted again', () {

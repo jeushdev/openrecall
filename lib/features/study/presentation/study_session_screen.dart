@@ -18,6 +18,7 @@ import '../application/session_controller.dart';
 import '../domain/cloze_outcome.dart';
 import '../domain/flip_rating.dart';
 import '../domain/session_length.dart';
+import '../domain/study_attempt.dart';
 import '../domain/study_session.dart';
 import '../domain/study_session_state.dart';
 import 'widgets/cloze_type_card.dart';
@@ -248,8 +249,12 @@ class _StudySessionScreenState extends ConsumerState<StudySessionScreen> {
           onExit: _exitAndLeave,
           onRate: (rating) =>
               ref.read(sessionControllerProvider.notifier).rate(rating),
-          onCloze: (outcome) =>
-              ref.read(sessionControllerProvider.notifier).submitCloze(outcome),
+          onCloze: (attemptId, result) => ref
+              .read(sessionControllerProvider.notifier)
+              .submitCloze(attemptId, result),
+          onClozeHintUsed: (attemptId) => ref
+              .read(sessionControllerProvider.notifier)
+              .recordClozeHintUsed(attemptId),
         );
       }
       return const _Shell(child: _Spinner());
@@ -410,6 +415,7 @@ class _ActiveBody extends StatefulWidget {
     required this.onExit,
     required this.onRate,
     required this.onCloze,
+    required this.onClozeHintUsed,
   });
 
   final StudySessionState state;
@@ -427,7 +433,8 @@ class _ActiveBody extends StatefulWidget {
 
   /// Cloze auto-derives its result per card (§6) and reports it here instead of
   /// going through the rating row.
-  final ValueChanged<ClozeOutcome> onCloze;
+  final void Function(StudyAttemptId attemptId, ClozeResult result) onCloze;
+  final ValueChanged<StudyAttemptId> onClozeHintUsed;
 
   @override
   State<_ActiveBody> createState() => _ActiveBodyState();
@@ -472,10 +479,10 @@ class _ActiveBodyState extends State<_ActiveBody> {
 
   /// Cloze's auto-derived outcome, under the same non-blocking contract as
   /// [_rate].
-  void _cloze(ClozeOutcome outcome) {
-    _hapticFor(outcome.masteryLevel);
-    setState(() => _exitOffset = _exitFor(outcome.masteryLevel));
-    widget.onCloze(outcome);
+  void _cloze(StudyAttemptId attemptId, ClozeResult result) {
+    _hapticFor(result.outcome.masteryLevel);
+    setState(() => _exitOffset = _exitFor(result.outcome.masteryLevel));
+    widget.onCloze(attemptId, result);
   }
 
   @override
@@ -513,7 +520,11 @@ class _ActiveBodyState extends State<_ActiveBody> {
     final tokens = Theme.of(context).extension<AppTokens>()!;
     final state = widget.state;
     final item = state.current!;
+    final attemptId = state.currentAttemptId!;
     final key = ValueKey('${item.sessionCardId}:${item.position}');
+    final isReturning =
+        state.phase == SessionPhase.studying &&
+        state.currentCardAppearance == CardAppearance.returning;
 
     // Only the card surface scales its text to the §6.5 preset — the header and
     // rating row below stay at the app's normal size.
@@ -524,7 +535,9 @@ class _ActiveBodyState extends State<_ActiveBody> {
         StudyMode.cloze => ClozeTypeCard(
           key: key,
           card: item.card,
-          onOutcome: _cloze,
+          initialHintUsed: state.hintUsedFor(attemptId),
+          onHintUsed: () => widget.onClozeHintUsed(attemptId),
+          onResult: (result) => _cloze(attemptId, result),
         ),
         StudyMode.feynman => FeynmanCardView(
           key: key,
@@ -610,7 +623,37 @@ class _ActiveBodyState extends State<_ActiveBody> {
                           ),
                           child: Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 20),
-                            child: Center(child: animatedCardArea),
+                            child: Center(
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  if (isReturning) ...[
+                                    Semantics(
+                                      label: 'Returning card',
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(
+                                            Icons.replay_outlined,
+                                            size: 16,
+                                            color: tokens.textSecondary,
+                                          ),
+                                          const SizedBox(width: 6),
+                                          Text(
+                                            'Returning card',
+                                            style: AppType.caption.copyWith(
+                                              color: tokens.textSecondary,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    const SizedBox(height: 8),
+                                  ],
+                                  animatedCardArea,
+                                ],
+                              ),
+                            ),
                           ),
                         ),
                       ),

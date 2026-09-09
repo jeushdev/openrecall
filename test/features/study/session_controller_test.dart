@@ -8,6 +8,7 @@ import 'package:open_recall/features/decks/data/local_deck_store.dart';
 import 'package:open_recall/features/decks/domain/card.dart';
 import 'package:open_recall/features/decks/domain/study_mode.dart';
 import 'package:open_recall/features/study/application/session_controller.dart';
+import 'package:open_recall/features/study/domain/cloze_outcome.dart';
 import 'package:open_recall/features/study/domain/flip_rating.dart';
 import 'package:open_recall/features/study/domain/session_length.dart';
 import 'package:open_recall/features/study/domain/session_status.dart';
@@ -254,6 +255,37 @@ void main() {
       expect(study.calls, isEmpty);
     });
 
+    test('resuming the same live session retains a returning card', () async {
+      decks = FakeDeckRepository(cards: [_card('a')]);
+      study = FakeStudyRepository();
+      container = makeContainer();
+
+      await start();
+      controller().rate(FlipRating.forgotten);
+      expect(state().currentCardAppearance, CardAppearance.returning);
+
+      await start();
+      expect(state().currentCardAppearance, CardAppearance.returning);
+    });
+
+    test('a parked-card drill starts with first-attempt cards', () async {
+      decks = FakeDeckRepository(cards: [_card('a')]);
+      study = FakeStudyRepository();
+      container = makeContainer();
+
+      await start();
+      controller().rate(FlipRating.forgotten);
+      expect(state().currentCardAppearance, CardAppearance.returning);
+
+      await controller().startParkedDrill(
+        deckId: 'deck-1',
+        deckName: 'Biology',
+        mode: StudyMode.flip,
+        parkedCardIds: const ['a'],
+      );
+      expect(state().currentCardAppearance, CardAppearance.firstAttempt);
+    });
+
     test('a default (due-scoped) session records card_scope = due', () async {
       decks = FakeDeckRepository(cards: [_card('a')]);
       study = FakeStudyRepository();
@@ -399,6 +431,93 @@ void main() {
       expect(decks.cardById('a')!.masteryLevel, 1);
       expect(decks.cardById('a')!.failCount, 1);
     });
+  });
+
+  group('Cloze attempt metadata', () {
+    setUp(() {
+      decks = FakeDeckRepository(cards: [_card('a'), _card('b')]);
+      study = FakeStudyRepository();
+      container = makeContainer();
+    });
+
+    test('assisted submission retains assistance after card removal', () async {
+      await start();
+      final attempt = state().currentAttemptId!;
+      controller().recordClozeHintUsed(attempt);
+      controller().submitCloze(
+        attempt,
+        const ClozeResult(outcome: ClozeOutcome.correct, hintUsed: false),
+      );
+
+      expect(state().current!.cardId, 'b');
+      expect(state().attemptMetadata[attempt]?.hintUsed, isTrue);
+      await pumpEventQueue();
+    });
+
+    test('unassisted submission explicitly records false', () async {
+      await start();
+      final attempt = state().currentAttemptId!;
+      controller().submitCloze(
+        attempt,
+        const ClozeResult(outcome: ClozeOutcome.correct, hintUsed: false),
+      );
+
+      expect(state().attemptMetadata[attempt]?.hintUsed, isFalse);
+      await pumpEventQueue();
+    });
+
+    test('widget result assistance merges into session metadata', () async {
+      await start();
+      final attempt = state().currentAttemptId!;
+      controller().submitCloze(
+        attempt,
+        const ClozeResult(outcome: ClozeOutcome.correct, hintUsed: true),
+      );
+
+      expect(state().attemptMetadata[attempt]?.hintUsed, isTrue);
+      await pumpEventQueue();
+    });
+
+    test('immediate retry starts a fresh unassisted attempt', () async {
+      decks = FakeDeckRepository(cards: [_card('a')]);
+      study = FakeStudyRepository();
+      container.dispose();
+      container = makeContainer();
+      await start();
+      final first = state().currentAttemptId!;
+      controller().recordClozeHintUsed(first);
+      controller().submitCloze(
+        first,
+        const ClozeResult(outcome: ClozeOutcome.missed, hintUsed: true),
+      );
+
+      final retry = state().currentAttemptId!;
+      expect(retry, isNot(first));
+      expect(state().hintUsedFor(retry), isFalse);
+      expect(state().hintUsedFor(first), isTrue);
+      await pumpEventQueue();
+    });
+
+    test(
+      'stale hint and result callbacks cannot mutate the incoming card',
+      () async {
+        await start();
+        final stale = state().currentAttemptId!;
+        controller().rate(FlipRating.mastered);
+        final incoming = state().currentAttemptId!;
+
+        controller().recordClozeHintUsed(stale);
+        controller().submitCloze(
+          stale,
+          const ClozeResult(outcome: ClozeOutcome.correct, hintUsed: true),
+        );
+
+        expect(state().currentAttemptId, incoming);
+        expect(state().attemptMetadata[stale], isNull);
+        expect(state().attemptMetadata[incoming], isNull);
+        await pumpEventQueue();
+      },
+    );
   });
 
   group('park', () {
