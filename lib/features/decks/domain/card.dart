@@ -48,18 +48,17 @@ class FlashCard {
   });
 
   factory FlashCard.fromJson(Map<String, dynamic> json) => FlashCard(
-        id: json['id'] as String,
-        deckId: json['deck_id'] as String,
-        front: json['front'] as String,
-        back: json['back'] as String,
-        keywords:
-            (json['keywords'] as List?)?.cast<String>() ?? const <String>[],
-        isConcept: json['is_concept'] as bool? ?? false,
-        masteryLevel: json['mastery_level'] as int,
-        failCount: json['fail_count'] as int,
-        createdAt: DateTime.parse(json['created_at'] as String),
-        updatedAt: DateTime.parse(json['updated_at'] as String),
-      );
+    id: json['id'] as String,
+    deckId: json['deck_id'] as String,
+    front: json['front'] as String,
+    back: json['back'] as String,
+    keywords: (json['keywords'] as List?)?.cast<String>() ?? const <String>[],
+    isConcept: json['is_concept'] as bool? ?? false,
+    masteryLevel: json['mastery_level'] as int,
+    failCount: json['fail_count'] as int,
+    createdAt: DateTime.parse(json['created_at'] as String),
+    updatedAt: DateTime.parse(json['updated_at'] as String),
+  );
 
   final String id;
   final String deckId;
@@ -90,17 +89,17 @@ class FlashCard {
 
   @override
   int get hashCode => Object.hash(
-        id,
-        deckId,
-        front,
-        back,
-        Object.hashAll(keywords),
-        isConcept,
-        masteryLevel,
-        failCount,
-        createdAt,
-        updatedAt,
-      );
+    id,
+    deckId,
+    front,
+    back,
+    Object.hashAll(keywords),
+    isConcept,
+    masteryLevel,
+    failCount,
+    createdAt,
+    updatedAt,
+  );
 }
 
 /// Just the three `cards` columns the session engine needs to rebase a guarded

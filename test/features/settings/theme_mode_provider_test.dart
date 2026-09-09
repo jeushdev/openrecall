@@ -29,11 +29,13 @@ void main() {
     expect(await c.read(themeModeProvider.future), ThemeMode.system);
   });
 
-  test('build() surfaces the persisted selection when there is no seed',
-      () async {
-    final c = await container({'theme_mode': 'dark'});
-    expect(await c.read(themeModeProvider.future), ThemeMode.dark);
-  });
+  test(
+    'build() surfaces the persisted selection when there is no seed',
+    () async {
+      final c = await container({'theme_mode': 'dark'});
+      expect(await c.read(themeModeProvider.future), ThemeMode.dark);
+    },
+  );
 
   test('the cold-start seed resolves synchronously', () async {
     final c = await container({}, seed: ThemeMode.dark);

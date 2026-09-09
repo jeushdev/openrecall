@@ -23,15 +23,21 @@ abstract final class AppRadii {
   /// Legacy alias for [control] — kept so existing input call sites compile.
   static const double input = 12.0;
 
-  static const BorderRadius cardRadius = BorderRadius.all(Radius.circular(card));
-  static const BorderRadius gridTileRadius =
-      BorderRadius.all(Radius.circular(gridTile));
-  static const BorderRadius sectionRadius =
-      BorderRadius.all(Radius.circular(section));
-  static const BorderRadius buttonRadius =
-      BorderRadius.all(Radius.circular(button));
-  static const BorderRadius inputRadius =
-      BorderRadius.all(Radius.circular(control));
+  static const BorderRadius cardRadius = BorderRadius.all(
+    Radius.circular(card),
+  );
+  static const BorderRadius gridTileRadius = BorderRadius.all(
+    Radius.circular(gridTile),
+  );
+  static const BorderRadius sectionRadius = BorderRadius.all(
+    Radius.circular(section),
+  );
+  static const BorderRadius buttonRadius = BorderRadius.all(
+    Radius.circular(button),
+  );
+  static const BorderRadius inputRadius = BorderRadius.all(
+    Radius.circular(control),
+  );
 }
 
 /// Separator / control-border width (ui-spec-v5 §3). iOS uses a 1px hairline.

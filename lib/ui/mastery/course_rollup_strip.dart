@@ -29,7 +29,8 @@ class CourseRollupStrip extends StatelessWidget {
         padding: EdgeInsets.zero,
         itemCount: courses.length,
         separatorBuilder: (_, _) => const SizedBox(width: 10),
-        itemBuilder: (_, i) => _CourseChip(course: courses[i], width: _chipWidth),
+        itemBuilder: (_, i) =>
+            _CourseChip(course: courses[i], width: _chipWidth),
       ),
     );
   }
@@ -45,7 +46,9 @@ class _CourseChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final tokens = Theme.of(context).extension<AppTokens>()!;
     final accent = tokens.accent(course.accentColor);
-    final deckLabel = course.deckCount == 1 ? '1 deck' : '${course.deckCount} decks';
+    final deckLabel = course.deckCount == 1
+        ? '1 deck'
+        : '${course.deckCount} decks';
 
     return Container(
       width: width,
@@ -86,10 +89,7 @@ class _CourseChip extends StatelessWidget {
                     '${course.masteryPercent}% · $deckLabel',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: tokens.textSecondary,
-                    ),
+                    style: TextStyle(fontSize: 11, color: tokens.textSecondary),
                   ),
                 ],
               ),

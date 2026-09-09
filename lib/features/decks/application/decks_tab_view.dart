@@ -22,6 +22,7 @@ class DeckTileView {
     required this.cardCount,
     required this.accentKey,
     this.isLockedOffline = false,
+    this.isAvailableOffline = false,
   });
 
   /// The real `decks.id` — handed straight to `/study/:deckId`.
@@ -38,6 +39,9 @@ class DeckTileView {
   /// True when the app is offline and this deck has no verified complete local
   /// card set, so it cannot be opened or studied.
   final bool isLockedOffline;
+
+  /// True only for a persisted explicit package, including after restart.
+  final bool isAvailableOffline;
 }
 
 /// One course and the decks under it, as the Decks-tab accordion renders them
@@ -83,6 +87,8 @@ final decksTabViewProvider = Provider<AsyncValue<List<CourseDeckGroup>>>((ref) {
   final studiable =
       ref.watch(studiableOfflineDeckIdsProvider).asData?.value ??
       const <String>{};
+  final pinned =
+      ref.watch(offlineDeckIdsProvider).asData?.value ?? const <String>{};
 
   return decksAsync.whenData((decks) {
     final visibleDecks = pending.deckIds.isEmpty
@@ -97,6 +103,7 @@ final decksTabViewProvider = Provider<AsyncValue<List<CourseDeckGroup>>>((ref) {
       order,
       online: online,
       studiable: studiable,
+      pinned: pinned,
     );
   });
 });
@@ -120,6 +127,7 @@ List<CourseDeckGroup> _group(
   TabOrder order, {
   required bool online,
   required Set<String> studiable,
+  required Set<String> pinned,
 }) {
   DeckTileView tile(DeckSummary d, String accentKey) => DeckTileView(
     id: d.id,
@@ -131,6 +139,7 @@ List<CourseDeckGroup> _group(
     // copy about downloading (spec-web-mvp §5.3). The web build is
     // online-only by design; leave tiles unlocked.
     isLockedOffline: !kIsWeb && !online && !studiable.contains(d.id),
+    isAvailableOffline: pinned.contains(d.id),
   );
 
   if (courses.isEmpty) {

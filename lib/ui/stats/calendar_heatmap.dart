@@ -66,9 +66,8 @@ class CalendarHeatmap extends StatelessWidget {
             ),
             _Chevron(
               icon: Icons.chevron_left,
-              onTap: () => onMonthChanged(
-                DateTime(month.year, month.month - 1),
-              ),
+              onTap: () =>
+                  onMonthChanged(DateTime(month.year, month.month - 1)),
               tokens: tokens,
             ),
             _Chevron(
@@ -88,7 +87,9 @@ class CalendarHeatmap extends StatelessWidget {
                 child: Center(
                   child: Text(
                     label,
-                    style: AppType.overline.copyWith(color: tokens.textTertiary),
+                    style: AppType.overline.copyWith(
+                      color: tokens.textTertiary,
+                    ),
                   ),
                 ),
               ),
@@ -109,8 +110,11 @@ class CalendarHeatmap extends StatelessWidget {
                 level: heatLevel(
                   counts[DateTime(month.year, month.month, day)] ?? 0,
                 ),
-                isFuture: DateTime(month.year, month.month, day)
-                    .isAfter(DateTime(now.year, now.month, now.day)),
+                isFuture: DateTime(
+                  month.year,
+                  month.month,
+                  day,
+                ).isAfter(DateTime(now.year, now.month, now.day)),
                 tokens: tokens,
               ),
           ],
@@ -139,7 +143,11 @@ class CalendarHeatmap extends StatelessWidget {
 }
 
 class _Chevron extends StatelessWidget {
-  const _Chevron({required this.icon, required this.onTap, required this.tokens});
+  const _Chevron({
+    required this.icon,
+    required this.onTap,
+    required this.tokens,
+  });
 
   final IconData icon;
   final VoidCallback? onTap;

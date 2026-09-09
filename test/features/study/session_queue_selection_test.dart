@@ -11,19 +11,18 @@ FlashCard _card({
   List<String> keywords = const [],
   bool isConcept = false,
   int mastery = 0,
-}) =>
-    FlashCard(
-      id: id,
-      deckId: 'deck-1',
-      front: front,
-      back: back,
-      keywords: keywords,
-      isConcept: isConcept,
-      masteryLevel: mastery,
-      failCount: 0,
-      createdAt: DateTime.utc(2026),
-      updatedAt: DateTime.utc(2026),
-    );
+}) => FlashCard(
+  id: id,
+  deckId: 'deck-1',
+  front: front,
+  back: back,
+  keywords: keywords,
+  isConcept: isConcept,
+  masteryLevel: mastery,
+  failCount: 0,
+  createdAt: DateTime.utc(2026),
+  updatedAt: DateTime.utc(2026),
+);
 
 void main() {
   group('selectSessionCards — CardScope.due (V1 behaviour)', () {
@@ -243,11 +242,7 @@ void main() {
 
   group('seedsFrom', () {
     test('assigns sparse positions in steps of 1000, starting at 1000', () {
-      final seeds = seedsFrom([
-        _card(id: 'a'),
-        _card(id: 'b'),
-        _card(id: 'c'),
-      ]);
+      final seeds = seedsFrom([_card(id: 'a'), _card(id: 'b'), _card(id: 'c')]);
       expect(seeds.map((s) => s.cardId), ['a', 'b', 'c']);
       expect(seeds.map((s) => s.position), [1000, 2000, 3000]);
     });

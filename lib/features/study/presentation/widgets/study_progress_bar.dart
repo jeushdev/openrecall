@@ -23,8 +23,9 @@ class StudyProgressBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tokens = Theme.of(context).extension<AppTokens>()!;
-    final fraction =
-        totalCount == 0 ? 0.0 : (completedCount / totalCount).clamp(0.0, 1.0);
+    final fraction = totalCount == 0
+        ? 0.0
+        : (completedCount / totalCount).clamp(0.0, 1.0);
 
     return SizedBox(
       height: 3,

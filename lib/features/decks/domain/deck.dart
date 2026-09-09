@@ -16,14 +16,14 @@ class Deck {
   });
 
   factory Deck.fromJson(Map<String, dynamic> json) => Deck(
-        id: json['id'] as String,
-        name: json['name'] as String,
-        courseId: json['course_id'] as String?,
-        lastStudiedAt: _parseNullableDate(json['last_studied_at']),
-        createdAt: DateTime.parse(json['created_at'] as String),
-        updatedAt: DateTime.parse(json['updated_at'] as String),
-        position: json['position'] as int? ?? 0,
-      );
+    id: json['id'] as String,
+    name: json['name'] as String,
+    courseId: json['course_id'] as String?,
+    lastStudiedAt: _parseNullableDate(json['last_studied_at']),
+    createdAt: DateTime.parse(json['created_at'] as String),
+    updatedAt: DateTime.parse(json['updated_at'] as String),
+    position: json['position'] as int? ?? 0,
+  );
 
   final String id;
   final String name;

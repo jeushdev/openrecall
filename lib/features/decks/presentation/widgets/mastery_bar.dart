@@ -16,10 +16,7 @@ class MasteryBar extends StatelessWidget {
         Expanded(
           child: ClipRRect(
             borderRadius: BorderRadius.circular(4),
-            child: LinearProgressIndicator(
-              value: percent / 100,
-              minHeight: 6,
-            ),
+            child: LinearProgressIndicator(value: percent / 100, minHeight: 6),
           ),
         ),
         const SizedBox(width: 8),

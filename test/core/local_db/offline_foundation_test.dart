@@ -15,7 +15,7 @@ void main() {
   setUpAll(initLocalDbTestFfi);
 
   test('v6 upgrade preserves dirty rows, pins, IDs and tombstones', () async {
-    final directory = await Directory.systemTemp.createTemp('offline-v7-');
+    final directory = await Directory.systemTemp.createTemp('offline-v8-');
     addTearDown(() => directory.delete(recursive: true));
     final path = '${directory.path}/migration.db';
     final old = await openDatabase(
@@ -81,9 +81,16 @@ void main() {
     await old.close();
     final upgraded = await AppDatabase.open(path: path);
     addTearDown(upgraded.close);
-    expect(await upgraded.db.getVersion(), 7);
+    expect(await upgraded.db.getVersion(), 8);
     for (final table in before.keys) {
-      expect(await upgraded.db.query(table), before[table]);
+      final queried = await upgraded.db.query(table);
+      final after = table == 'offline_cards'
+          ? [
+              for (final row in queried)
+                Map.of(row)..remove('in_current_package'),
+            ]
+          : queried;
+      expect(after, before[table]);
     }
     final deck = (await upgraded.db.query('offline_decks')).single;
     expect(deck['is_pinned'], 1);

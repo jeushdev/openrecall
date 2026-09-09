@@ -4,8 +4,7 @@ import 'package:open_recall/features/stats/domain/streak.dart';
 void main() {
   // A fixed "now" so the tests don't drift across midnight.
   final now = DateTime(2026, 8, 29, 10, 30);
-  DateTime daysAgo(int n, {int hour = 9}) =>
-      DateTime(2026, 8, 29 - n, hour);
+  DateTime daysAgo(int n, {int hour = 9}) => DateTime(2026, 8, 29 - n, hour);
 
   test('no sessions is a zero streak', () {
     expect(currentStreak(const [], now: now), 0);
@@ -16,10 +15,7 @@ void main() {
   });
 
   test('today, yesterday, and the day before is three', () {
-    expect(
-      currentStreak([daysAgo(0), daysAgo(1), daysAgo(2)], now: now),
-      3,
-    );
+    expect(currentStreak([daysAgo(0), daysAgo(1), daysAgo(2)], now: now), 3);
   });
 
   test('multiple sessions on the same day count once', () {
@@ -56,10 +52,7 @@ void main() {
   });
 
   test('order of the input does not matter', () {
-    expect(
-      currentStreak([daysAgo(2), daysAgo(0), daysAgo(1)], now: now),
-      3,
-    );
+    expect(currentStreak([daysAgo(2), daysAgo(0), daysAgo(1)], now: now), 3);
   });
 
   test('a run that crosses a month boundary still counts', () {

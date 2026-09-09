@@ -35,8 +35,9 @@ class DeckCreatorState {
   }) {
     return DeckCreatorState(
       name: name ?? this.name,
-      selectedCourseId:
-          selectedCourseId != null ? selectedCourseId() : this.selectedCourseId,
+      selectedCourseId: selectedCourseId != null
+          ? selectedCourseId()
+          : this.selectedCourseId,
       isSubmitting: isSubmitting ?? this.isSubmitting,
       error: error != null ? error() : this.error,
     );
@@ -48,8 +49,8 @@ class DeckCreatorState {
 /// kept alive across navigation.
 final deckCreatorControllerProvider =
     NotifierProvider.autoDispose<DeckCreatorController, DeckCreatorState>(
-  DeckCreatorController.new,
-);
+      DeckCreatorController.new,
+    );
 
 class DeckCreatorController extends Notifier<DeckCreatorState> {
   @override
@@ -60,10 +61,7 @@ class DeckCreatorController extends Notifier<DeckCreatorState> {
   }
 
   void courseSelected(String courseId) {
-    state = state.copyWith(
-      selectedCourseId: () => courseId,
-      error: () => null,
-    );
+    state = state.copyWith(selectedCourseId: () => courseId, error: () => null);
   }
 
   /// Creates the deck via [DecksController] (which invalidates `decksProvider`).
@@ -74,10 +72,9 @@ class DeckCreatorController extends Notifier<DeckCreatorState> {
     if (!state.canSubmit) return null;
     state = state.copyWith(isSubmitting: true, error: () => null);
 
-    final deck = await ref.read(decksControllerProvider.notifier).createDeck(
-          state.name.trim(),
-          courseId: state.selectedCourseId,
-        );
+    final deck = await ref
+        .read(decksControllerProvider.notifier)
+        .createDeck(state.name.trim(), courseId: state.selectedCourseId);
 
     if (deck != null) return deck.id;
 

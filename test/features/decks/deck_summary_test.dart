@@ -5,17 +5,16 @@ void main() {
   Map<String, dynamic> row({
     List<int> masteryLevels = const [],
     String? lastStudiedAt,
-  }) =>
-      {
-        'id': 'deck-1',
-        'name': 'Biology',
-        'last_studied_at': lastStudiedAt,
-        'created_at': '2026-08-01T00:00:00Z',
-        'updated_at': '2026-08-01T00:00:00Z',
-        'cards': [
-          for (final m in masteryLevels) {'mastery_level': m},
-        ],
-      };
+  }) => {
+    'id': 'deck-1',
+    'name': 'Biology',
+    'last_studied_at': lastStudiedAt,
+    'created_at': '2026-08-01T00:00:00Z',
+    'updated_at': '2026-08-01T00:00:00Z',
+    'cards': [
+      for (final m in masteryLevels) {'mastery_level': m},
+    ],
+  };
 
   group('DeckSummary.fromJson', () {
     test('a deck with no cards is 0% mastery, 0 due, 0 total', () {
@@ -49,11 +48,16 @@ void main() {
       expect(summary.dueCards, 1);
     });
 
-    test('masteryLevelSum keeps the raw level total for the aggregation layer',
-        () {
-      expect(DeckSummary.fromJson(row(masteryLevels: [1, 4])).masteryLevelSum, 5);
-      expect(DeckSummary.fromJson(row()).masteryLevelSum, 0);
-    });
+    test(
+      'masteryLevelSum keeps the raw level total for the aggregation layer',
+      () {
+        expect(
+          DeckSummary.fromJson(row(masteryLevels: [1, 4])).masteryLevelSum,
+          5,
+        );
+        expect(DeckSummary.fromJson(row()).masteryLevelSum, 0);
+      },
+    );
 
     test('carries the deck identity fields through', () {
       final summary = DeckSummary.fromJson(

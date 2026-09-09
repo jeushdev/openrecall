@@ -50,7 +50,8 @@ const List<SampleCard> sampleDeckCards = [
   // Keyworded cards — these light up Cloze. Each keyword appears verbatim in
   // the card text so the blank replaces a real word.
   (
-    front: 'The organelle that generates most of a cell’s energy is the '
+    front:
+        'The organelle that generates most of a cell’s energy is the '
         'mitochondria, which produces ATP.',
     back: 'It makes ATP through cellular respiration.',
     keywords: ['mitochondria', 'ATP'],
@@ -63,7 +64,8 @@ const List<SampleCard> sampleDeckCards = [
     isConcept: false,
   ),
   (
-    front: 'The Great Barrier Reef lies off the northeastern coast of Australia.',
+    front:
+        'The Great Barrier Reef lies off the northeastern coast of Australia.',
     back: 'It is the world’s largest coral reef system.',
     keywords: ['Australia'],
     isConcept: false,
@@ -85,7 +87,8 @@ const List<SampleCard> sampleDeckCards = [
   // in your own words; the bulleted back is the reference.
   (
     front: 'Explain supply and demand in your own words.',
-    back: '- As a good’s price rises, suppliers want to sell more but buyers '
+    back:
+        '- As a good’s price rises, suppliers want to sell more but buyers '
         'want to buy less.\n'
         '- As the price falls, buyers want more but suppliers offer less.\n'
         '- The market price settles where quantity supplied meets quantity '
@@ -95,7 +98,8 @@ const List<SampleCard> sampleDeckCards = [
   ),
   (
     front: 'Explain why Earth has seasons.',
-    back: '- Earth’s axis is tilted about 23.5 degrees relative to its '
+    back:
+        '- Earth’s axis is tilted about 23.5 degrees relative to its '
         'orbit.\n'
         '- As Earth orbits the Sun, each hemisphere spends part of the year '
         'tilted toward the Sun and part tilted away.\n'

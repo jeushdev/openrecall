@@ -31,7 +31,7 @@ class OfflineSessionGrace {
     if (state.event == AuthChangeEvent.signedOut) {
       final involuntary =
           state.signOutReason == SignOutReason.sessionExpired ||
-              state.signOutReason == SignOutReason.sessionMissing;
+          state.signOutReason == SignOutReason.sessionMissing;
       _active = involuntary && offline;
     }
   }

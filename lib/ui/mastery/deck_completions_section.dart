@@ -40,10 +40,7 @@ class DeckCompletionsSection extends StatelessWidget {
                       completion.deckName,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: tokens.textPrimary,
-                      ),
+                      style: TextStyle(fontSize: 14, color: tokens.textPrimary),
                     ),
                   ),
                   const SizedBox(width: 12),

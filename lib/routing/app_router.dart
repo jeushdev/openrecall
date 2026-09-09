@@ -77,7 +77,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.forgotPasswordPath,
         name: AppRoutes.forgotPasswordName,
-        pageBuilder: (context, state) => _page(state, const ForgotPasswordScreen()),
+        pageBuilder: (context, state) =>
+            _page(state, const ForgotPasswordScreen()),
       ),
       StatefulShellRoute(
         builder: (context, state, navigationShell) => navigationShell,
@@ -136,7 +137,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: AppRoutes.settingsPath,
         name: AppRoutes.settingsName,
         parentNavigatorKey: rootNavigatorKey,
-        pageBuilder: (context, state) => _page(state, const SettingsTabScreen()),
+        pageBuilder: (context, state) =>
+            _page(state, const SettingsTabScreen()),
       ),
       GoRoute(
         path: AppRoutes.studySessionPath,
@@ -165,34 +167,42 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: AppRoutes.deckCreatorPath,
         name: AppRoutes.deckCreatorName,
         parentNavigatorKey: rootNavigatorKey,
-        pageBuilder: (context, state) => _page(state, const DeckCreatorScreen()),
+        pageBuilder: (context, state) =>
+            _page(state, const DeckCreatorScreen()),
       ),
       GoRoute(
         path: AppRoutes.courseCreatorPath,
         name: AppRoutes.courseCreatorName,
         parentNavigatorKey: rootNavigatorKey,
-        pageBuilder: (context, state) => _page(state, const CourseCreatorScreen()),
+        pageBuilder: (context, state) =>
+            _page(state, const CourseCreatorScreen()),
       ),
       GoRoute(
         path: AppRoutes.deckDetailPath,
         name: AppRoutes.deckDetailName,
         parentNavigatorKey: rootNavigatorKey,
         pageBuilder: (context, state) => _page(
-            state, DeckDetailScreen(deckId: state.pathParameters['deckId']!)),
+          state,
+          DeckDetailScreen(deckId: state.pathParameters['deckId']!),
+        ),
       ),
       GoRoute(
         path: AppRoutes.importCardsPath,
         name: AppRoutes.importCardsName,
         parentNavigatorKey: rootNavigatorKey,
         pageBuilder: (context, state) => _page(
-            state, ImportCardsScreen(deckId: state.pathParameters['deckId']!)),
+          state,
+          ImportCardsScreen(deckId: state.pathParameters['deckId']!),
+        ),
       ),
       GoRoute(
         path: AppRoutes.cardListPath,
         name: AppRoutes.cardListName,
         parentNavigatorKey: rootNavigatorKey,
         pageBuilder: (context, state) => _page(
-            state, CardListScreen(deckId: state.pathParameters['deckId']!)),
+          state,
+          CardListScreen(deckId: state.pathParameters['deckId']!),
+        ),
       ),
     ],
   );

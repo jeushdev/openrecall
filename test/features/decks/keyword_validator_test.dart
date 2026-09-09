@@ -13,23 +13,32 @@ void main() {
 
     test('a keyword that is a substring of the front is accepted', () {
       expect(
-        keywordError('mitochondria',
-            front: 'The mitochondria does what?', back: 'Makes ATP'),
+        keywordError(
+          'mitochondria',
+          front: 'The mitochondria does what?',
+          back: 'Makes ATP',
+        ),
         isNull,
       );
     });
 
     test('a keyword that is a substring of the back is accepted', () {
       expect(
-        keywordError('Paris',
-            front: 'Capital of France', back: 'The capital is Paris'),
+        keywordError(
+          'Paris',
+          front: 'Capital of France',
+          back: 'The capital is Paris',
+        ),
         isNull,
       );
     });
 
     test('a keyword absent from both sides returns a message', () {
-      final error = keywordError('Berlin',
-          front: 'Capital of France', back: 'The capital is Paris');
+      final error = keywordError(
+        'Berlin',
+        front: 'Capital of France',
+        back: 'The capital is Paris',
+      );
 
       expect(error, isNotNull);
       expect(error, contains('front or back'));
@@ -37,8 +46,11 @@ void main() {
 
     test('matching is case-sensitive', () {
       expect(
-        keywordError('paris',
-            front: 'Capital of France', back: 'The capital is Paris'),
+        keywordError(
+          'paris',
+          front: 'Capital of France',
+          back: 'The capital is Paris',
+        ),
         isNotNull,
       );
     });

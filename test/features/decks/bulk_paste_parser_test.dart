@@ -33,8 +33,8 @@ void main() {
     });
 
     test('a one-line block with no pipe is a failure with a reason', () {
-      final failure = parseBulkPaste('no separator here').lines.single
-          as ParseFailure;
+      final failure =
+          parseBulkPaste('no separator here').lines.single as ParseFailure;
 
       expect(failure.lineNumber, 1);
       expect(failure.raw, 'no separator here');
@@ -42,8 +42,7 @@ void main() {
     });
 
     test('an empty front is a failure', () {
-      final failure =
-          parseBulkPaste('   | Paris').lines.single as ParseFailure;
+      final failure = parseBulkPaste('   | Paris').lines.single as ParseFailure;
 
       expect(failure.reason.toLowerCase(), contains('front'));
     });
@@ -57,15 +56,17 @@ void main() {
   });
 
   group('parseBulkPaste — blocks', () {
-    test('a blank line separates two blocks; line numbers point at block starts',
-        () {
-      final result = parseBulkPaste('A | B\n\nC | D');
+    test(
+      'a blank line separates two blocks; line numbers point at block starts',
+      () {
+        final result = parseBulkPaste('A | B\n\nC | D');
 
-      expect(result.lines, hasLength(2));
-      expect((result.lines[0] as ParsedCard).lineNumber, 1);
-      expect((result.lines[1] as ParsedCard).lineNumber, 3);
-      expect((result.lines[1] as ParsedCard).front, 'C');
-    });
+        expect(result.lines, hasLength(2));
+        expect((result.lines[0] as ParsedCard).lineNumber, 1);
+        expect((result.lines[1] as ParsedCard).lineNumber, 3);
+        expect((result.lines[1] as ParsedCard).front, 'C');
+      },
+    );
 
     test('runs of blank lines and leading/trailing blanks are ignored', () {
       final result = parseBulkPaste('\n\nA | B\n   \n\nC | D\n\n');
@@ -75,12 +76,14 @@ void main() {
     });
 
     test('a multi-line block is one card: first line front, rest back', () {
-      final card = parseBulkPaste(
-        'What are the primary colors?\n'
-        '- Red\n'
-        '- Yellow\n'
-        '- Blue',
-      ).lines.single as ParsedCard;
+      final card =
+          parseBulkPaste(
+                'What are the primary colors?\n'
+                '- Red\n'
+                '- Yellow\n'
+                '- Blue',
+              ).lines.single
+              as ParsedCard;
 
       expect(card.front, 'What are the primary colors?');
       expect(card.back, '- Red\n- Yellow\n- Blue');
@@ -105,22 +108,27 @@ void main() {
 
   group('parseBulkPaste — [concept]', () {
     test('a [concept] line sets isConcept and is stripped from the text', () {
-      final card = parseBulkPaste(
-        'Explain natural selection.\n'
-        '[concept]\n'
-        '- Individuals vary.\n'
-        '- The fittest variants leave more offspring.',
-      ).lines.single as ParsedCard;
+      final card =
+          parseBulkPaste(
+                'Explain natural selection.\n'
+                '[concept]\n'
+                '- Individuals vary.\n'
+                '- The fittest variants leave more offspring.',
+              ).lines.single
+              as ParsedCard;
 
       expect(card.isConcept, isTrue);
       expect(card.front, 'Explain natural selection.');
-      expect(card.back,
-          '- Individuals vary.\n- The fittest variants leave more offspring.');
+      expect(
+        card.back,
+        '- Individuals vary.\n- The fittest variants leave more offspring.',
+      );
     });
 
     test('the [concept] tag is case-insensitive and position-independent', () {
-      final card = parseBulkPaste('Front\n[Concept]\nBack line').lines.single
-          as ParsedCard;
+      final card =
+          parseBulkPaste('Front\n[Concept]\nBack line').lines.single
+              as ParsedCard;
 
       expect(card.isConcept, isTrue);
       expect(card.front, 'Front');
@@ -128,15 +136,15 @@ void main() {
     });
 
     test('a block that is only a [concept] tag is a failure', () {
-      final failure =
-          parseBulkPaste('[concept]').lines.single as ParseFailure;
+      final failure = parseBulkPaste('[concept]').lines.single as ParseFailure;
 
       expect(failure.reason.toLowerCase(), contains('concept'));
     });
 
     test('a concept block with a front but no back is a failure', () {
       final failure =
-          parseBulkPaste('Just a front\n[concept]').lines.single as ParseFailure;
+          parseBulkPaste('Just a front\n[concept]').lines.single
+              as ParseFailure;
 
       expect(failure.reason.toLowerCase(), contains('back'));
     });
@@ -144,9 +152,11 @@ void main() {
 
   group('parseBulkPaste — keywords', () {
     test('extracts a {{keyword}} from the back and strips the braces', () {
-      final card = parseBulkPaste('Capital of France | The capital is {{Paris}}')
-          .lines
-          .single as ParsedCard;
+      final card =
+          parseBulkPaste('Capital of France | The capital is {{Paris}}')
+                  .lines
+                  .single
+              as ParsedCard;
 
       expect(card.back, 'The capital is Paris');
       expect(card.keywords, ['Paris']);
@@ -161,11 +171,13 @@ void main() {
     });
 
     test('collects multiple markers across a block, front first then back', () {
-      final card = parseBulkPaste(
-        'The {{powerhouse}} of the cell\n'
-        '- It makes {{ATP}}\n'
-        '- Via {{respiration}}',
-      ).lines.single as ParsedCard;
+      final card =
+          parseBulkPaste(
+                'The {{powerhouse}} of the cell\n'
+                '- It makes {{ATP}}\n'
+                '- Via {{respiration}}',
+              ).lines.single
+              as ParsedCard;
 
       expect(card.front, 'The powerhouse of the cell');
       expect(card.back, '- It makes ATP\n- Via respiration');

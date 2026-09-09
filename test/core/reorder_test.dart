@@ -32,7 +32,8 @@ void main() {
 
     test('is stable — applying it twice yields the same positions', () {
       final once = positionsForOrder(['x', 'y', 'z']);
-      final ordered = once.keys.toList()..sort((a, b) => once[a]!.compareTo(once[b]!));
+      final ordered = once.keys.toList()
+        ..sort((a, b) => once[a]!.compareTo(once[b]!));
       expect(positionsForOrder(ordered), once);
     });
   });

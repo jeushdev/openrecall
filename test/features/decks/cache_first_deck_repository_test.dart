@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:open_recall/features/courses/data/local_course_store.dart';
 import 'package:open_recall/features/decks/data/cache_first_deck_repository.dart';
@@ -6,6 +8,7 @@ import 'package:open_recall/features/decks/domain/card.dart';
 import 'package:open_recall/features/decks/domain/deck.dart';
 
 import '../../support/fake_deck_repository.dart';
+import '../../support/local_db_harness.dart';
 
 /// A [LocalDeckStore] that reports a live database and records `createDeck`.
 class _FakeLocalDeckStore extends LocalDeckStore {
@@ -113,6 +116,8 @@ class _RejectingPackageStore extends LocalDeckStore {
 }
 
 void main() {
+  setUpAll(initLocalDbTestFfi);
+
   test('successful remote deck authoring refreshes cached metadata', () async {
     final local = _FakeLocalDeckStore();
     final repo = CacheFirstDeckRepository(
@@ -309,6 +314,66 @@ void main() {
         expect((await repo.fetchCards('deck-1')).single.id, 'old');
       },
     );
+
+    test('removal suppresses a delayed ordinary mirror write', () async {
+      final database = await openTestDatabase();
+      addTearDown(database.close);
+      final local = LocalDeckStore(database.db);
+      await local.commitDeckPackage(
+        deckId: 'deck-1',
+        deckName: 'Saved',
+        cards: [
+          FlashCard(
+            id: 'old',
+            deckId: 'deck-1',
+            front: 'Old',
+            back: 'Answer',
+            keywords: const [],
+            isConcept: false,
+            masteryLevel: 0,
+            failCount: 0,
+            createdAt: DateTime.utc(2026),
+            updatedAt: DateTime.utc(2026),
+          ),
+        ],
+        pin: true,
+      );
+      final gate = Completer<void>();
+      final remote = FakeDeckRepository(
+        cards: [
+          FlashCard(
+            id: 'late',
+            deckId: 'deck-1',
+            front: 'Late',
+            back: 'Answer',
+            keywords: const [],
+            isConcept: false,
+            masteryLevel: 0,
+            failCount: 0,
+            createdAt: DateTime.utc(2026),
+            updatedAt: DateTime.utc(2026, 2),
+          ),
+        ],
+      )..fetchGate = gate;
+      final repository = CacheFirstDeckRepository(
+        remote,
+        local,
+        LocalCourseStore(database.db),
+      );
+
+      final pending = repository.fetchCards('deck-1');
+      await Future<void>.delayed(Duration.zero);
+      expect(remote.calls, ['fetchCards(deck-1)']);
+      await local.removeDeck('deck-1');
+      gate.complete();
+
+      expect((await pending).single.id, 'late');
+      final status = await local.packageStatus('deck-1');
+      expect(status.cacheSuppressed, isTrue);
+      expect(status.cardsComplete, isFalse);
+      expect(status.isPinned, isFalse);
+      expect(await local.cardById('late'), isNull);
+    });
   });
 
   group('CacheFirstDeckRepository.reorderDecks', () {

@@ -11,12 +11,11 @@ void main() {
     DateTime startedAt, {
     DateTime? completedAt,
     int? cardsReviewed,
-  }) =>
-      CompletedSession(
-        startedAt: startedAt,
-        completedAt: completedAt,
-        cardsReviewed: cardsReviewed,
-      );
+  }) => CompletedSession(
+    startedAt: startedAt,
+    completedAt: completedAt,
+    cardsReviewed: cardsReviewed,
+  );
 
   test('an empty history is all zeros', () {
     final m = buildStudyMetrics(sessions: const [], now: now);
@@ -31,19 +30,22 @@ void main() {
     expect(m.thisWeekStudyTime, Duration.zero);
   });
 
-  test('lifetime totals sum every completed session, nulls counted as zero', () {
-    final m = buildStudyMetrics(
-      sessions: [
-        session(DateTime(2026, 8, 26, 8), cardsReviewed: 7),
-        session(DateTime(2026, 8, 20, 9), cardsReviewed: 10),
-        session(DateTime(2026, 7, 1, 9), cardsReviewed: null),
-      ],
-      now: now,
-    );
+  test(
+    'lifetime totals sum every completed session, nulls counted as zero',
+    () {
+      final m = buildStudyMetrics(
+        sessions: [
+          session(DateTime(2026, 8, 26, 8), cardsReviewed: 7),
+          session(DateTime(2026, 8, 20, 9), cardsReviewed: 10),
+          session(DateTime(2026, 7, 1, 9), cardsReviewed: null),
+        ],
+        now: now,
+      );
 
-    expect(m.sessionsCompleted, 3);
-    expect(m.totalCardsReviewed, 17);
-  });
+      expect(m.sessionsCompleted, 3);
+      expect(m.totalCardsReviewed, 17);
+    },
+  );
 
   test('per-session study time is clamped to two hours', () {
     final m = buildStudyMetrics(

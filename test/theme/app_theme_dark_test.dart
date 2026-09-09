@@ -21,11 +21,16 @@ void main() {
     });
 
     test('carries exactly the 8 named accent keys', () {
-      expect(
-        t.accents.keys.toSet(),
-        <String>{'slate', 'red', 'amber', 'green', 'teal', 'blue', 'violet',
-            'pink'},
-      );
+      expect(t.accents.keys.toSet(), <String>{
+        'slate',
+        'red',
+        'amber',
+        'green',
+        'teal',
+        'blue',
+        'violet',
+        'pink',
+      });
     });
 
     test('the fixed "Mastered" red uses the shared iOS red fill', () {
@@ -34,8 +39,9 @@ void main() {
   });
 
   group('AppTheme.dark', () {
-    testWidgets('resolves AppTokens.dark from context without throwing',
-        (tester) async {
+    testWidgets('resolves AppTokens.dark from context without throwing', (
+      tester,
+    ) async {
       AppTokens? resolved;
       await tester.pumpWidget(
         MaterialApp(
@@ -50,49 +56,49 @@ void main() {
       );
 
       expect(resolved, same(AppTokens.dark));
-      expect(Theme.of(tester.element(find.byType(SizedBox))).brightness,
-          Brightness.dark);
+      expect(
+        Theme.of(tester.element(find.byType(SizedBox))).brightness,
+        Brightness.dark,
+      );
     });
 
     testWidgets(
-        'ThemeMode.system + dark platform brightness picks up AppTokens.dark',
-        (tester) async {
-      tester.platformDispatcher.platformBrightnessTestValue = Brightness.dark;
-      addTearDown(
-        tester.platformDispatcher.clearPlatformBrightnessTestValue,
-      );
+      'ThemeMode.system + dark platform brightness picks up AppTokens.dark',
+      (tester) async {
+        tester.platformDispatcher.platformBrightnessTestValue = Brightness.dark;
+        addTearDown(tester.platformDispatcher.clearPlatformBrightnessTestValue);
 
-      late AppTokens resolved;
-      await tester.pumpWidget(
-        MaterialApp(
-          theme: AppTheme.light,
-          darkTheme: AppTheme.dark,
-          themeMode: ThemeMode.system,
-          home: Builder(
-            builder: (context) {
-              resolved = Theme.of(context).extension<AppTokens>()!;
-              return const SizedBox.shrink();
-            },
+        late AppTokens resolved;
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: AppTheme.light,
+            darkTheme: AppTheme.dark,
+            themeMode: ThemeMode.system,
+            home: Builder(
+              builder: (context) {
+                resolved = Theme.of(context).extension<AppTokens>()!;
+                return const SizedBox.shrink();
+              },
+            ),
           ),
-        ),
-      );
+        );
 
-      expect(resolved, same(AppTokens.dark));
-      expect(resolved.background, const Color(0xFF000000));
-    });
+        expect(resolved, same(AppTokens.dark));
+        expect(resolved.background, const Color(0xFF000000));
+      },
+    );
   });
 
-  testWidgets('themeModeProvider configures MaterialApp.themeMode', (tester) async {
+  testWidgets('themeModeProvider configures MaterialApp.themeMode', (
+    tester,
+  ) async {
     late BuildContext captured;
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [
-          initialThemeModeProvider.overrideWithValue(ThemeMode.dark),
-        ],
+        overrides: [initialThemeModeProvider.overrideWithValue(ThemeMode.dark)],
         child: Consumer(
           builder: (context, ref, _) {
-            final mode =
-                ref.watch(themeModeProvider).value ?? ThemeMode.system;
+            final mode = ref.watch(themeModeProvider).value ?? ThemeMode.system;
             return MaterialApp(
               theme: AppTheme.light,
               darkTheme: AppTheme.dark,

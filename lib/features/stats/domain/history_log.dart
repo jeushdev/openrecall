@@ -52,8 +52,16 @@ class HistoryEntry {
       other.masteryDelta == masteryDelta;
 
   @override
-  int get hashCode => Object.hash(deckId, deckName, courseName, accentColor,
-      studyMode, cardsReviewed, completedAt, masteryDelta);
+  int get hashCode => Object.hash(
+    deckId,
+    deckName,
+    courseName,
+    accentColor,
+    studyMode,
+    cardsReviewed,
+    completedAt,
+    masteryDelta,
+  );
 }
 
 /// Joins [sessions] (the `recentCompletedSessionsProvider` list) against [decks]

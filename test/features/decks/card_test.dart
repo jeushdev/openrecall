@@ -7,28 +7,29 @@ void main() {
     Object? isConcept,
     int mastery = 0,
     int fails = 0,
-  }) =>
-      {
-        'id': 'card-1',
-        'deck_id': 'deck-1',
-        'front': 'Capital of France',
-        'back': 'Paris',
-        'keywords': ?keywords,
-        'is_concept': ?isConcept,
-        'mastery_level': mastery,
-        'fail_count': fails,
-        'created_at': '2026-08-01T00:00:00Z',
-        'updated_at': '2026-08-02T00:00:00Z',
-      };
+  }) => {
+    'id': 'card-1',
+    'deck_id': 'deck-1',
+    'front': 'Capital of France',
+    'back': 'Paris',
+    'keywords': ?keywords,
+    'is_concept': ?isConcept,
+    'mastery_level': mastery,
+    'fail_count': fails,
+    'created_at': '2026-08-01T00:00:00Z',
+    'updated_at': '2026-08-02T00:00:00Z',
+  };
 
   group('FlashCard.fromJson', () {
     test('maps the snake_case columns onto the model', () {
-      final card = FlashCard.fromJson(row(
-        keywords: ['Paris', 'France'],
-        isConcept: true,
-        mastery: 3,
-        fails: 2,
-      ));
+      final card = FlashCard.fromJson(
+        row(
+          keywords: ['Paris', 'France'],
+          isConcept: true,
+          mastery: 3,
+          fails: 2,
+        ),
+      );
 
       expect(card.id, 'card-1');
       expect(card.deckId, 'deck-1');
@@ -56,7 +57,10 @@ void main() {
     });
 
     test('cards differing by a field are not equal', () {
-      expect(FlashCard.fromJson(row(mastery: 1)), isNot(FlashCard.fromJson(row())));
+      expect(
+        FlashCard.fromJson(row(mastery: 1)),
+        isNot(FlashCard.fromJson(row())),
+      );
     });
 
     test('cards differing only by keywords are not equal', () {
@@ -84,7 +88,10 @@ void main() {
     });
 
     test('matches masteryPercentFromLevels for the same cards', () {
-      expect(masteryPercentFromLevelSum(5, 2), masteryPercentFromLevels([1, 4]));
+      expect(
+        masteryPercentFromLevelSum(5, 2),
+        masteryPercentFromLevels([1, 4]),
+      );
       expect(masteryPercentFromLevelSum(5, 2), 63);
     });
 

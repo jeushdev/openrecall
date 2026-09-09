@@ -34,7 +34,10 @@ class DeckTile extends StatelessWidget {
               Row(
                 children: [
                   Expanded(
-                    child: Text(summary.name, style: theme.textTheme.titleMedium),
+                    child: Text(
+                      summary.name,
+                      style: theme.textTheme.titleMedium,
+                    ),
                   ),
                   if (offline)
                     Icon(

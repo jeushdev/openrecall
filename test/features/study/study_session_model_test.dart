@@ -21,27 +21,28 @@ void main() {
       int? cappedLength,
       int? masteryDelta,
       String? completedAt,
-    }) =>
-        {
-          'id': 'session-1',
-          'deck_id': 'deck-1',
-          'status': status,
-          'study_mode': 'flip',
-          'length_mode': lengthMode,
-          'capped_length': cappedLength,
-          'mastery_delta': masteryDelta,
-          'started_at': '2026-08-01T00:00:00Z',
-          'completed_at': completedAt,
-        };
+    }) => {
+      'id': 'session-1',
+      'deck_id': 'deck-1',
+      'status': status,
+      'study_mode': 'flip',
+      'length_mode': lengthMode,
+      'capped_length': cappedLength,
+      'mastery_delta': masteryDelta,
+      'started_at': '2026-08-01T00:00:00Z',
+      'completed_at': completedAt,
+    };
 
     test('maps the columns onto the model', () {
-      final session = StudySession.fromJson(row(
-        status: 'completed',
-        lengthMode: 'capped',
-        cappedLength: 20,
-        masteryDelta: 15,
-        completedAt: '2026-08-01T01:00:00Z',
-      ));
+      final session = StudySession.fromJson(
+        row(
+          status: 'completed',
+          lengthMode: 'capped',
+          cappedLength: 20,
+          masteryDelta: 15,
+          completedAt: '2026-08-01T01:00:00Z',
+        ),
+      );
 
       expect(session.id, 'session-1');
       expect(session.deckId, 'deck-1');
@@ -76,22 +77,19 @@ void main() {
       int position = 1000,
       int consecutiveFails = 0,
       bool isParked = false,
-    }) =>
-        {
-          'id': 'sc-1',
-          'session_id': 'session-1',
-          'card_id': 'card-1',
-          'position': position,
-          'consecutive_fails': consecutiveFails,
-          'is_parked': isParked,
-        };
+    }) => {
+      'id': 'sc-1',
+      'session_id': 'session-1',
+      'card_id': 'card-1',
+      'position': position,
+      'consecutive_fails': consecutiveFails,
+      'is_parked': isParked,
+    };
 
     test('maps the columns onto the model', () {
-      final sc = SessionCard.fromJson(row(
-        position: 3000,
-        consecutiveFails: 2,
-        isParked: true,
-      ));
+      final sc = SessionCard.fromJson(
+        row(position: 3000, consecutiveFails: 2, isParked: true),
+      );
       expect(sc.id, 'sc-1');
       expect(sc.sessionId, 'session-1');
       expect(sc.cardId, 'card-1');

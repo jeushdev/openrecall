@@ -22,10 +22,13 @@ void main() {
     expect(await p.cardTransition(), CardTransition.fade);
   });
 
-  test('defaults the card font size to medium when nothing is stored', () async {
-    final p = await prefs({});
-    expect(await p.cardFontSize(), CardFontSize.medium);
-  });
+  test(
+    'defaults the card font size to medium when nothing is stored',
+    () async {
+      final p = await prefs({});
+      expect(await p.cardFontSize(), CardFontSize.medium);
+    },
+  );
 
   test('round-trips the card font size', () async {
     final p = await prefs({});

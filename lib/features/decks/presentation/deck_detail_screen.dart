@@ -1,8 +1,10 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../routing/app_routes.dart';
+import '../../../core/connectivity/connectivity_service.dart';
 import '../../../theme/app_geometry.dart';
 import '../../../theme/app_tokens.dart';
 import '../../../ui/common/bounded_bottom_sheet.dart';
@@ -11,9 +13,14 @@ import '../../study/domain/study_session.dart';
 import '../../study/presentation/study_session_args.dart';
 import '../../study/presentation/widgets/mode_picker.dart';
 import '../application/deck_providers.dart';
+import '../application/offline_providers.dart';
+import '../application/offline_runtime_providers.dart';
+import '../data/cache_first_deck_repository.dart';
 import '../domain/deck.dart';
+import '../domain/offline_download.dart';
 import '../domain/study_mode.dart';
 import 'widgets/course_selector.dart';
+import 'widgets/offline_toggle.dart';
 
 /// Deck detail (`/deck/:deckId`, ui-spec-v2 §6.3) — the screen a deck tile opens
 /// instead of dropping straight into a study session.
@@ -32,6 +39,7 @@ class DeckDetailScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    ref.watch(offlineDeckObservationProvider(deckId));
     ref.listen(decksControllerProvider, (_, next) {
       if (next case AsyncError(:final error)) {
         ScaffoldMessenger.of(context)
@@ -45,6 +53,25 @@ class DeckDetailScreen extends ConsumerWidget {
     final tokens = Theme.of(context).extension<AppTokens>()!;
     final deckName = _deckName(ref.watch(decksProvider));
     final cards = ref.watch(deckCardsProvider(deckId));
+    final hasStorage = !kIsWeb && ref.watch(offlineStorageAvailableProvider);
+    final package = hasStorage
+        ? ref.watch(offlinePackageStatusProvider(deckId))
+        : null;
+    final online = ref.watch(onlineStatusProvider).asData?.value ?? true;
+    final operationDeckId = ref.watch(offlineOperationDeckIdProvider);
+    final controller = ref.watch(offlineControllerProvider);
+    final busy = operationDeckId == deckId && controller.isLoading;
+    final progress = ref.watch(downloadProgressProvider);
+    final deckProgress = progress?.deckId == deckId ? progress : null;
+
+    ref.listen(offlineControllerProvider, (_, next) {
+      if (operationDeckId != deckId) return;
+      if (next case AsyncError(:final error)) {
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(SnackBar(content: Text('Offline copy: $error')));
+      }
+    });
 
     return Scaffold(
       backgroundColor: tokens.background,
@@ -61,15 +88,30 @@ class DeckDetailScreen extends ConsumerWidget {
           ),
           PopupMenuButton<_DeckAction>(
             onSelected: (action) => switch (action) {
+              _DeckAction.download => _download(ref, deckName),
+              _DeckAction.removeOffline => _removeOffline(context, ref),
               _DeckAction.edit => _editDeck(context),
               _DeckAction.delete => _deleteDeck(context, ref),
             },
-            itemBuilder: (_) => const [
-              PopupMenuItem(
+            itemBuilder: (_) => [
+              if (hasStorage)
+                if (package?.value?.isExplicitlyAvailable == true)
+                  PopupMenuItem(
+                    value: _DeckAction.removeOffline,
+                    enabled: !busy,
+                    child: const Text('Remove offline copy'),
+                  )
+                else
+                  PopupMenuItem(
+                    value: _DeckAction.download,
+                    enabled: online && !busy && deckProgress == null,
+                    child: const Text('Download for offline use'),
+                  ),
+              const PopupMenuItem(
                 value: _DeckAction.edit,
                 child: Text('Edit deck'),
               ),
-              PopupMenuItem(
+              const PopupMenuItem(
                 value: _DeckAction.delete,
                 child: Text('Delete deck'),
               ),
@@ -77,50 +119,65 @@ class DeckDetailScreen extends ConsumerWidget {
           ),
         ],
       ),
-      body: cards.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (_, _) => _CardsError(
-          onRetry: () => ref.invalidate(deckCardsProvider(deckId)),
-        ),
-        data: (list) {
-          if (list.isEmpty) {
-            return _AddCardsCta(
-              onTap: () => context.pushNamed(
-                AppRoutes.importCardsName,
-                pathParameters: {'deckId': deckId},
-              ),
-            );
-          }
-          final modes =
-              StudyMode.values.where(availableModes(list).contains).toList();
-          return Column(
-            children: [
-              Expanded(
-                child: ModePicker(
-                  modes: modes,
-                  onSelected: (mode) => context.pushNamed(
-                    AppRoutes.studySessionName,
-                    pathParameters: {'deckId': deckId},
-                    extra: StudySessionArgs(
-                      deckId: deckId,
-                      deckName: deckName,
-                      mode: mode,
-                      cardScope: CardScope.all,
+      body: Column(
+        children: [
+          if (hasStorage)
+            _OfflineDeckStatus(
+              package: package!,
+              progress: deckProgress,
+              busy: busy,
+            ),
+          Expanded(
+            child: cards.when(
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (error, _) => error is DeckUnavailableOfflineException
+                  ? const _UnavailableOffline()
+                  : _CardsError(
+                      onRetry: () => ref.invalidate(deckCardsProvider(deckId)),
                     ),
-                  ),
-                ),
-              ),
-              _ViewCardsRow(
-                count: list.length,
-                onTap: () => context.pushNamed(
-                  AppRoutes.cardListName,
-                  pathParameters: {'deckId': deckId},
-                ),
-              ),
-              const SizedBox(height: 16),
-            ],
-          );
-        },
+              data: (list) {
+                if (list.isEmpty) {
+                  return _AddCardsCta(
+                    onTap: () => context.pushNamed(
+                      AppRoutes.importCardsName,
+                      pathParameters: {'deckId': deckId},
+                    ),
+                  );
+                }
+                final modes = StudyMode.values
+                    .where(availableModes(list).contains)
+                    .toList();
+                return Column(
+                  children: [
+                    Expanded(
+                      child: ModePicker(
+                        modes: modes,
+                        onSelected: (mode) => context.pushNamed(
+                          AppRoutes.studySessionName,
+                          pathParameters: {'deckId': deckId},
+                          extra: StudySessionArgs(
+                            deckId: deckId,
+                            deckName: deckName,
+                            mode: mode,
+                            cardScope: CardScope.all,
+                          ),
+                        ),
+                      ),
+                    ),
+                    _ViewCardsRow(
+                      count: list.length,
+                      onTap: () => context.pushNamed(
+                        AppRoutes.cardListName,
+                        pathParameters: {'deckId': deckId},
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+                );
+              },
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -135,14 +192,23 @@ class DeckDetailScreen extends ConsumerWidget {
   Future<void> _editDeck(BuildContext context) =>
       _DeckEditSheet.show(context, deckId: deckId);
 
+  Future<void> _download(WidgetRef ref, String? deckName) => ref
+      .read(offlineControllerProvider.notifier)
+      .download(deckId, deckName ?? 'Deck');
+
+  Future<void> _removeOffline(BuildContext context, WidgetRef ref) async {
+    if (await confirmRemoveOfflineCopy(context, ref, deckId) &&
+        context.mounted) {
+      await ref.read(offlineControllerProvider.notifier).remove(deckId);
+    }
+  }
+
   Future<void> _deleteDeck(BuildContext context, WidgetRef ref) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
         title: const Text('Delete deck?'),
-        content: const Text(
-          'This removes it and its cards permanently.',
-        ),
+        content: const Text('This removes it and its cards permanently.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
@@ -166,7 +232,56 @@ class DeckDetailScreen extends ConsumerWidget {
   }
 }
 
-enum _DeckAction { edit, delete }
+enum _DeckAction { download, removeOffline, edit, delete }
+
+class _OfflineDeckStatus extends StatelessWidget {
+  const _OfflineDeckStatus({
+    required this.package,
+    required this.progress,
+    required this.busy,
+  });
+
+  final AsyncValue<OfflinePackageStatus> package;
+  final DownloadProgress? progress;
+  final bool busy;
+
+  @override
+  Widget build(BuildContext context) {
+    if (package.isLoading && progress == null && !busy) {
+      return const SizedBox.shrink();
+    }
+    final status = package.value;
+    final text = progress != null
+        ? 'Downloading ${progress!.done} of ${progress!.total} cards…'
+        : busy
+        ? 'Updating offline copy…'
+        : status?.remoteMissing == true
+        ? 'This deck is no longer available online. Your saved copy is still on this device.'
+        : status?.isExplicitlyAvailable == true
+        ? 'Available offline'
+        : null;
+    if (text == null) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.download_done_outlined, size: 16),
+              const SizedBox(width: 6),
+              Expanded(child: Text(text)),
+            ],
+          ),
+          if (progress != null) ...[
+            const SizedBox(height: 6),
+            LinearProgressIndicator(value: progress!.fraction),
+          ],
+        ],
+      ),
+    );
+  }
+}
 
 /// Rename a deck and/or move it to another course (ui-spec-v2 §6.3), submitting
 /// to [DecksController.updateDeck]. The codebase's bottom-sheet idiom mirrors
@@ -207,7 +322,8 @@ class _DeckEditSheetState extends ConsumerState<_DeckEditSheet> {
   @override
   void initState() {
     super.initState();
-    final decks = ref.read(decksProvider).asData?.value ?? const <DeckSummary>[];
+    final decks =
+        ref.read(decksProvider).asData?.value ?? const <DeckSummary>[];
     DeckSummary? deck;
     for (final d in decks) {
       if (d.id == widget.deckId) deck = d;
@@ -227,11 +343,9 @@ class _DeckEditSheetState extends ConsumerState<_DeckEditSheet> {
   Future<void> _save() async {
     final name = _name.text.trim();
     if (name.isEmpty) return;
-    final deck = await ref.read(decksControllerProvider.notifier).updateDeck(
-          id: widget.deckId,
-          name: name,
-          courseId: _courseId,
-        );
+    final deck = await ref
+        .read(decksControllerProvider.notifier)
+        .updateDeck(id: widget.deckId, name: name, courseId: _courseId);
     if (!mounted) return;
     if (deck != null) Navigator.of(context).pop();
   }
@@ -431,6 +545,25 @@ class _CardsError extends StatelessWidget {
             const SizedBox(height: 12),
             FilledButton(onPressed: onRetry, child: const Text('Retry')),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _UnavailableOffline extends StatelessWidget {
+  const _UnavailableOffline();
+
+  @override
+  Widget build(BuildContext context) {
+    final tokens = Theme.of(context).extension<AppTokens>()!;
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Text(
+          "This deck isn't available offline. Connect to the internet to download it.",
+          textAlign: TextAlign.center,
+          style: TextStyle(fontSize: 15, color: tokens.textPrimary),
         ),
       ),
     );

@@ -68,7 +68,11 @@ class CacheFirstDeckRepository implements DeckRepository {
     }
 
     try {
+      if ((await _local.packageStatus(deckId)).cacheSuppressed) return cards;
       await _local.mirrorCards(deckId, cards);
+      // This write belongs to the read currently producing these cards. It is
+      // not an external package commit: publishing it would invalidate the
+      // producer and immediately start the same online revalidation again.
       return _local.isNoop ? cards : await _local.cards(deckId);
     } catch (_) {
       // A local validation/write failure must not replace usable online data

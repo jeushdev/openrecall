@@ -472,6 +472,7 @@ void main() {
       ...AppDatabase.upgradeToV5Statements,
       ...AppDatabase.upgradeToV6Statements,
       ...AppDatabase.upgradeToV7Statements,
+      ...AppDatabase.upgradeToV8Statements,
     ]);
     final upgradedFromV2 = _build([
       ..._v2Schema,
@@ -480,6 +481,7 @@ void main() {
       ...AppDatabase.upgradeToV5Statements,
       ...AppDatabase.upgradeToV6Statements,
       ...AppDatabase.upgradeToV7Statements,
+      ...AppDatabase.upgradeToV8Statements,
     ]);
     final upgradedFromV3 = _build([
       ..._v3Schema,
@@ -487,17 +489,20 @@ void main() {
       ...AppDatabase.upgradeToV5Statements,
       ...AppDatabase.upgradeToV6Statements,
       ...AppDatabase.upgradeToV7Statements,
+      ...AppDatabase.upgradeToV8Statements,
     ]);
     final upgradedFromV4 = _build([
       ..._v4Schema,
       ...AppDatabase.upgradeToV5Statements,
       ...AppDatabase.upgradeToV6Statements,
       ...AppDatabase.upgradeToV7Statements,
+      ...AppDatabase.upgradeToV8Statements,
     ]);
     final upgradedFromV5 = _build([
       ..._v5Schema,
       ...AppDatabase.upgradeToV6Statements,
       ...AppDatabase.upgradeToV7Statements,
+      ...AppDatabase.upgradeToV8Statements,
     ]);
 
     test(
@@ -540,7 +545,7 @@ void main() {
       },
     );
 
-    test('a v5 database upgraded to v6 matches a fresh v6 install', () {
+    test('a v5 database upgraded to current matches a fresh install', () {
       expect(upgradedFromV5.tables, equals(fresh.tables));
       expect(upgradedFromV5.indexes, equals(fresh.indexes));
     });
@@ -563,6 +568,21 @@ void main() {
         expect(fresh.tables.containsKey('offline_meta'), isTrue);
       },
     );
+
+    test('the fresh schema carries Phase 2 package-state columns', () {
+      expect(
+        fresh.tables['offline_cards']!['in_current_package'],
+        'integer not null default 0',
+      );
+      expect(
+        fresh.tables['offline_decks']!['remote_missing'],
+        'integer not null default 0',
+      );
+      expect(
+        fresh.tables['offline_decks']!['cache_suppressed'],
+        'integer not null default 0',
+      );
+    });
 
     test('the fresh schema carries the milestone-D cards_reviewed column', () {
       expect(

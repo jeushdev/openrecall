@@ -1,11 +1,15 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:open_recall/core/local_db/app_database.dart';
 import 'package:open_recall/core/local_db/local_db_providers.dart';
+import 'package:open_recall/features/courses/domain/course.dart';
 import 'package:open_recall/features/decks/application/offline_providers.dart';
 import 'package:open_recall/features/decks/data/local_deck_store.dart';
 import 'package:open_recall/features/decks/domain/card.dart';
 import 'package:open_recall/features/decks/domain/deck_repository.dart';
+import 'package:open_recall/features/decks/domain/deck.dart';
 import 'package:open_recall/features/decks/domain/offline_download.dart';
 
 import '../../support/local_db_harness.dart';
@@ -35,6 +39,27 @@ class _PagedSource implements OfflineDownloadSource {
   _PagedSource(this.total);
   final int total;
   final List<int> pageOffsets = [];
+
+  @override
+  Future<Deck?> fetchDeck(String deckId) async => Deck(
+    id: deckId,
+    name: 'Remote Biology',
+    courseId: 'course-1',
+    lastStudiedAt: null,
+    createdAt: DateTime.utc(2026),
+    updatedAt: DateTime.utc(2026),
+  );
+
+  @override
+  Future<Course?> fetchCourse(String courseId) async => Course(
+    id: courseId,
+    userId: 'user-1',
+    name: 'Science',
+    accentColor: 'green',
+    isDefault: false,
+    createdAt: DateTime.utc(2026),
+    updatedAt: DateTime.utc(2026),
+  );
 
   @override
   Future<int> countCards(String deckId) async => total;
@@ -78,6 +103,15 @@ class _DuplicateSource extends _PagedSource {
   }) async => [_card('same', deckId), _card('same', deckId)];
 }
 
+class _DelayedSource extends _PagedSource {
+  _DelayedSource() : super(1);
+
+  final countCompleter = Completer<int>();
+
+  @override
+  Future<int> countCards(String deckId) => countCompleter.future;
+}
+
 void main() {
   setUpAll(initLocalDbTestFfi);
 
@@ -119,6 +153,11 @@ void main() {
     final store = LocalDeckStore(db.db);
     expect((await store.cards('d1')).length, 250);
     expect(await store.pinnedDeckIds(), contains('d1'));
+    expect(
+      (await db.db.query('offline_decks')).single['name'],
+      'Remote Biology',
+    );
+    expect((await db.db.query('offline_courses')).single['name'], 'Science');
   });
 
   test('pinned provider excludes an incomplete metadata-only row', () async {
@@ -227,5 +266,31 @@ void main() {
     expect(await store.isCardSetComplete('d1'), isTrue);
     expect((await store.cards('d1')).single.id, 'old');
     expect(await store.pinnedDeckIds(), contains('d1'));
+  });
+
+  test('removal supersedes a delayed package operation', () async {
+    final store = LocalDeckStore(db.db);
+    await store.commitDeckPackage(
+      deckId: 'd1',
+      deckName: 'Biology',
+      cards: [_card('old', 'd1')],
+      pin: true,
+    );
+    final source = _DelayedSource();
+    final c = containerWith(source);
+
+    final delayed = c
+        .read(offlineControllerProvider.notifier)
+        .download('d1', 'Biology');
+    await Future<void>.delayed(Duration.zero);
+    await c.read(offlineControllerProvider.notifier).remove('d1');
+    source.countCompleter.complete(1);
+    await delayed;
+
+    final status = await store.packageStatus('d1');
+    expect(status.cacheSuppressed, isTrue);
+    expect(status.cardsComplete, isFalse);
+    expect(await store.cardById('c0'), isNull);
+    expect(c.read(offlineControllerProvider), isA<AsyncData<void>>());
   });
 }

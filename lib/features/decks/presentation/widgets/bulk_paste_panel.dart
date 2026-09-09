@@ -75,9 +75,9 @@ class _BulkPastePanelState extends ConsumerState<BulkPastePanel> {
       // the local write itself failed — leave the paste box untouched for retry.
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
-        ..showSnackBar(const SnackBar(
-          content: Text("Couldn't add the cards, try again."),
-        ));
+        ..showSnackBar(
+          const SnackBar(content: Text("Couldn't add the cards, try again.")),
+        );
       return;
     }
 
@@ -87,8 +87,7 @@ class _BulkPastePanelState extends ConsumerState<BulkPastePanel> {
     _reparse();
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
-      ..showSnackBar(
-          SnackBar(content: Text('Added ${added.length} card(s).')));
+      ..showSnackBar(SnackBar(content: Text('Added ${added.length} card(s).')));
   }
 
   @override
@@ -117,7 +116,8 @@ class _BulkPastePanelState extends ConsumerState<BulkPastePanel> {
           onChanged: _onChanged,
           decoration: const InputDecoration(
             labelText: 'Paste your cards here',
-            helperText: 'Separate cards with a blank line. First line is the '
+            helperText:
+                'Separate cards with a blank line. First line is the '
                 'front, the rest is the back. Mark keywords with {{braces}}; '
                 'add a [concept] line for Feynman cards.',
             helperMaxLines: 3,
@@ -184,10 +184,12 @@ class _Preview extends StatelessWidget {
                   '${keywords.isEmpty ? '' : '   [keyword${keywords.length == 1 ? '' : 's'}: ${keywords.join(', ')}]'}',
                   style: theme.textTheme.bodySmall,
                 ),
-              ParseFailure(:final lineNumber, :final raw, :final reason) => Text(
+              ParseFailure(:final lineNumber, :final raw, :final reason) =>
+                Text(
                   '✗  Line $lineNumber: "${_firstLine(raw)}" — $reason',
-                  style: theme.textTheme.bodySmall
-                      ?.copyWith(color: theme.colorScheme.error),
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.error,
+                  ),
                 ),
             },
           ),

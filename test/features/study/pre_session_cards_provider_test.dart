@@ -10,17 +10,17 @@ import 'package:open_recall/features/study/application/pre_session_cards_provide
 import '../../support/fake_deck_repository.dart';
 
 FlashCard _card(String id, {String deckId = 'deck-1'}) => FlashCard(
-      id: id,
-      deckId: deckId,
-      front: 'front-$id',
-      back: 'back-$id',
-      keywords: const [],
-      isConcept: false,
-      masteryLevel: 0,
-      failCount: 0,
-      createdAt: DateTime.utc(2026),
-      updatedAt: DateTime.utc(2026),
-    );
+  id: id,
+  deckId: deckId,
+  front: 'front-$id',
+  back: 'back-$id',
+  keywords: const [],
+  isConcept: false,
+  masteryLevel: 0,
+  failCount: 0,
+  createdAt: DateTime.utc(2026),
+  updatedAt: DateTime.utc(2026),
+);
 
 ProviderContainer _container(FakeDeckRepository decks) {
   final container = ProviderContainer(
@@ -36,8 +36,9 @@ void main() {
       final decks = FakeDeckRepository(cards: [_card('a'), _card('b')]);
       final container = _container(decks);
 
-      final cards =
-          await container.read(preSessionCardsProvider('deck-1').future);
+      final cards = await container.read(
+        preSessionCardsProvider('deck-1').future,
+      );
 
       expect(cards.map((c) => c.id), ['a', 'b']);
     });
@@ -45,8 +46,9 @@ void main() {
     test('resolves to an empty list for a deck with no cards', () async {
       final container = _container(FakeDeckRepository());
 
-      final cards =
-          await container.read(preSessionCardsProvider('deck-1').future);
+      final cards = await container.read(
+        preSessionCardsProvider('deck-1').future,
+      );
 
       expect(cards, isEmpty);
     });

@@ -43,9 +43,10 @@ class FeynmanReferenceDialog extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final tokens = Theme.of(context).extension<AppTokens>()!;
-    final scale = (ref.watch(studyAppearanceProvider).asData?.value.cardFontSize ??
-            CardFontSize.medium)
-        .scale;
+    final scale =
+        (ref.watch(studyAppearanceProvider).asData?.value.cardFontSize ??
+                CardFontSize.medium)
+            .scale;
     // The prompt is the concept card's front; the reference is its (possibly
     // multi-line / bulleted) back — docs/spec-v3-card-model.md.
     final prompt = card.front.trim();
@@ -127,9 +128,8 @@ class FeynmanReferenceDialog extends ConsumerWidget {
     );
 
     return MediaQuery(
-      data: MediaQuery.of(context).copyWith(
-        textScaler: TextScaler.linear(scale),
-      ),
+      data: MediaQuery.of(context)
+          .copyWith(textScaler: TextScaler.linear(scale)),
       child: reference,
     );
   }

@@ -68,8 +68,9 @@ class _ModeButton extends StatelessWidget {
             padding: const EdgeInsets.only(top: 2, left: 4),
             child: Text(
               'No cards support this yet',
-              style: theme.textTheme.bodySmall
-                  ?.copyWith(color: theme.colorScheme.outline),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.outline,
+              ),
             ),
           ),
       ],

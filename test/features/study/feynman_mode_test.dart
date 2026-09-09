@@ -17,19 +17,22 @@ import '../../support/fake_deck_repository.dart';
 import '../../support/fake_study_repository.dart';
 
 FlashCard _multiLineCard(String id) => FlashCard(
-      id: id,
-      deckId: 'deck-1',
-      front: 'Branches of government',
-      back: 'Legislative\nExecutive\nJudicial',
-      keywords: const [],
-      isConcept: true,
-      masteryLevel: 0,
-      failCount: 0,
-      createdAt: DateTime.utc(2026),
-      updatedAt: DateTime.utc(2026),
-    );
+  id: id,
+  deckId: 'deck-1',
+  front: 'Branches of government',
+  back: 'Legislative\nExecutive\nJudicial',
+  keywords: const [],
+  isConcept: true,
+  masteryLevel: 0,
+  failCount: 0,
+  createdAt: DateTime.utc(2026),
+  updatedAt: DateTime.utc(2026),
+);
 
-Widget _host({required FakeDeckRepository decks, required FakeStudyRepository study}) {
+Widget _host({
+  required FakeDeckRepository decks,
+  required FakeStudyRepository study,
+}) {
   final router = GoRouter(
     initialLocation: '/home',
     routes: [
@@ -41,7 +44,9 @@ Widget _host({required FakeDeckRepository decks, required FakeStudyRepository st
             path: 'study/:deckId',
             builder: (_, state) => StudySessionScreen(
               deckId: state.pathParameters['deckId']!,
-              scope: cardScopeFromDb(state.uri.queryParameters['scope'] ?? 'due'),
+              scope: cardScopeFromDb(
+                state.uri.queryParameters['scope'] ?? 'due',
+              ),
             ),
           ),
         ],
@@ -63,7 +68,8 @@ Future<void> _open(
   required FakeStudyRepository study,
 }) async {
   await tester.pumpWidget(_host(decks: decks, study: study));
-  GoRouter.of(tester.element(find.text('Home'))).go('/home/study/deck-1?scope=due');
+  GoRouter.of(tester.element(find.text('Home')))
+      .go('/home/study/deck-1?scope=due');
   await tester.pumpAndSettle();
 }
 
@@ -77,8 +83,9 @@ Future<void> _startFeynman(WidgetTester tester, {int preset = 30}) async {
 }
 
 void main() {
-  testWidgets('picking Feynman shows the timer preset picker, not a card yet',
-      (tester) async {
+  testWidgets('picking Feynman shows the timer preset picker, not a card yet', (
+    tester,
+  ) async {
     await _open(
       tester,
       decks: FakeDeckRepository(cards: [_multiLineCard('a')]),
@@ -96,24 +103,27 @@ void main() {
     expect(find.byType(FeynmanCardView), findsNothing);
   });
 
-  testWidgets('after a preset: prompt + Ready, no Finished button, no rating row',
-      (tester) async {
-    await _open(
-      tester,
-      decks: FakeDeckRepository(cards: [_multiLineCard('a')]),
-      study: FakeStudyRepository(),
-    );
-    await _startFeynman(tester);
+  testWidgets(
+    'after a preset: prompt + Ready, no Finished button, no rating row',
+    (tester) async {
+      await _open(
+        tester,
+        decks: FakeDeckRepository(cards: [_multiLineCard('a')]),
+        study: FakeStudyRepository(),
+      );
+      await _startFeynman(tester);
 
-    expect(find.byType(FeynmanCardView), findsOneWidget);
-    expect(find.text('Branches of government'), findsOneWidget);
-    expect(find.widgetWithText(FilledButton, 'Ready'), findsOneWidget);
-    expect(find.text('Finished'), findsNothing);
-    expect(find.byType(RatingRow), findsNothing);
-  });
+      expect(find.byType(FeynmanCardView), findsOneWidget);
+      expect(find.text('Branches of government'), findsOneWidget);
+      expect(find.widgetWithText(FilledButton, 'Ready'), findsOneWidget);
+      expect(find.text('Finished'), findsNothing);
+      expect(find.byType(RatingRow), findsNothing);
+    },
+  );
 
-  testWidgets('tapping Ready starts the countdown and shows Finished',
-      (tester) async {
+  testWidgets('tapping Ready starts the countdown and shows Finished', (
+    tester,
+  ) async {
     await _open(
       tester,
       decks: FakeDeckRepository(cards: [_multiLineCard('a')]),
@@ -132,49 +142,54 @@ void main() {
     await tester.pumpAndSettle();
   });
 
-  testWidgets('tapping Finished reveals the rating row and the reference chip',
-      (tester) async {
-    await _open(
-      tester,
-      decks: FakeDeckRepository(cards: [_multiLineCard('a')]),
-      study: FakeStudyRepository(),
-    );
-    await _startFeynman(tester);
-    await tester.tap(find.text('Ready'));
-    await tester.pump();
-    await tester.tap(find.text('Finished'));
-    await tester.pumpAndSettle();
+  testWidgets(
+    'tapping Finished reveals the rating row and the reference chip',
+    (tester) async {
+      await _open(
+        tester,
+        decks: FakeDeckRepository(cards: [_multiLineCard('a')]),
+        study: FakeStudyRepository(),
+      );
+      await _startFeynman(tester);
+      await tester.tap(find.text('Ready'));
+      await tester.pump();
+      await tester.tap(find.text('Finished'));
+      await tester.pumpAndSettle();
 
-    expect(find.byType(RatingRow), findsOneWidget);
-    expect(find.text('Reveal reference'), findsOneWidget);
-  });
+      expect(find.byType(RatingRow), findsOneWidget);
+      expect(find.text('Reveal reference'), findsOneWidget);
+    },
+  );
 
-  testWidgets('the reference modal opens over a scrim and dismisses on outside tap',
-      (tester) async {
-    await _open(
-      tester,
-      decks: FakeDeckRepository(cards: [_multiLineCard('a')]),
-      study: FakeStudyRepository(),
-    );
-    await _startFeynman(tester);
-    await tester.tap(find.text('Ready'));
-    await tester.pump();
-    await tester.tap(find.text('Finished'));
-    await tester.pumpAndSettle();
+  testWidgets(
+    'the reference modal opens over a scrim and dismisses on outside tap',
+    (tester) async {
+      await _open(
+        tester,
+        decks: FakeDeckRepository(cards: [_multiLineCard('a')]),
+        study: FakeStudyRepository(),
+      );
+      await _startFeynman(tester);
+      await tester.tap(find.text('Ready'));
+      await tester.pump();
+      await tester.tap(find.text('Finished'));
+      await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Reveal reference'));
-    await tester.pumpAndSettle();
-    expect(find.byType(FeynmanReferenceDialog), findsOneWidget);
-    expect(find.text('Legislative'), findsOneWidget);
+      await tester.tap(find.text('Reveal reference'));
+      await tester.pumpAndSettle();
+      expect(find.byType(FeynmanReferenceDialog), findsOneWidget);
+      expect(find.text('Legislative'), findsOneWidget);
 
-    // Tap the scrim, well away from the card.
-    await tester.tapAt(const Offset(10, 10));
-    await tester.pumpAndSettle();
-    expect(find.byType(FeynmanReferenceDialog), findsNothing);
-  });
+      // Tap the scrim, well away from the card.
+      await tester.tapAt(const Offset(10, 10));
+      await tester.pumpAndSettle();
+      expect(find.byType(FeynmanReferenceDialog), findsNothing);
+    },
+  );
 
-  testWidgets('rating is submittable without ever opening the reference',
-      (tester) async {
+  testWidgets('rating is submittable without ever opening the reference', (
+    tester,
+  ) async {
     await _open(
       tester,
       decks: FakeDeckRepository(cards: [_multiLineCard('a')]),
@@ -191,8 +206,9 @@ void main() {
     expect(find.byType(SessionSummaryView), findsOneWidget);
   });
 
-  testWidgets('the countdown reaching zero auto-advances to the rating state',
-      (tester) async {
+  testWidgets('the countdown reaching zero auto-advances to the rating state', (
+    tester,
+  ) async {
     await _open(
       tester,
       decks: FakeDeckRepository(cards: [_multiLineCard('a')]),

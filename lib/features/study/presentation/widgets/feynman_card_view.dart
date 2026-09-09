@@ -121,7 +121,9 @@ class _FeynmanCardViewState extends State<FeynmanCardView> {
                 children: [
                   Text(
                     'EXPLAIN THIS',
-                    style: AppType.overline.copyWith(color: tokens.textTertiary),
+                    style: AppType.overline.copyWith(
+                      color: tokens.textTertiary,
+                    ),
                   ),
                   Text(
                     _clock,
@@ -160,10 +162,7 @@ class _FeynmanCardViewState extends State<FeynmanCardView> {
               style: AppType.caption.copyWith(color: tokens.textSecondary),
             ),
             const SizedBox(height: 12),
-            FilledButton(
-              onPressed: _start,
-              child: const Text('Ready'),
-            ),
+            FilledButton(onPressed: _start, child: const Text('Ready')),
           ],
         );
       case _Phase.running:
@@ -175,10 +174,7 @@ class _FeynmanCardViewState extends State<FeynmanCardView> {
               style: AppType.caption.copyWith(color: tokens.textSecondary),
             ),
             const SizedBox(height: 12),
-            OutlinedButton(
-              onPressed: _finish,
-              child: const Text('Finished'),
-            ),
+            OutlinedButton(onPressed: _finish, child: const Text('Finished')),
           ],
         );
       case _Phase.finished:
@@ -186,8 +182,7 @@ class _FeynmanCardViewState extends State<FeynmanCardView> {
           child: ActionChip(
             avatar: const Icon(Icons.visibility_outlined, size: 18),
             label: const Text('Reveal reference'),
-            onPressed: () =>
-                FeynmanReferenceDialog.show(context, widget.card),
+            onPressed: () => FeynmanReferenceDialog.show(context, widget.card),
           ),
         );
     }

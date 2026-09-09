@@ -64,7 +64,9 @@ class _ImportCardsScreenState extends ConsumerState<ImportCardsScreen> {
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
 
-    final card = await ref.read(decksControllerProvider.notifier).addCard(
+    final card = await ref
+        .read(decksControllerProvider.notifier)
+        .addCard(
           deckId: widget.deckId,
           front: _front.text.trim(),
           back: _back.text.trim(),
@@ -79,9 +81,9 @@ class _ImportCardsScreenState extends ConsumerState<ImportCardsScreen> {
       // the local write itself failed. Keep the fields as they are for retry.
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
-        ..showSnackBar(const SnackBar(
-          content: Text("Couldn't save the card, try again."),
-        ));
+        ..showSnackBar(
+          const SnackBar(content: Text("Couldn't save the card, try again.")),
+        );
       return;
     }
 
@@ -95,10 +97,12 @@ class _ImportCardsScreenState extends ConsumerState<ImportCardsScreen> {
     });
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
-      ..showSnackBar(const SnackBar(
-        content: Text('Card added'),
-        duration: Duration(seconds: 1),
-      ));
+      ..showSnackBar(
+        const SnackBar(
+          content: Text('Card added'),
+          duration: Duration(seconds: 1),
+        ),
+      );
     _frontFocus.requestFocus();
   }
 
@@ -175,8 +179,9 @@ class _ImportCardsScreenState extends ConsumerState<ImportCardsScreen> {
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,
                   value: _isConcept,
-                  onChanged:
-                      busy ? null : (v) => setState(() => _isConcept = v),
+                  onChanged: busy
+                      ? null
+                      : (v) => setState(() => _isConcept = v),
                   title: Text(
                     'Concept card',
                     style: TextStyle(color: tokens.textPrimary),
@@ -260,7 +265,10 @@ class _ImportCardsScreenState extends ConsumerState<ImportCardsScreen> {
         hintStyle: TextStyle(color: tokens.textTertiary),
         filled: true,
         fillColor: tokens.mutedFill,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 14,
+          vertical: 12,
+        ),
         enabledBorder: OutlineInputBorder(
           borderRadius: AppRadii.gridTileRadius,
           borderSide: BorderSide(

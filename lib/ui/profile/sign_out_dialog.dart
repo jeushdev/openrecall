@@ -27,7 +27,7 @@ class SignOutDialog extends StatelessWidget {
       content: Text(
         hasUnsyncedWrites
             ? "You have study progress that hasn't synced to the server yet. "
-                'Signing out now will discard it. Sign out anyway?'
+                  'Signing out now will discard it. Sign out anyway?'
             : "You'll need to sign back in to keep studying.",
       ),
       actions: [

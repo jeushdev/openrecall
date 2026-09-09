@@ -9,17 +9,16 @@ DeckSummary _deck({
   String? courseId,
   required int totalCards,
   required int masteryLevelSum,
-}) =>
-    DeckSummary(
-      id: id,
-      name: id,
-      lastStudiedAt: null,
-      totalCards: totalCards,
-      dueCards: totalCards,
-      masteryPercent: 0,
-      courseId: courseId,
-      masteryLevelSum: masteryLevelSum,
-    );
+}) => DeckSummary(
+  id: id,
+  name: id,
+  lastStudiedAt: null,
+  totalCards: totalCards,
+  dueCards: totalCards,
+  masteryPercent: 0,
+  courseId: courseId,
+  masteryLevelSum: masteryLevelSum,
+);
 
 void main() {
   group('rollUpCourses', () {
@@ -82,10 +81,11 @@ void main() {
         fakeCourse(id: 'm'),
       ];
 
-      expect(
-        rollUpCourses(courses, const []).map((s) => s.id),
-        ['z', 'a', 'm'],
-      );
+      expect(rollUpCourses(courses, const []).map((s) => s.id), [
+        'z',
+        'a',
+        'm',
+      ]);
     });
 
     test('runs with no ProviderContainer or database', () {

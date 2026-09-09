@@ -1,14 +1,12 @@
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/local_db/local_db_providers.dart';
-import '../data/supabase_deck_repository.dart';
-import '../domain/card.dart';
-import '../domain/deck_repository.dart';
 import '../domain/offline_download.dart';
-import 'deck_providers.dart';
+import 'offline_runtime_providers.dart';
+
+export 'offline_runtime_providers.dart';
 
 /// Whether this runtime has the native SQLite mirror needed for deck packages.
 /// Web and database-open failures stay online-only.
@@ -32,6 +30,14 @@ final studiableOfflineDeckIdsProvider = FutureProvider<Set<String>>((ref) {
   return ref.watch(localDeckStoreProvider).completeCardDeckIds();
 });
 
+/// Durable, typed package state for a single deck. This is reconstructed from
+/// SQLite and therefore remains authoritative after a process restart.
+final offlinePackageStatusProvider =
+    FutureProvider.family<OfflinePackageStatus, String>((ref, deckId) {
+      ref.watch(offlineDeckCommitRevisionProvider(deckId));
+      return ref.watch(localDeckStoreProvider).packageStatus(deckId);
+    });
+
 /// Whether deck [deckId] holds local work not yet synced to Supabase. The
 /// "Keep available offline" toggle reads this so it can explain that pending
 /// work will be retained until it is safely synced.
@@ -40,16 +46,6 @@ final deckHasUnsyncedWorkProvider = FutureProvider.family<bool, String>((
   deckId,
 ) {
   return ref.watch(localDeckStoreProvider).deckHasUnsyncedWork(deckId);
-});
-
-/// Cards fetched per network round-trip during a download. Large enough that a
-/// small deck is one page, small enough that the progress bar moves on a big one.
-const int kDownloadPageSize = 100;
-
-/// The Supabase-backed card source a download pages through. A concrete
-/// [SupabaseDeckRepository] in production; a fake in tests.
-final offlineDownloadSourceProvider = Provider<OfflineDownloadSource>((ref) {
-  return SupabaseDeckRepository(Supabase.instance.client);
 });
 
 /// Determinate progress for the download currently running on the Deck Overview,
@@ -67,6 +63,21 @@ class DownloadProgressController extends Notifier<DownloadProgress?> {
   void report(DownloadProgress? value) => state = value;
 }
 
+/// The deck currently being changed by the explicit offline controller. This
+/// keeps route presentation scoped to that deck even though the controller is
+/// shared app-wide.
+final offlineOperationDeckIdProvider =
+    NotifierProvider<OfflineOperationDeckIdController, String?>(
+      OfflineOperationDeckIdController.new,
+    );
+
+class OfflineOperationDeckIdController extends Notifier<String?> {
+  @override
+  String? build() => null;
+
+  void report(String? deckId) => state = deckId;
+}
+
 /// Drives the "Available offline" switch on the Deck Overview: `isLoading`
 /// disables it while a download/removal is in flight, `AsyncError` feeds a
 /// SnackBar. Holds no value of its own.
@@ -74,6 +85,8 @@ final offlineControllerProvider =
     AsyncNotifierProvider<OfflineController, void>(OfflineController.new);
 
 class OfflineController extends AsyncNotifier<void> {
+  int _presentationGeneration = 0;
+
   @override
   FutureOr<void> build() {}
 
@@ -81,21 +94,27 @@ class OfflineController extends AsyncNotifier<void> {
   /// so a large deck shows determinate progress (design spec §E.2). Requires
   /// connectivity — the cards come fresh from Supabase.
   Future<void> download(String deckId, String deckName) async {
+    final generation = ++_presentationGeneration;
     state = const AsyncLoading<void>();
+    ref.read(offlineOperationDeckIdProvider.notifier).report(deckId);
     final progress = ref.read(downloadProgressProvider.notifier);
-    state = await AsyncValue.guard(() async {
-      final local = ref.read(localDeckStoreProvider);
-      if (local.isNoop) throw StateError('Offline storage is unavailable');
-      final cards = await _fetchAllPaged(deckId, progress);
-      await local.commitDeckPackage(
-        deckId: deckId,
-        deckName: deckName,
-        cards: cards,
-        pin: true,
-      );
+    final result = await AsyncValue.guard(() async {
+      await ref
+          .read(offlineDeckServiceProvider)
+          .download(
+            deckId,
+            pin: true,
+            onProgress: (value) {
+              if (generation == _presentationGeneration) {
+                progress.report(value);
+              }
+            },
+          );
     });
+    if (generation != _presentationGeneration) return;
+    state = result;
     progress.report(null);
-    _refresh(deckId);
+    _refreshLocal(deckId);
   }
 
   /// Re-fetches [deckId] and refreshes its card mirror in place — the manual
@@ -103,67 +122,47 @@ class OfflineController extends AsyncNotifier<void> {
   /// [LocalDeckStore.mirrorCards] keeps any `is_synced = 0` row, so unsynced
   /// offline edits survive. Does not change the pin.
   Future<void> updateOfflineCopy(String deckId) async {
+    final generation = ++_presentationGeneration;
     state = const AsyncLoading<void>();
+    ref.read(offlineOperationDeckIdProvider.notifier).report(deckId);
     final progress = ref.read(downloadProgressProvider.notifier);
-    state = await AsyncValue.guard(() async {
-      final local = ref.read(localDeckStoreProvider);
-      if (local.isNoop) throw StateError('Offline storage is unavailable');
-      final cards = await _fetchAllPaged(deckId, progress);
-      await local.commitDeckPackage(deckId: deckId, cards: cards);
+    final result = await AsyncValue.guard(() async {
+      await ref
+          .read(offlineDeckServiceProvider)
+          .download(
+            deckId,
+            pin: false,
+            onProgress: (value) {
+              if (generation == _presentationGeneration) {
+                progress.report(value);
+              }
+            },
+          );
     });
+    if (generation != _presentationGeneration) return;
+    state = result;
     progress.report(null);
-    _refresh(deckId);
+    _refreshLocal(deckId);
   }
 
   /// Unpins [deckId] and cleans only cards that are safe to discard. History,
   /// pending work, and cards needed by an active session remain intact.
   Future<void> remove(String deckId) async {
+    final generation = ++_presentationGeneration;
     state = const AsyncLoading<void>();
-    state = await AsyncValue.guard(
-      () => ref.read(localDeckStoreProvider).removeDeck(deckId),
+    ref.read(offlineOperationDeckIdProvider.notifier).report(deckId);
+    ref.read(downloadProgressProvider.notifier).report(null);
+    final result = await AsyncValue.guard(
+      () => ref.read(offlineDeckServiceProvider).remove(deckId),
     );
-    _refresh(deckId);
+    if (generation != _presentationGeneration) return;
+    state = result;
+    _refreshLocal(deckId);
   }
 
-  Future<List<FlashCard>> _fetchAllPaged(
-    String deckId,
-    DownloadProgressController progress,
-  ) async {
-    final source = ref.read(offlineDownloadSourceProvider);
-    final total = await source.countCards(deckId);
-    if (total < 0) {
-      throw StateError('Invalid card count for deck $deckId');
-    }
-    progress.report(DownloadProgress(done: 0, total: total));
-    final all = <FlashCard>[];
-    final ids = <String>{};
-    for (var offset = 0; offset < total; offset += kDownloadPageSize) {
-      final remaining = total - offset;
-      final expected = remaining < kDownloadPageSize
-          ? remaining
-          : kDownloadPageSize;
-      final page = await source.fetchCardsPage(
-        deckId,
-        offset: offset,
-        limit: expected,
-      );
-      if (page.length != expected ||
-          page.any((card) => card.deckId != deckId || !ids.add(card.id))) {
-        throw StateError('Incomplete or invalid download for deck $deckId');
-      }
-      all.addAll(page);
-      progress.report(DownloadProgress(done: all.length, total: total));
-    }
-    if (all.length != total || await source.countCards(deckId) != total) {
-      throw StateError('Deck changed while it was being downloaded');
-    }
-    return all;
-  }
-
-  void _refresh(String deckId) {
+  void _refreshLocal(String deckId) {
     ref.invalidate(offlineDeckIdsProvider);
     ref.invalidate(studiableOfflineDeckIdsProvider);
-    ref.invalidate(decksProvider);
-    ref.invalidate(deckCardsProvider(deckId));
+    ref.invalidate(offlinePackageStatusProvider(deckId));
   }
 }

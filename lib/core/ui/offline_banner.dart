@@ -36,8 +36,11 @@ class OfflineBanner extends ConsumerWidget {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.cloud_off_outlined,
-                      size: 14, color: tokens.textSecondary),
+                  Icon(
+                    Icons.cloud_off_outlined,
+                    size: 14,
+                    color: tokens.textSecondary,
+                  ),
                   const SizedBox(width: 6),
                   Text(
                     "You're offline",

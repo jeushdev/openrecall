@@ -127,8 +127,7 @@ class StudySessionState {
   /// [phase] is [SessionPhase.studying].
   ({StudySessionState state, RatingEffects effects}) applyRating(
     FlipRating rating,
-  ) =>
-      applyResult(masteryLevel: rating.level);
+  ) => applyResult(masteryLevel: rating.level);
 
   /// Applies a mode-neutral result to the current card: the mode has already
   /// translated its raw outcome into a `mastery_level` (spec §6). Reaching
@@ -206,14 +205,13 @@ class StudySessionState {
     final parked = queue.firstWhere(
       (i) => i.sessionCardId == pendingParkSessionCardId,
     );
-    final newQueue =
-        queue.where((i) => i.sessionCardId != pendingParkSessionCardId).toList();
+    final newQueue = queue
+        .where((i) => i.sessionCardId != pendingParkSessionCardId)
+        .toList();
     return _copy(
       queue: newQueue,
       parkedCardIds: {...parkedCardIds, parked.cardId},
-      phase: newQueue.isEmpty
-          ? SessionPhase.completed
-          : SessionPhase.studying,
+      phase: newQueue.isEmpty ? SessionPhase.completed : SessionPhase.studying,
       clearPending: true,
     );
   }

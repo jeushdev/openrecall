@@ -41,7 +41,9 @@ String normalizeClozeAnswer(String value) {
   return lowered.replaceAll(_edgePunctuation, '');
 }
 
-final RegExp _edgePunctuation = RegExp(r'''^[\s"'“”‘’.,;:!?()\[\]{}\-–—]+|[\s"'“”‘’.,;:!?()\[\]{}\-–—]+$''');
+final RegExp _edgePunctuation = RegExp(
+  r'''^[\s"'“”‘’.,;:!?()\[\]{}\-–—]+|[\s"'“”‘’.,;:!?()\[\]{}\-–—]+$''',
+);
 
 /// Whether [actual] is close enough to [expected] to accept as correct
 /// (spec §5B "accept minor typos"). After normalisation: an exact match always

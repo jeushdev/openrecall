@@ -20,14 +20,12 @@ class KeywordChipsField extends FormField<List<String>> {
     required this.front,
     required this.back,
   }) : super(
-          initialValue: initialValue,
-          validator: (value) => keywordsError(
-            value ?? const [],
-            front: front(),
-            back: back(),
-          ),
-          builder: (state) => _KeywordChipsBody(state as _KeywordChipsFieldState),
-        );
+         initialValue: initialValue,
+         validator: (value) =>
+             keywordsError(value ?? const [], front: front(), back: back()),
+         builder: (state) =>
+             _KeywordChipsBody(state as _KeywordChipsFieldState),
+       );
 
   final ValueChanged<List<String>> onChanged;
   final String Function() front;
@@ -115,7 +113,9 @@ class _KeywordChipsBody extends StatelessWidget {
                   InputChip(
                     label: Text(keyword),
                     isEnabled: field.enabled,
-                    onDeleted: field.enabled ? () => state._remove(keyword) : null,
+                    onDeleted: field.enabled
+                        ? () => state._remove(keyword)
+                        : null,
                   ),
               ],
             ),

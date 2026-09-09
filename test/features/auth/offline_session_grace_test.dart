@@ -42,23 +42,25 @@ void main() {
     expect(grace.isActive, isFalse);
   });
 
-  test('clear() drops the grace before the deliberate sign-out event arrives',
-      () {
-    final grace = OfflineSessionGrace()
-      ..onAuthState(_signedOut(SignOutReason.sessionExpired), offline: true)
-      ..clear();
-    expect(grace.isActive, isFalse);
-  });
+  test(
+    'clear() drops the grace before the deliberate sign-out event arrives',
+    () {
+      final grace = OfflineSessionGrace()
+        ..onAuthState(_signedOut(SignOutReason.sessionExpired), offline: true)
+        ..clear();
+      expect(grace.isActive, isFalse);
+    },
+  );
 }
 
 Session _fakeSession() => Session(
-      accessToken: 'a',
-      tokenType: 'bearer',
-      user: User(
-        id: 'u1',
-        appMetadata: const {},
-        userMetadata: const {},
-        aud: 'authenticated',
-        createdAt: DateTime(2026).toIso8601String(),
-      ),
-    );
+  accessToken: 'a',
+  tokenType: 'bearer',
+  user: User(
+    id: 'u1',
+    appMetadata: const {},
+    userMetadata: const {},
+    aud: 'authenticated',
+    createdAt: DateTime(2026).toIso8601String(),
+  ),
+);

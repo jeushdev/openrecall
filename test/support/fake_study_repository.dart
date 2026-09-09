@@ -18,8 +18,8 @@ class FakeStudyRepository implements StudyRepository {
   FakeStudyRepository({
     List<StudySession>? sessions,
     List<SessionCard>? sessionCards,
-  })  : _sessions = [...?sessions],
-        _sessionCards = [...?sessionCards];
+  }) : _sessions = [...?sessions],
+       _sessionCards = [...?sessionCards];
 
   final List<StudySession> _sessions;
   final List<SessionCard> _sessionCards;
@@ -83,8 +83,10 @@ class FakeStudyRepository implements StudyRepository {
     int? cappedLength,
     CardScope cardScope = CardScope.due,
   }) async {
-    calls.add('createSession(deck=$deckId, mode=${studyMode.name}, '
-        'length=${lengthMode.db}, cap=$cappedLength, scope=${cardScope.db})');
+    calls.add(
+      'createSession(deck=$deckId, mode=${studyMode.name}, '
+      'length=${lengthMode.db}, cap=$cappedLength, scope=${cardScope.db})',
+    );
     await _maybeThrow();
     final session = StudySession(
       id: _nextId('session'),
@@ -107,8 +109,10 @@ class FakeStudyRepository implements StudyRepository {
     String sessionId,
     List<QueueSeed> seeds,
   ) async {
-    calls.add('createSessionCards($sessionId, '
-        'positions=${seeds.map((s) => s.position).toList()})');
+    calls.add(
+      'createSessionCards($sessionId, '
+      'positions=${seeds.map((s) => s.position).toList()})',
+    );
     await _maybeThrow();
     final created = [
       for (final seed in seeds)
@@ -132,8 +136,10 @@ class FakeStudyRepository implements StudyRepository {
     int? consecutiveFails,
     bool? isParked,
   }) async {
-    calls.add('updateSessionCard(id=$sessionCardId, position=$position, '
-        'consecutiveFails=$consecutiveFails, isParked=$isParked)');
+    calls.add(
+      'updateSessionCard(id=$sessionCardId, position=$position, '
+      'consecutiveFails=$consecutiveFails, isParked=$isParked)',
+    );
     await _maybeThrow();
     final i = _sessionCards.indexWhere((sc) => sc.id == sessionCardId);
     if (i == -1) return;
@@ -154,8 +160,10 @@ class FakeStudyRepository implements StudyRepository {
     int? masteryDelta,
     int? cardsReviewed,
   }) async {
-    calls.add('completeSession($sessionId, masteryDelta=$masteryDelta, '
-        'cardsReviewed=$cardsReviewed)');
+    calls.add(
+      'completeSession($sessionId, masteryDelta=$masteryDelta, '
+      'cardsReviewed=$cardsReviewed)',
+    );
     await _maybeThrow();
     final i = _sessions.indexWhere((s) => s.id == sessionId);
     if (i == -1) return;
@@ -174,7 +182,8 @@ class FakeStudyRepository implements StudyRepository {
     );
   }
 
-  StudySession _withStatus(StudySession s, SessionStatus status) => StudySession(
+  StudySession _withStatus(StudySession s, SessionStatus status) =>
+      StudySession(
         id: s.id,
         deckId: s.deckId,
         status: status,

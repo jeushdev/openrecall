@@ -9,35 +9,34 @@ import 'package:open_recall/features/study/domain/study_session.dart';
 import 'package:open_recall/features/study/domain/study_session_state.dart';
 
 FlashCard _card(String id) => FlashCard(
-      id: id,
-      deckId: 'deck-1',
-      front: 'front-$id',
-      back: 'back-$id',
-      keywords: const [],
-      isConcept: false,
-      masteryLevel: 0,
-      failCount: 0,
-      createdAt: DateTime.utc(2026),
-      updatedAt: DateTime.utc(2026),
-    );
+  id: id,
+  deckId: 'deck-1',
+  front: 'front-$id',
+  back: 'back-$id',
+  keywords: const [],
+  isConcept: false,
+  masteryLevel: 0,
+  failCount: 0,
+  createdAt: DateTime.utc(2026),
+  updatedAt: DateTime.utc(2026),
+);
 
 StudySession _session({
   SessionLengthMode lengthMode = SessionLengthMode.untilMastered,
   int? cappedLength,
   CardScope cardScope = CardScope.due,
-}) =>
-    StudySession(
-      id: 'session-1',
-      deckId: 'deck-1',
-      status: SessionStatus.active,
-      studyMode: StudyMode.flip,
-      lengthMode: lengthMode,
-      cappedLength: cappedLength,
-      cardScope: cardScope,
-      masteryDelta: null,
-      startedAt: DateTime.utc(2026),
-      completedAt: null,
-    );
+}) => StudySession(
+  id: 'session-1',
+  deckId: 'deck-1',
+  status: SessionStatus.active,
+  studyMode: StudyMode.flip,
+  lengthMode: lengthMode,
+  cappedLength: cappedLength,
+  cardScope: cardScope,
+  masteryDelta: null,
+  startedAt: DateTime.utc(2026),
+  completedAt: null,
+);
 
 StudySessionState _stateWith(
   List<String> cardIds, {
@@ -118,8 +117,7 @@ void main() {
 
       expect(result.state.queue.first.cardId, 'b');
       expect(result.state.queue.map((i) => i.cardId), ['b', 'c', 'a']);
-      final requeued =
-          result.state.queue.firstWhere((i) => i.cardId == 'a');
+      final requeued = result.state.queue.firstWhere((i) => i.cardId == 'a');
       expect(requeued.consecutiveFails, 1);
       expect(requeued.masteryLevel, 1);
       expect(result.effects.isFail, isTrue);
@@ -160,7 +158,9 @@ void main() {
       state = state.applyRating(FlipRating.forgotten).state; // a: 1
       state = state.applyRating(FlipRating.mastered).state; // b mastered
       state = state.applyRating(FlipRating.forgotten).state; // a: 2
-      final afterPass = state.applyRating(FlipRating.mastered).state; // a mastered
+      final afterPass = state
+          .applyRating(FlipRating.mastered)
+          .state; // a mastered
       expect(afterPass.masteredCardIds, contains('a'));
       expect(afterPass.phase, SessionPhase.completed);
     });
@@ -205,24 +205,26 @@ void main() {
   });
 
   group('termination', () {
-    test('an uncapped session with one stubborn card never completes until parked',
-        () {
-      var state = _stateWith(['a']);
-      for (var i = 0; i < 10; i++) {
-        final result = state.applyRating(FlipRating.forgotten);
-        state = result.state;
-        expect(state.isComplete, isFalse);
-        if (state.phase == SessionPhase.parkPrompt) {
-          state = state.declinePark();
+    test(
+      'an uncapped session with one stubborn card never completes until parked',
+      () {
+        var state = _stateWith(['a']);
+        for (var i = 0; i < 10; i++) {
+          final result = state.applyRating(FlipRating.forgotten);
+          state = result.state;
+          expect(state.isComplete, isFalse);
+          if (state.phase == SessionPhase.parkPrompt) {
+            state = state.declinePark();
+          }
         }
-      }
-      // fail to the prompt, then park
-      while (state.phase != SessionPhase.parkPrompt) {
-        state = state.applyRating(FlipRating.forgotten).state;
-      }
-      state = state.confirmPark();
-      expect(state.phase, SessionPhase.completed);
-    });
+        // fail to the prompt, then park
+        while (state.phase != SessionPhase.parkPrompt) {
+          state = state.applyRating(FlipRating.forgotten).state;
+        }
+        state = state.confirmPark();
+        expect(state.phase, SessionPhase.completed);
+      },
+    );
 
     test('completes once every card is mastered', () {
       var state = _stateWith(['a', 'b']);
@@ -258,18 +260,20 @@ void main() {
   });
 
   group('capped sessions', () {
-    test('a cap-2 session completes after those two cards regardless of the deck',
-        () {
-      // Only 2 items were seeded (the cap was applied before seeding).
-      var state = _stateWith(
-        ['a', 'b'],
-        lengthMode: SessionLengthMode.capped,
-        cappedLength: 2,
-      );
-      expect(state.totalCards, 2);
-      state = state.applyRating(FlipRating.mastered).state;
-      state = state.applyRating(FlipRating.mastered).state;
-      expect(state.phase, SessionPhase.completed);
-    });
+    test(
+      'a cap-2 session completes after those two cards regardless of the deck',
+      () {
+        // Only 2 items were seeded (the cap was applied before seeding).
+        var state = _stateWith(
+          ['a', 'b'],
+          lengthMode: SessionLengthMode.capped,
+          cappedLength: 2,
+        );
+        expect(state.totalCards, 2);
+        state = state.applyRating(FlipRating.mastered).state;
+        state = state.applyRating(FlipRating.mastered).state;
+        expect(state.phase, SessionPhase.completed);
+      },
+    );
   });
 }

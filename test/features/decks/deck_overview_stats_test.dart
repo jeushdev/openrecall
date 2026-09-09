@@ -11,19 +11,18 @@ FlashCard _card({
   bool isConcept = false,
   int mastery = 0,
   int fails = 0,
-}) =>
-    FlashCard(
-      id: id,
-      deckId: 'deck-1',
-      front: front,
-      back: back,
-      keywords: keywords,
-      isConcept: isConcept,
-      masteryLevel: mastery,
-      failCount: fails,
-      createdAt: DateTime.utc(2026),
-      updatedAt: DateTime.utc(2026),
-    );
+}) => FlashCard(
+  id: id,
+  deckId: 'deck-1',
+  front: front,
+  back: back,
+  keywords: keywords,
+  isConcept: isConcept,
+  masteryLevel: mastery,
+  failCount: fails,
+  createdAt: DateTime.utc(2026),
+  updatedAt: DateTime.utc(2026),
+);
 
 void main() {
   group('DeckOverviewStats.fromCards', () {
@@ -49,11 +48,7 @@ void main() {
       expect(stats.dueCards, 2);
       expect(stats.withKeyword, 1);
       expect(stats.multiLine, 1);
-      expect(stats.modes, {
-        StudyMode.flip,
-        StudyMode.cloze,
-        StudyMode.feynman,
-      });
+      expect(stats.modes, {StudyMode.flip, StudyMode.cloze, StudyMode.feynman});
     });
 
     test('mastery percent matches the shared helper', () {

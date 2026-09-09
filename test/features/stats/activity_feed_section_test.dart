@@ -18,8 +18,9 @@ Future<void> _pump(WidgetTester tester, List<ActivityItem> items) {
 void main() {
   final old = DateTime(2020, 1, 1);
 
-  testWidgets('renders a labelled, icon-led row for each item type',
-      (tester) async {
+  testWidgets('renders a labelled, icon-led row for each item type', (
+    tester,
+  ) async {
     await _pump(tester, [
       ActivityItem(
         kind: ActivityKind.sessionCompleted,
@@ -53,7 +54,9 @@ void main() {
     expect(find.text('+12%'), findsOneWidget);
   });
 
-  testWidgets('shows the empty state when there is no activity', (tester) async {
+  testWidgets('shows the empty state when there is no activity', (
+    tester,
+  ) async {
     await _pump(tester, const []);
 
     expect(

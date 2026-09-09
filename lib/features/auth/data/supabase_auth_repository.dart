@@ -32,7 +32,8 @@ class SupabaseAuthRepository implements AuthRepository {
 
   final GoTrueClient _auth;
   final OfflineSessionGrace _grace = OfflineSessionGrace();
-  final StreamController<bool> _stateController = StreamController<bool>.broadcast();
+  final StreamController<bool> _stateController =
+      StreamController<bool>.broadcast();
 
   bool _online = true;
   StreamSubscription<Object?>? _authSub;

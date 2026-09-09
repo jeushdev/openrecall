@@ -17,11 +17,13 @@ import 'fake_study_repository.dart';
 ///
 /// Pass `signedIn: true` for tests that start past the login gate.
 Future<
-    ({
-      FakeAuthRepository auth,
-      FakeDeckRepository decks,
-      FakeStudyRepository study,
-    })> pumpApp(
+  ({
+    FakeAuthRepository auth,
+    FakeDeckRepository decks,
+    FakeStudyRepository study,
+  })
+>
+pumpApp(
   WidgetTester tester, {
   bool signedIn = false,
   FakeDeckRepository? decks,

@@ -31,15 +31,14 @@ class StudyQueueItem {
     int? consecutiveFails,
     bool? isParked,
     int? masteryLevel,
-  }) =>
-      StudyQueueItem(
-        sessionCardId: sessionCardId,
-        card: card,
-        position: position ?? this.position,
-        consecutiveFails: consecutiveFails ?? this.consecutiveFails,
-        isParked: isParked ?? this.isParked,
-        masteryLevel: masteryLevel ?? this.masteryLevel,
-      );
+  }) => StudyQueueItem(
+    sessionCardId: sessionCardId,
+    card: card,
+    position: position ?? this.position,
+    consecutiveFails: consecutiveFails ?? this.consecutiveFails,
+    isParked: isParked ?? this.isParked,
+    masteryLevel: masteryLevel ?? this.masteryLevel,
+  );
 
   @override
   bool operator ==(Object other) =>
@@ -53,11 +52,11 @@ class StudyQueueItem {
 
   @override
   int get hashCode => Object.hash(
-        sessionCardId,
-        card,
-        position,
-        consecutiveFails,
-        isParked,
-        masteryLevel,
-      );
+    sessionCardId,
+    card,
+    position,
+    consecutiveFails,
+    isParked,
+    masteryLevel,
+  );
 }

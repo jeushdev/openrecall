@@ -13,9 +13,9 @@ class AccentPair {
   final Color text;
 
   static AccentPair lerp(AccentPair a, AccentPair b, double t) => AccentPair(
-        Color.lerp(a.fill, b.fill, t)!,
-        Color.lerp(a.text, b.text, t)!,
-      );
+    Color.lerp(a.fill, b.fill, t)!,
+    Color.lerp(a.text, b.text, t)!,
+  );
 
   @override
   bool operator ==(Object other) =>
@@ -89,23 +89,28 @@ class AppTokens extends ThemeExtension<AppTokens> {
   /// background, spicy-mix 600 tint, and a muted eight-color accent set for
   /// course identification.
   static const AppTokens light = AppTokens(
-    background: Color(0xFFF9F6F1),      // spicy-mix 50 — warm off-white page bg
-    cardFill: Color(0xFFFFFFFF),         // pure white — distinct surface above the cream bg
-    mutedFill: Color(0xFFEEE6D7),        // spicy-mix 100 — stat blocks, inactive track
-    borderHairline: Color(0xFFE3DED2),   // warm neutral hairline border
-    textPrimary: Color(0xFF2F2B27),      // warm dark gray, not pure black
-    textSecondary: Color(0xFF787774),    // muted metadata/caption gray
-    textTertiary: Color(0xFFB0AFAA),     // placeholder / disabled
-    tint: Color(0xFF9C6443),             // spicy-mix 600 — your one accent
+    background: Color(0xFFF9F6F1), // spicy-mix 50 — warm off-white page bg
+    cardFill: Color(
+      0xFFFFFFFF,
+    ), // pure white — distinct surface above the cream bg
+    mutedFill: Color(0xFFEEE6D7), // spicy-mix 100 — stat blocks, inactive track
+    borderHairline: Color(0xFFE3DED2), // warm neutral hairline border
+    textPrimary: Color(0xFF2F2B27), // warm dark gray, not pure black
+    textSecondary: Color(0xFF787774), // muted metadata/caption gray
+    textTertiary: Color(0xFFB0AFAA), // placeholder / disabled
+    tint: Color(0xFF9C6443), // spicy-mix 600 — your one accent
     accents: <String, AccentPair>{
       'slate': AccentPair(Color(0xFF6B7A8C), Color(0xFF4C5866)),
-      'red': AccentPair(Color(0xFFB37C82), Color(0xFF8A5A5F)),   // dusty rose
+      'red': AccentPair(Color(0xFFB37C82), Color(0xFF8A5A5F)), // dusty rose
       'amber': AccentPair(Color(0xFFC79A55), Color(0xFF8F6E3B)), // dusty gold
       'green': AccentPair(Color(0xFF7C9473), Color(0xFF58705A)), // sage green
       'teal': AccentPair(Color(0xFF5E8B87), Color(0xFF3E5F5C)),
-      'blue': AccentPair(Color(0xFF6B85A6), Color(0xFF4A6080)),  // dusty blue
+      'blue': AccentPair(Color(0xFF6B85A6), Color(0xFF4A6080)), // dusty blue
       'violet': AccentPair(Color(0xFF8C6B94), Color(0xFF6B4F72)), // muted plum
-      'pink': AccentPair(Color(0xFFC98F7C), Color(0xFF93604C)),  // warm coral — distinct from rose/amber
+      'pink': AccentPair(
+        Color(0xFFC98F7C),
+        Color(0xFF93604C),
+      ), // warm coral — distinct from rose/amber
     },
   );
 

@@ -48,10 +48,9 @@ class _CourseCreatorScreenState extends ConsumerState<CourseCreatorScreen> {
   bool get _canSubmit => _nameController.text.trim().isNotEmpty;
 
   Future<void> _create() async {
-    final course = await ref.read(courseControllerProvider.notifier).create(
-          name: _nameController.text.trim(),
-          accentColor: _accentKey,
-        );
+    final course = await ref
+        .read(courseControllerProvider.notifier)
+        .create(name: _nameController.text.trim(), accentColor: _accentKey);
     if (!mounted) return;
 
     if (course == null) {
@@ -59,9 +58,11 @@ class _CourseCreatorScreenState extends ConsumerState<CourseCreatorScreen> {
       // the local write itself failed. Keep the form so nothing is lost on retry.
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
-        ..showSnackBar(const SnackBar(
-          content: Text("Couldn't create the course, try again."),
-        ));
+        ..showSnackBar(
+          const SnackBar(
+            content: Text("Couldn't create the course, try again."),
+          ),
+        );
       return;
     }
 
@@ -219,8 +220,7 @@ class _AccentSwatches extends StatelessWidget {
                     : null,
               ),
               child: key == selected
-                  ? Icon(Icons.check,
-                      size: 20, color: tokens.accent(key).text)
+                  ? Icon(Icons.check, size: 20, color: tokens.accent(key).text)
                   : null,
             ),
           ),

@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../features/profile/application/profile_providers.dart';
+import '../../features/decks/application/offline_runtime_providers.dart';
 import '../../features/study/application/session_controller.dart';
 import '../sync/sync_providers.dart';
 import 'local_db_providers.dart';
@@ -31,6 +32,8 @@ final mirrorScopeGuardProvider = FutureProvider<void>((ref) async {
   if (database.scopeGeneration != generation) {
     if (!ref.mounted) return;
     ref.invalidate(localDeckStoreProvider);
+    ref.invalidate(offlineDeckServiceProvider);
+    ref.invalidate(offlinePackageOperationRegistryProvider);
     ref.invalidate(localCourseStoreProvider);
     ref.invalidate(localStudyStoreProvider);
     ref.invalidate(localStatsStoreProvider);

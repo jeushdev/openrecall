@@ -7,6 +7,8 @@ import '../../../theme/app_haptics.dart';
 import '../../../theme/app_tokens.dart';
 import '../../../theme/app_type.dart';
 import '../../decks/application/deck_providers.dart';
+import '../../decks/application/offline_runtime_providers.dart';
+import '../../decks/data/cache_first_deck_repository.dart';
 import '../../decks/domain/study_mode.dart';
 import '../../settings/application/settings_providers.dart';
 import '../../settings/data/study_appearance_preferences.dart';
@@ -121,7 +123,9 @@ class _StudySessionScreenState extends ConsumerState<StudySessionScreen> {
   void _start(StudyMode mode) {
     if (_startRequested) return;
     setState(() => _startRequested = true);
-    ref.read(sessionControllerProvider.notifier).start(
+    ref
+        .read(sessionControllerProvider.notifier)
+        .start(
           deckId: widget.deckId,
           deckName: _deckName(),
           mode: mode,
@@ -183,8 +187,10 @@ class _StudySessionScreenState extends ConsumerState<StudySessionScreen> {
 
   @override
   Widget build(BuildContext context) {
-    ref.listen<AsyncValue<StudySessionState?>>(sessionControllerProvider,
-        (prev, next) {
+    ref.listen<AsyncValue<StudySessionState?>>(sessionControllerProvider, (
+      prev,
+      next,
+    ) {
       if (next.value?.phase == SessionPhase.parkPrompt &&
           _isOurSession(next.value)) {
         _handleParkPrompt();
@@ -223,13 +229,14 @@ class _StudySessionScreenState extends ConsumerState<StudySessionScreen> {
           deckName: state.deckName,
           outcome: state.outcome!,
           hasParked: state.parkedCardIds.isNotEmpty,
-          onDrillParked: () =>
-              ref.read(sessionControllerProvider.notifier).startParkedDrill(
-                    deckId: state.deckId,
-                    deckName: state.deckName,
-                    mode: state.session.studyMode,
-                    parkedCardIds: state.parkedCardIds.toList(),
-                  ),
+          onDrillParked: () => ref
+              .read(sessionControllerProvider.notifier)
+              .startParkedDrill(
+                deckId: state.deckId,
+                deckName: state.deckName,
+                mode: state.session.studyMode,
+                parkedCardIds: state.parkedCardIds.toList(),
+              ),
           onDone: _doneFromSummary,
         );
       }
@@ -237,8 +244,7 @@ class _StudySessionScreenState extends ConsumerState<StudySessionScreen> {
         return _ActiveBody(
           state: state,
           cardTextScale: cardFontSize.scale,
-          feynmanSeconds:
-              _feynmanSeconds ?? FeynmanTimerPicker.defaultSeconds,
+          feynmanSeconds: _feynmanSeconds ?? FeynmanTimerPicker.defaultSeconds,
           onExit: _exitAndLeave,
           onRate: (rating) =>
               ref.read(sessionControllerProvider.notifier).rate(rating),
@@ -290,12 +296,15 @@ class _StudySessionScreenState extends ConsumerState<StudySessionScreen> {
     // Pre-session: choose a study mode. Reads local-first and is bounded by a
     // timeout (see [preSessionCardsProvider]) so this can never sit spinning on
     // an unanswered network call — ui-spec-v1 §2.
+    ref.watch(offlineDeckObservationProvider(widget.deckId));
     final cards = ref.watch(preSessionCardsProvider(widget.deckId));
     return _Shell(
       child: cards.when(
         loading: () => const _Spinner(),
         error: (error, _) => _Message(
-          text: error is DeckLoadTimeoutException
+          text: error is DeckUnavailableOfflineException
+              ? "This deck isn't available offline. Connect to the internet to download it."
+              : error is DeckLoadTimeoutException
               ? "Couldn't reach your decks — check your connection."
               : "Couldn't load this deck.",
           actionLabel: 'Retry',
@@ -312,8 +321,7 @@ class _StudySessionScreenState extends ConsumerState<StudySessionScreen> {
             );
           }
           final available = availableModes(list);
-          final modes =
-              StudyMode.values.where(available.contains).toList();
+          final modes = StudyMode.values.where(available.contains).toList();
           if (modes.length == 1) {
             WidgetsBinding.instance.addPostFrameCallback((_) {
               if (mounted && !_startRequested) _onModeSelected(modes.first);
@@ -437,10 +445,10 @@ class _ActiveBodyState extends State<_ActiveBody> {
   /// The directional exit "nudge" for a rating's `mastery_level`: Unfamiliar
   /// throws the card left, Mastered right, the middle verdicts nudge it down.
   Offset _exitFor(int level) => switch (level) {
-        0 => const Offset(-0.55, 0),
-        4 => const Offset(0.55, 0),
-        _ => const Offset(0, 0.22),
-      };
+    0 => const Offset(-0.55, 0),
+    4 => const Offset(0.55, 0),
+    _ => const Offset(0, 0.22),
+  };
 
   /// The rating path for every mode that uses the rating row (Flip, Feynman)
   /// plus the Flip swipe gestures. Fires the haptic and records the exit
@@ -510,29 +518,28 @@ class _ActiveBodyState extends State<_ActiveBody> {
     // Only the card surface scales its text to the §6.5 preset — the header and
     // rating row below stay at the app's normal size.
     final Widget cardArea = MediaQuery(
-      data: MediaQuery.of(context).copyWith(
-        textScaler: TextScaler.linear(widget.cardTextScale),
-      ),
+      data: MediaQuery.of(context)
+          .copyWith(textScaler: TextScaler.linear(widget.cardTextScale)),
       child: switch (state.session.studyMode) {
         StudyMode.cloze => ClozeTypeCard(
-            key: key,
-            card: item.card,
-            onOutcome: _cloze,
-          ),
+          key: key,
+          card: item.card,
+          onOutcome: _cloze,
+        ),
         StudyMode.feynman => FeynmanCardView(
+          key: key,
+          card: item.card,
+          durationSeconds: widget.feynmanSeconds,
+          onFinished: () => setState(() => _revealed = true),
+        ),
+        StudyMode.flip => GestureDetector(
+          onHorizontalDragEnd: _onSwipe,
+          child: FlipCard(
             key: key,
             card: item.card,
-            durationSeconds: widget.feynmanSeconds,
-            onFinished: () => setState(() => _revealed = true),
+            onFlippedChanged: (f) => setState(() => _flipped = f),
           ),
-        StudyMode.flip => GestureDetector(
-            onHorizontalDragEnd: _onSwipe,
-            child: FlipCard(
-              key: key,
-              card: item.card,
-              onFlippedChanged: (f) => setState(() => _flipped = f),
-            ),
-          ),
+        ),
       },
     );
 
@@ -546,8 +553,10 @@ class _ActiveBodyState extends State<_ActiveBody> {
       transitionBuilder: (child, animation) => FadeTransition(
         opacity: animation,
         child: SlideTransition(
-          position: Tween<Offset>(begin: _exitOffset, end: Offset.zero)
-              .animate(animation),
+          position: Tween<Offset>(
+            begin: _exitOffset,
+            end: Offset.zero,
+          ).animate(animation),
           child: child,
         ),
       ),
@@ -595,16 +604,16 @@ class _ActiveBodyState extends State<_ActiveBody> {
                 child: LayoutBuilder(
                   builder: (context, viewportConstraints) =>
                       SingleChildScrollView(
-                    child: ConstrainedBox(
-                      constraints: BoxConstraints(
-                        minHeight: viewportConstraints.maxHeight,
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(
+                            minHeight: viewportConstraints.maxHeight,
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 20),
+                            child: Center(child: animatedCardArea),
+                          ),
+                        ),
                       ),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 20),
-                        child: Center(child: animatedCardArea),
-                      ),
-                    ),
-                  ),
                 ),
               ),
               // Cloze auto-derives its result per card and has no rating row
@@ -613,10 +622,7 @@ class _ActiveBodyState extends State<_ActiveBody> {
               if (!_isCloze && (!_isFeynman || _revealed))
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 14, 16, 20),
-                  child: RatingRow(
-                    enabled: _ratingEnabled,
-                    onRate: _rate,
-                  ),
+                  child: RatingRow(enabled: _ratingEnabled, onRate: _rate),
                 ),
             ],
           ),

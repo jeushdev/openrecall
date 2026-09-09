@@ -44,8 +44,9 @@ void main() {
     expect(current, ['mitochondria']);
   });
 
-  testWidgets('rejects a keyword that is not in the front or back',
-      (tester) async {
+  testWidgets('rejects a keyword that is not in the front or back', (
+    tester,
+  ) async {
     var current = <String>[];
     await tester.pumpWidget(_host(onChanged: (v) => current = v));
 
@@ -58,13 +59,17 @@ void main() {
 
     expect(find.widgetWithText(InputChip, 'ribosome'), findsNothing);
     expect(current, isEmpty);
-    expect(find.text('Keyword must appear in the front or back text.'),
-        findsOneWidget);
+    expect(
+      find.text('Keyword must appear in the front or back text.'),
+      findsOneWidget,
+    );
   });
 
   testWidgets('deleting a chip removes it from the value', (tester) async {
     var current = <String>['ATP'];
-    await tester.pumpWidget(_host(initial: const ['ATP'], onChanged: (v) => current = v));
+    await tester.pumpWidget(
+      _host(initial: const ['ATP'], onChanged: (v) => current = v),
+    );
 
     expect(find.widgetWithText(InputChip, 'ATP'), findsOneWidget);
     await tester.tap(find.byTooltip('Delete'));

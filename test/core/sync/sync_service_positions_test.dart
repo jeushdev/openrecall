@@ -9,34 +9,31 @@ import 'package:open_recall/features/decks/data/local_deck_store.dart';
 /// `set_course_positions`.
 void main() {
   DirtyDeck deck(String id, int position) => DirtyDeck(
-        id: id,
-        name: id,
-        courseId: 'c1',
-        lastStudiedAt: null,
-        updatedAt: DateTime.utc(2026),
-        baseUpdatedAt: DateTime.utc(2026),
-        position: position,
-      );
+    id: id,
+    name: id,
+    courseId: 'c1',
+    lastStudiedAt: null,
+    updatedAt: DateTime.utc(2026),
+    baseUpdatedAt: DateTime.utc(2026),
+    position: position,
+  );
 
   DirtyCourse course(String id, int position) => DirtyCourse(
-        id: id,
-        userId: 'u1',
-        name: id,
-        accentColor: 'green',
-        isDefault: false,
-        updatedAt: DateTime.utc(2026),
-        baseUpdatedAt: DateTime.utc(2026),
-        position: position,
-      );
+    id: id,
+    userId: 'u1',
+    name: id,
+    accentColor: 'green',
+    isDefault: false,
+    updatedAt: DateTime.utc(2026),
+    baseUpdatedAt: DateTime.utc(2026),
+    position: position,
+  );
 
   test('deckPositionItems maps each dirty deck to its {id, position}', () {
-    expect(
-      deckPositionItems([deck('a', 1), deck('b', 0)]),
-      [
-        {'id': 'a', 'position': 1},
-        {'id': 'b', 'position': 0},
-      ],
-    );
+    expect(deckPositionItems([deck('a', 1), deck('b', 0)]), [
+      {'id': 'a', 'position': 1},
+      {'id': 'b', 'position': 0},
+    ]);
   });
 
   test('coursePositionItems does the same for courses', () {

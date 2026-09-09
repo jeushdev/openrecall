@@ -27,11 +27,7 @@ import 'stacked_deck.dart';
 /// All state is widget-local and resets when [card] changes; the study screen
 /// also re-keys it per queue position, so a requeue always starts fresh.
 class ClozeTypeCard extends StatefulWidget {
-  const ClozeTypeCard({
-    super.key,
-    required this.card,
-    required this.onOutcome,
-  });
+  const ClozeTypeCard({super.key, required this.card, required this.onOutcome});
 
   final FlashCard card;
   final ValueChanged<ClozeOutcome> onOutcome;
@@ -89,8 +85,10 @@ class _ClozeTypeCardState extends State<ClozeTypeCard> {
   }
 
   void _split() {
-    final (front, next) =
-        clozeSegments(widget.card.front, widget.card.keywords);
+    final (front, next) = clozeSegments(
+      widget.card.front,
+      widget.card.keywords,
+    );
     final (back, _) = clozeSegments(
       widget.card.back,
       widget.card.keywords,
@@ -108,8 +106,9 @@ class _ClozeTypeCardState extends State<ClozeTypeCard> {
     // to answer — treat it as fully correct, mirroring how the interim
     // tap-to-reveal card auto-completed a zero-blank card.
     if (_answers.isEmpty) {
-      WidgetsBinding.instance
-          .addPostFrameCallback((_) => _emit(ClozeOutcome.correct));
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => _emit(ClozeOutcome.correct),
+      );
     }
   }
 
@@ -195,10 +194,8 @@ class _ClozeTypeCardState extends State<ClozeTypeCard> {
     );
   }
 
-  Widget _label(String text, AppTokens tokens) => Text(
-        text,
-        style: AppType.overline.copyWith(color: tokens.textTertiary),
-      );
+  Widget _label(String text, AppTokens tokens) =>
+      Text(text, style: AppType.overline.copyWith(color: tokens.textTertiary));
 
   Widget _side(List<ClozeSegment> segments, AppTokens tokens) {
     final baseStyle = AppType.cardBody.copyWith(
@@ -361,10 +358,7 @@ class _MissReview extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Not quite',
-          style: AppType.label.copyWith(color: red),
-        ),
+        Text('Not quite', style: AppType.label.copyWith(color: red)),
         const SizedBox(height: 10),
         Text(
           'ANSWER',
@@ -390,13 +384,13 @@ class _MissReview extends StatelessWidget {
                     DiffOp.match => base,
                     DiffOp.wrong => base.copyWith(color: red),
                     DiffOp.extra => base.copyWith(
-                        color: red,
-                        decoration: TextDecoration.lineThrough,
-                      ),
+                      color: red,
+                      decoration: TextDecoration.lineThrough,
+                    ),
                     DiffOp.missing => base.copyWith(
-                        color: tokens.textTertiary,
-                        decoration: TextDecoration.underline,
-                      ),
+                      color: tokens.textTertiary,
+                      decoration: TextDecoration.underline,
+                    ),
                   },
                 ),
             ],
@@ -419,10 +413,7 @@ class _MissReview extends StatelessWidget {
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: FilledButton(
-                onPressed: onNext,
-                child: const Text('Next'),
-              ),
+              child: FilledButton(onPressed: onNext, child: const Text('Next')),
             ),
           ],
         ),

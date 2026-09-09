@@ -13,10 +13,7 @@
 /// The streak only counts as "current" if the most recent study day is today or
 /// yesterday; a two-day gap resets it to 0. Multiple sessions on one day count
 /// once.
-int currentStreak(
-  Iterable<DateTime> completedSessionStarts, {
-  DateTime? now,
-}) {
+int currentStreak(Iterable<DateTime> completedSessionStarts, {DateTime? now}) {
   final days = <DateTime>{
     for (final start in completedSessionStarts) _dateOnly(start.toLocal()),
   };

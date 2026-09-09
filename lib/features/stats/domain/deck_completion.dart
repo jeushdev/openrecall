@@ -45,18 +45,19 @@ List<DeckCompletion> deckCompletions(
 ) {
   final nameById = {for (final deck in decks) deck.id: deck.name};
 
-  final completions = <DeckCompletion>[
-    for (final entry in runThroughs.entries)
-      if (nameById.containsKey(entry.key))
-        DeckCompletion(
-          deckId: entry.key,
-          deckName: nameById[entry.key]!,
-          runThroughs: entry.value,
-        ),
-  ]..sort((a, b) {
-      final byCount = b.runThroughs.compareTo(a.runThroughs);
-      return byCount != 0 ? byCount : a.deckName.compareTo(b.deckName);
-    });
+  final completions =
+      <DeckCompletion>[
+        for (final entry in runThroughs.entries)
+          if (nameById.containsKey(entry.key))
+            DeckCompletion(
+              deckId: entry.key,
+              deckName: nameById[entry.key]!,
+              runThroughs: entry.value,
+            ),
+      ]..sort((a, b) {
+        final byCount = b.runThroughs.compareTo(a.runThroughs);
+        return byCount != 0 ? byCount : a.deckName.compareTo(b.deckName);
+      });
 
   return completions;
 }

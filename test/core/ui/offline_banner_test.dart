@@ -6,15 +6,17 @@ import 'package:open_recall/core/ui/offline_banner.dart';
 import 'package:open_recall/theme/app_theme.dart';
 
 Future<void> _pump(WidgetTester tester, {required bool online}) {
-  return tester.pumpWidget(ProviderScope(
-    overrides: [
-      onlineStatusProvider.overrideWith((ref) => Stream.value(online)),
-    ],
-    child: MaterialApp(
-      theme: AppTheme.light,
-      home: const Scaffold(body: OfflineBanner()),
+  return tester.pumpWidget(
+    ProviderScope(
+      overrides: [
+        onlineStatusProvider.overrideWith((ref) => Stream.value(online)),
+      ],
+      child: MaterialApp(
+        theme: AppTheme.light,
+        home: const Scaffold(body: OfflineBanner()),
+      ),
     ),
-  ));
+  );
 }
 
 void main() {
@@ -31,16 +33,20 @@ void main() {
     expect(find.byIcon(Icons.cloud_off_outlined), findsOneWidget);
   });
 
-  testWidgets('defaults to hidden before connectivity resolves', (tester) async {
+  testWidgets('defaults to hidden before connectivity resolves', (
+    tester,
+  ) async {
     // The platform channel is unavailable in tests and on a cold start the
     // stream has not emitted yet. Assuming online keeps the banner from
     // flashing on every launch.
-    await tester.pumpWidget(ProviderScope(
-      child: MaterialApp(
-        theme: AppTheme.light,
-        home: const Scaffold(body: OfflineBanner()),
+    await tester.pumpWidget(
+      ProviderScope(
+        child: MaterialApp(
+          theme: AppTheme.light,
+          home: const Scaffold(body: OfflineBanner()),
+        ),
       ),
-    ));
+    );
     await tester.pump();
     expect(find.text("You're offline"), findsNothing);
   });

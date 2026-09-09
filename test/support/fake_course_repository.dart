@@ -7,8 +7,8 @@ class FakeCourseRepository implements CourseRepository {
   FakeCourseRepository({
     List<Course>? courses,
     Map<String, String>? deckCourseIds,
-  })  : _courses = [...?courses],
-        deckCourseIds = {...?deckCourseIds};
+  }) : _courses = [...?courses],
+       deckCourseIds = {...?deckCourseIds};
 
   final List<Course> _courses;
 
@@ -98,7 +98,10 @@ class FakeCourseRepository implements CourseRepository {
   }
 
   @override
-  Future<void> deleteCourse(String id, {required String defaultCourseId}) async {
+  Future<void> deleteCourse(
+    String id, {
+    required String defaultCourseId,
+  }) async {
     calls.add('deleteCourse($id)');
     _maybeThrow();
     // Mirror the real two-step contract: reassign this course's decks to the
@@ -111,15 +114,15 @@ class FakeCourseRepository implements CourseRepository {
 }
 
 Course _withPosition(Course c, int position) => Course(
-      id: c.id,
-      userId: c.userId,
-      name: c.name,
-      accentColor: c.accentColor,
-      isDefault: c.isDefault,
-      createdAt: c.createdAt,
-      updatedAt: c.updatedAt,
-      position: position,
-    );
+  id: c.id,
+  userId: c.userId,
+  name: c.name,
+  accentColor: c.accentColor,
+  isDefault: c.isDefault,
+  createdAt: c.createdAt,
+  updatedAt: c.updatedAt,
+  position: position,
+);
 
 /// A plain [Course] for fixtures — only the fields the aggregation layer reads
 /// matter, the rest get neutral values.
@@ -129,14 +132,13 @@ Course fakeCourse({
   String accentColor = 'slate',
   bool isDefault = false,
   int position = 0,
-}) =>
-    Course(
-      id: id,
-      userId: 'user-1',
-      name: name ?? id,
-      accentColor: accentColor,
-      isDefault: isDefault,
-      createdAt: DateTime.utc(2026),
-      updatedAt: DateTime.utc(2026),
-      position: position,
-    );
+}) => Course(
+  id: id,
+  userId: 'user-1',
+  name: name ?? id,
+  accentColor: accentColor,
+  isDefault: isDefault,
+  createdAt: DateTime.utc(2026),
+  updatedAt: DateTime.utc(2026),
+  position: position,
+);

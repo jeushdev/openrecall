@@ -11,7 +11,7 @@ import 'package:timezone/timezone.dart' as tz;
 /// decision), no user-facing preferences yet (milestone 12).
 class NotificationService {
   NotificationService([FlutterLocalNotificationsPlugin? plugin])
-      : _plugin = plugin ?? FlutterLocalNotificationsPlugin();
+    : _plugin = plugin ?? FlutterLocalNotificationsPlugin();
 
   final FlutterLocalNotificationsPlugin _plugin;
 
@@ -100,9 +100,10 @@ class NotificationService {
   /// session with nothing left parked).
   Future<void> cancelReturnReminder() => _plugin.cancel(_reminderId);
 
-  AndroidFlutterLocalNotificationsPlugin? get _android =>
-      _plugin.resolvePlatformSpecificImplementation<
-          AndroidFlutterLocalNotificationsPlugin>();
+  AndroidFlutterLocalNotificationsPlugin? get _android => _plugin
+      .resolvePlatformSpecificImplementation<
+        AndroidFlutterLocalNotificationsPlugin
+      >();
 
   /// Requests `POST_NOTIFICATIONS` (Android 13+) the first time a reminder would
   /// actually be scheduled. Returns whether notifications are allowed.

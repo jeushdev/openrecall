@@ -31,10 +31,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
-    await ref.read(authControllerProvider.notifier).signIn(
-          email: _email.text.trim(),
-          password: _password.text,
-        );
+    await ref
+        .read(authControllerProvider.notifier)
+        .signIn(email: _email.text.trim(), password: _password.text);
   }
 
   @override
@@ -76,8 +75,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           child: const Text('Forgot password?'),
         ),
         TextButton(
-          onPressed:
-              busy ? null : () => context.goNamed(AppRoutes.signupName),
+          onPressed: busy ? null : () => context.goNamed(AppRoutes.signupName),
           child: const Text('Create account'),
         ),
       ],

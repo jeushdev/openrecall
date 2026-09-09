@@ -6,17 +6,17 @@ import 'package:open_recall/features/decks/domain/card.dart';
 import '../../support/local_db_harness.dart';
 
 FlashCard _card(String id, String deckId) => FlashCard(
-      id: id,
-      deckId: deckId,
-      front: 'Q$id',
-      back: 'A$id',
-      keywords: const [],
-      isConcept: false,
-      masteryLevel: 0,
-      failCount: 0,
-      createdAt: DateTime.utc(2026),
-      updatedAt: DateTime.utc(2026),
-    );
+  id: id,
+  deckId: deckId,
+  front: 'Q$id',
+  back: 'A$id',
+  keywords: const [],
+  isConcept: false,
+  masteryLevel: 0,
+  failCount: 0,
+  createdAt: DateTime.utc(2026),
+  updatedAt: DateTime.utc(2026),
+);
 
 /// The local side of a fully-offline authoring session, against the real
 /// SQLite mirror (milestone E3 Task 8). It proves the mirror produces a
@@ -39,7 +39,11 @@ void main() {
   test('create course → deck → card yields parent-first, correctly-linked '
       'unsynced rows', () async {
     final course = await courses.createCourse(
-        id: 'c1', userId: 'u1', name: 'Bio', accentColor: 'green');
+      id: 'c1',
+      userId: 'u1',
+      name: 'Bio',
+      accentColor: 'green',
+    );
     await decks.createDeck(id: 'd1', name: 'Chapter 1', courseId: course.id);
     await decks.insertCards([_card('k1', 'd1')]);
 
@@ -51,25 +55,33 @@ void main() {
     expect(dirtyCourses.single.createdLocally, isTrue);
     expect(dirtyDecks.single.id, 'd1');
     expect(dirtyDecks.single.createdLocally, isTrue);
-    expect(dirtyDecks.single.courseId, 'c1',
-        reason: 'client UUID — the child points at the real parent id, no remap');
+    expect(
+      dirtyDecks.single.courseId,
+      'c1',
+      reason: 'client UUID — the child points at the real parent id, no remap',
+    );
     expect(dirtyCards.single.deckId, 'd1');
   });
 
-  test('offline card add then deck delete: the deck tombstone subsumes the card',
-      () async {
-    await decks.createDeck(id: 'd1', name: 'Chapter 1', courseId: 'c1');
-    await decks.insertCards([_card('k1', 'd1'), _card('k2', 'd1')]);
+  test(
+    'offline card add then deck delete: the deck tombstone subsumes the card',
+    () async {
+      await decks.createDeck(id: 'd1', name: 'Chapter 1', courseId: 'c1');
+      await decks.insertCards([_card('k1', 'd1'), _card('k2', 'd1')]);
 
-    await decks.deleteDeck('d1');
+      await decks.deleteDeck('d1');
 
-    final deckTombstones = await decks.deckDeletions();
-    expect(deckTombstones.single.entityId, 'd1');
-    expect(deckTombstones.single.createdLocally, isTrue);
-    expect(await decks.cardDeletions(), isEmpty,
-        reason: 'the deck-level delete cascades server-side');
-    expect(await decks.contentDirtyCards(), isEmpty);
-  });
+      final deckTombstones = await decks.deckDeletions();
+      expect(deckTombstones.single.entityId, 'd1');
+      expect(deckTombstones.single.createdLocally, isTrue);
+      expect(
+        await decks.cardDeletions(),
+        isEmpty,
+        reason: 'the deck-level delete cascades server-side',
+      );
+      expect(await decks.contentDirtyCards(), isEmpty);
+    },
+  );
 
   test('two offline decks: both are unsynced and created-locally', () async {
     await decks.createDeck(id: 'd1', name: 'One', courseId: 'c1');

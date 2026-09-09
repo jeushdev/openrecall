@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../features/courses/data/local_course_store.dart';
 import '../../features/decks/data/local_deck_store.dart';
 import '../../features/decks/data/supabase_deck_repository.dart';
+import '../../features/decks/domain/offline_download.dart';
 import '../../features/study/data/local_study_store.dart';
 import '../connectivity/connectivity_service.dart';
 import '../local_db/local_deletion.dart';
@@ -77,6 +78,7 @@ class SyncService {
     this._studyLocal,
     this._connectivity, {
     this.isCurrent,
+    this.commitBus,
   });
 
   final SupabaseClient _client;
@@ -84,6 +86,7 @@ class SyncService {
   final LocalCourseStore _courseLocal;
   final LocalStudyStore _studyLocal;
   final ConnectivityService _connectivity;
+  final OfflineDeckCommitBus? commitBus;
 
   /// The guarded-write path for `cards`, reused verbatim from the live repo so
   /// an offline mastery edit syncs under the same `updated_at` compare-and-set.
@@ -92,6 +95,7 @@ class SyncService {
   bool _running = false;
   bool _disposed = false;
   String? _runningOwner;
+  Set<String>? _quarantinedDeckIds;
   final bool Function()? isCurrent;
 
   void _checkScope() {
@@ -162,7 +166,8 @@ class SyncService {
     _runningOwner = userId;
     _emit(const SyncOutcome.running());
     try {
-      final before = await _pendingCount();
+      _quarantinedDeckIds = await _deckLocal.confirmedMissingDeckIds();
+      final before = await _eligiblePendingCount(_quarantinedDeckIds!);
       await pushCourses(userId);
       await pushDecks(userId);
       await pushCardContent();
@@ -170,7 +175,7 @@ class SyncService {
       await pushSessions();
       await pushSessionCards();
       await processDeletions();
-      final after = await _pendingCount();
+      final after = await _eligiblePendingCount(_quarantinedDeckIds!);
       if (after > 0 && after >= before) {
         // Nothing drained though work remains — a stalled push, not success.
         _registerFailure(
@@ -186,6 +191,7 @@ class SyncService {
     } finally {
       _running = false;
       _runningOwner = null;
+      _quarantinedDeckIds = null;
     }
   }
 
@@ -199,19 +205,40 @@ class SyncService {
     _emit(SyncOutcome.failed(error, DateTime.now()));
   }
 
-  Future<int> _pendingCount() async {
+  Future<int> _eligiblePendingCount(Set<String> quarantined) async {
     final counts = await Future.wait<int>([
       _courseLocal.unsyncedCourses().then((r) => r.length),
-      _deckLocal.unsyncedDecks().then((r) => r.length),
-      _deckLocal.contentDirtyCards().then((r) => r.length),
-      _deckLocal.unsyncedCards().then((r) => r.length),
-      _studyLocal.unsyncedSessions().then((r) => r.length),
-      _studyLocal.unsyncedSessionCards().then((r) => r.length),
+      _deckLocal.unsyncedDecks().then(
+        (r) => r.where((row) => !quarantined.contains(row.id)).length,
+      ),
+      _deckLocal.contentDirtyCards().then(
+        (r) => r.where((row) => !quarantined.contains(row.deckId)).length,
+      ),
+      _deckLocal.unsyncedCards().then(
+        (r) => r.where((row) => !quarantined.contains(row.deckId)).length,
+      ),
+      _studyLocal.unsyncedSessions().then(
+        (r) => r.where((row) => !quarantined.contains(row.deckId)).length,
+      ),
+      _studyLocal.unsyncedSessionCards().then(
+        (r) => r.where((row) => !quarantined.contains(row.deckId)).length,
+      ),
       _courseLocal.courseDeletions().then((r) => r.length),
       _deckLocal.deckDeletions().then((r) => r.length),
       _deckLocal.cardDeletions().then((r) => r.length),
     ]);
     return counts.fold<int>(0, (sum, n) => sum + n);
+  }
+
+  Future<Set<String>> _missingDeckIdsForPass() async =>
+      _quarantinedDeckIds ?? await _deckLocal.confirmedMissingDeckIds();
+
+  Future<void> _cleanupAcknowledged(Set<String> deckIds) async {
+    if (deckIds.isEmpty) return;
+    final changed = await _deckLocal.cleanupRetainedCards(deckIds: deckIds);
+    for (final deckId in changed) {
+      commitBus?.publish(deckId, OfflineDeckCommitKind.cleanup);
+    }
   }
 
   @visibleForTesting
@@ -246,7 +273,10 @@ class SyncService {
 
   @visibleForTesting
   Future<void> pushDecks(String userId) async {
-    final dirty = await _deckLocal.unsyncedDecks();
+    final missing = await _missingDeckIdsForPass();
+    final dirty = (await _deckLocal.unsyncedDecks())
+        .where((deck) => !missing.contains(deck.id))
+        .toList();
     for (final deck in dirty) {
       try {
         // A null course_id is left to the decks before-insert trigger, which
@@ -314,7 +344,11 @@ class SyncService {
 
   @visibleForTesting
   Future<void> pushCardContent() async {
-    for (final card in await _deckLocal.contentDirtyCards()) {
+    final missing = await _missingDeckIdsForPass();
+    final acknowledgedDecks = <String>{};
+    for (final card in (await _deckLocal.contentDirtyCards()).where(
+      (card) => !missing.contains(card.deckId),
+    )) {
       try {
         // Plain last-write-wins upsert of the full row. The guarded
         // compare-and-set is the mastery-only path's job (pushCards), not this.
@@ -340,15 +374,21 @@ class SyncService {
           DateTime.parse(row['updated_at'] as String),
           sentRevision: card,
         );
+        acknowledgedDecks.add(card.deckId);
       } catch (_) {
         // Best-effort — the row stays content-dirty for the next trigger.
       }
     }
+    await _cleanupAcknowledged(acknowledgedDecks);
   }
 
   @visibleForTesting
   Future<void> pushCards() async {
-    for (final card in await _deckLocal.unsyncedCards()) {
+    final missing = await _missingDeckIdsForPass();
+    final acknowledgedDecks = <String>{};
+    for (final card in (await _deckLocal.unsyncedCards()).where(
+      (card) => !missing.contains(card.deckId),
+    )) {
       _checkScope();
       var row = await _cards.updateCardMasteryGuarded(
         cardId: card.id,
@@ -376,13 +416,18 @@ class SyncService {
           row.updatedAt,
           sentRevision: card,
         );
+        acknowledgedDecks.add(card.deckId);
       }
     }
+    await _cleanupAcknowledged(acknowledgedDecks);
   }
 
   @visibleForTesting
   Future<void> pushSessions() async {
-    final dirty = await _studyLocal.unsyncedSessions();
+    final missing = await _missingDeckIdsForPass();
+    final dirty = (await _studyLocal.unsyncedSessions())
+        .where((session) => !missing.contains(session.deckId))
+        .toList();
     if (dirty.isEmpty) return;
     // Preserve the one-active-session-per-deck conflict rule without putting a
     // remote wait back into local session start. Abandon existing remote rows
@@ -405,11 +450,15 @@ class SyncService {
     ]);
     _checkScope();
     await _studyLocal.markSessionsSynced(dirty);
+    await _cleanupAcknowledged({for (final session in dirty) session.deckId});
   }
 
   @visibleForTesting
   Future<void> pushSessionCards() async {
-    final dirty = await _studyLocal.unsyncedSessionCards();
+    final missing = await _missingDeckIdsForPass();
+    final dirty = (await _studyLocal.unsyncedSessionCards())
+        .where((row) => !missing.contains(row.deckId))
+        .toList();
     if (dirty.isEmpty) return;
     _checkScope();
     await _client.from('session_cards').upsert([
@@ -417,6 +466,7 @@ class SyncService {
     ]);
     _checkScope();
     await _studyLocal.markSessionCardsSynced(dirty);
+    await _cleanupAcknowledged({for (final row in dirty) row.deckId});
   }
 
   /// Replays tombstones in reverse foreign-key order so a parent is never

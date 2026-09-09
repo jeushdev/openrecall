@@ -3,8 +3,11 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/connectivity/connectivity_service.dart';
 import '../../../core/local_db/local_db_providers.dart';
 import '../../decks/application/deck_providers.dart';
+import '../../decks/application/offline_runtime_providers.dart';
+import '../../decks/data/cache_first_deck_repository.dart';
 import '../../decks/domain/card.dart';
 
 /// Thrown by [loadStudyDeckCards] when the deck isn't downloaded and the online
@@ -49,15 +52,28 @@ Future<List<FlashCard>> fetchDeckCardsBounded(
 /// The cards for a deck about to be studied, resolved so the study screen can
 /// always leave its loading state.
 ///
-/// - A **downloaded** deck reads straight from the local SQLite mirror — instant,
-///   no network (spec §10; ui-spec-v1 §1 accepts a slightly-stale local set at
-///   session start).
-/// - Any other deck fetches from Supabase, bounded by
-///   [preSessionLoadTimeoutProvider].
+/// - An explicitly downloaded deck reads straight from the local SQLite mirror
+///   — instant, no network (spec §10; ui-spec-v1 §1 accepts a slightly-stale
+///   local set at session start).
+/// - An opportunistically cached deck is usable while offline, but performs one
+///   bounded online revalidation for each genuine screen access.
 Future<List<FlashCard>> loadStudyDeckCards(Ref ref, String deckId) async {
   final local = ref.read(localDeckStoreProvider);
-  if (await local.isCardSetComplete(deckId)) {
+  final status = await local.packageStatus(deckId);
+  final cardsComplete =
+      status.cardsComplete ||
+      (!local.isNoop && await local.isCardSetComplete(deckId));
+  if (!local.isNoop && status.isExplicitlyAvailable) {
     return local.cards(deckId);
+  }
+  if (!local.isNoop) {
+    final known = ref.read(onlineStatusProvider).asData?.value;
+    final online =
+        known ?? await ref.read(connectivityServiceProvider).isOnline();
+    if (!online) {
+      if (cardsComplete) return local.cards(deckId);
+      throw DeckUnavailableOfflineException(deckId);
+    }
   }
   return fetchDeckCardsBounded(
     ref.read(deckRepositoryProvider).fetchCards(deckId),
@@ -68,6 +84,9 @@ Future<List<FlashCard>> loadStudyDeckCards(Ref ref, String deckId) async {
 
 /// The pre-session card load, keyed by deck id. The study screen watches this
 /// for the mode picker; [invalidate] it to drive a Retry.
-final preSessionCardsProvider = FutureProvider.family<List<FlashCard>, String>(
-  (ref, deckId) => loadStudyDeckCards(ref, deckId),
-);
+final preSessionCardsProvider = FutureProvider.autoDispose
+    .family<List<FlashCard>, String>((ref, deckId) {
+      ref.watch(offlineDeckObservationProvider(deckId));
+      ref.watch(offlineDeckCommitRevisionProvider(deckId));
+      return loadStudyDeckCards(ref, deckId);
+    }, retry: (_, _) => null);

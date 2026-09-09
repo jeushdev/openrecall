@@ -5,18 +5,24 @@ void main() {
   final now = DateTime(2026, 9, 1, 12, 0);
 
   test('under a minute reads "just now"', () {
-    expect(relativeTime(now.subtract(const Duration(seconds: 30)), now: now),
-        'just now');
+    expect(
+      relativeTime(now.subtract(const Duration(seconds: 30)), now: now),
+      'just now',
+    );
   });
 
   test('minutes within the hour', () {
-    expect(relativeTime(now.subtract(const Duration(minutes: 5)), now: now),
-        '5m ago');
+    expect(
+      relativeTime(now.subtract(const Duration(minutes: 5)), now: now),
+      '5m ago',
+    );
   });
 
   test('hours earlier the same calendar day', () {
-    expect(relativeTime(now.subtract(const Duration(hours: 3)), now: now),
-        '3h ago');
+    expect(
+      relativeTime(now.subtract(const Duration(hours: 3)), now: now),
+      '3h ago',
+    );
   });
 
   test('the previous calendar day reads "yesterday"', () {
@@ -32,7 +38,9 @@ void main() {
   });
 
   test('a future timestamp from clock skew still reads "just now"', () {
-    expect(relativeTime(now.add(const Duration(minutes: 2)), now: now),
-        'just now');
+    expect(
+      relativeTime(now.add(const Duration(minutes: 2)), now: now),
+      'just now',
+    );
   });
 }

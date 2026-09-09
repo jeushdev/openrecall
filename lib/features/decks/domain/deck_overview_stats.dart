@@ -22,7 +22,9 @@ class DeckOverviewStats {
     return DeckOverviewStats(
       totalCards: cards.length,
       dueCards: cards.where((c) => c.isDue).length,
-      masteryPercent: masteryPercentFromLevels(cards.map((c) => c.masteryLevel)),
+      masteryPercent: masteryPercentFromLevels(
+        cards.map((c) => c.masteryLevel),
+      ),
       withKeyword: cards.where(cardHasKeywords).length,
       multiLine: cards.where(cardIsMultiLine).length,
       modes: availableModes(cards),

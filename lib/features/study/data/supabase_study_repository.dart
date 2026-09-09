@@ -55,17 +55,14 @@ class SupabaseStudyRepository implements StudyRepository {
   ) async {
     // No user_id — session_cards ownership is checked through the join to
     // study_sessions (spec RLS pattern).
-    final rows = await _client
-        .from('session_cards')
-        .insert([
-          for (final seed in seeds)
-            {
-              'session_id': sessionId,
-              'card_id': seed.cardId,
-              'position': seed.position,
-            },
-        ])
-        .select();
+    final rows = await _client.from('session_cards').insert([
+      for (final seed in seeds)
+        {
+          'session_id': sessionId,
+          'card_id': seed.cardId,
+          'position': seed.position,
+        },
+    ]).select();
     return rows.map(SessionCard.fromJson).toList();
   }
 

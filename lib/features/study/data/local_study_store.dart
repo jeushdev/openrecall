@@ -12,13 +12,15 @@ class LocalSessionRow {
   LocalSessionRow(this.values);
   final Map<String, Object?> values;
   String get id => values['id'] as String;
+  String get deckId => values['deck_id'] as String;
 }
 
 /// A local `session_cards` row awaiting sync.
 class LocalSessionCardRow {
-  LocalSessionCardRow(this.values);
+  LocalSessionCardRow(this.values, {required this.deckId});
   final Map<String, Object?> values;
   String get id => values['id'] as String;
+  final String deckId;
 }
 
 /// DAO for the `offline_study_sessions` / `offline_session_cards` tables
@@ -223,10 +225,12 @@ class LocalStudyStore {
   Future<List<LocalSessionCardRow>> unsyncedSessionCards() async {
     final db = _db;
     if (db == null) return const [];
-    final rows = await db.query(
-      'offline_session_cards',
-      where: 'is_synced = 0',
-    );
+    final rows = await db.rawQuery('''
+      SELECT sc.*, s.deck_id AS parent_deck_id
+      FROM offline_session_cards sc
+      JOIN offline_study_sessions s ON s.id = sc.session_id
+      WHERE sc.is_synced = 0
+      ''');
     return [
       for (final r in rows)
         LocalSessionCardRow({
@@ -236,7 +240,7 @@ class LocalStudyStore {
           'position': r['position'],
           'consecutive_fails': r['consecutive_fails'],
           'is_parked': (r['is_parked'] as int) == 1,
-        }),
+        }, deckId: r['parent_deck_id'] as String),
     ];
   }
 

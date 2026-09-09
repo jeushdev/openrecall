@@ -49,21 +49,21 @@ class StudySession {
   });
 
   factory StudySession.fromJson(Map<String, dynamic> json) => StudySession(
-        id: json['id'] as String,
-        deckId: json['deck_id'] as String,
-        status: sessionStatusFromDb(json['status'] as String),
-        studyMode: studyModeFromDb(json['study_mode'] as String),
-        lengthMode: sessionLengthModeFromDb(json['length_mode'] as String),
-        cappedLength: json['capped_length'] as int?,
-        cardScope: json['card_scope'] == null
-            ? CardScope.due
-            : cardScopeFromDb(json['card_scope'] as String),
-        masteryDelta: json['mastery_delta'] as int?,
-        startedAt: DateTime.parse(json['started_at'] as String),
-        completedAt: json['completed_at'] == null
-            ? null
-            : DateTime.parse(json['completed_at'] as String),
-      );
+    id: json['id'] as String,
+    deckId: json['deck_id'] as String,
+    status: sessionStatusFromDb(json['status'] as String),
+    studyMode: studyModeFromDb(json['study_mode'] as String),
+    lengthMode: sessionLengthModeFromDb(json['length_mode'] as String),
+    cappedLength: json['capped_length'] as int?,
+    cardScope: json['card_scope'] == null
+        ? CardScope.due
+        : cardScopeFromDb(json['card_scope'] as String),
+    masteryDelta: json['mastery_delta'] as int?,
+    startedAt: DateTime.parse(json['started_at'] as String),
+    completedAt: json['completed_at'] == null
+        ? null
+        : DateTime.parse(json['completed_at'] as String),
+  );
 
   final String id;
   final String deckId;
@@ -92,15 +92,15 @@ class StudySession {
 
   @override
   int get hashCode => Object.hash(
-        id,
-        deckId,
-        status,
-        studyMode,
-        lengthMode,
-        cappedLength,
-        cardScope,
-        masteryDelta,
-        startedAt,
-        completedAt,
-      );
+    id,
+    deckId,
+    status,
+    studyMode,
+    lengthMode,
+    cappedLength,
+    cardScope,
+    masteryDelta,
+    startedAt,
+    completedAt,
+  );
 }

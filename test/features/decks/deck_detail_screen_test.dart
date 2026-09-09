@@ -5,8 +5,10 @@ import 'package:go_router/go_router.dart';
 import 'package:open_recall/features/courses/application/course_providers.dart';
 import 'package:open_recall/features/courses/domain/course.dart';
 import 'package:open_recall/features/decks/application/deck_providers.dart';
+import 'package:open_recall/features/decks/application/offline_providers.dart';
 import 'package:open_recall/features/decks/domain/card.dart';
 import 'package:open_recall/features/decks/domain/deck.dart';
+import 'package:open_recall/features/decks/domain/offline_download.dart';
 import 'package:open_recall/features/decks/presentation/deck_detail_screen.dart';
 import 'package:open_recall/routing/app_routes.dart';
 import 'package:open_recall/theme/app_theme.dart';
@@ -76,6 +78,7 @@ Future<GoRouter> _pump(
   required FakeDeckRepository decks,
   FakeCourseRepository? courses,
   double textScale = 1,
+  OfflinePackageStatus? offlineStatus,
 }) async {
   final router = GoRouter(
     initialLocation: '/',
@@ -124,6 +127,12 @@ Future<GoRouter> _pump(
         courseRepositoryProvider.overrideWithValue(
           courses ?? FakeCourseRepository(courses: _courses()),
         ),
+        if (offlineStatus != null) ...[
+          offlineStorageAvailableProvider.overrideWithValue(true),
+          offlinePackageStatusProvider.overrideWith(
+            (ref, _) async => offlineStatus,
+          ),
+        ],
       ],
       child: MaterialApp.router(
         theme: AppTheme.light,
@@ -433,5 +442,31 @@ void main() {
 
     expect(decks.calls.where((c) => c.startsWith('deleteDeck')), isEmpty);
     expect(find.byType(DeckDetailScreen), findsOneWidget);
+  });
+
+  testWidgets('overflow keeps offline removal separate from cloud Delete', (
+    tester,
+  ) async {
+    await _pump(
+      tester,
+      _Recorder(),
+      decks: FakeDeckRepository(decks: [_deck('deck-1')]),
+      offlineStatus: OfflinePackageStatus(
+        deckId: 'deck-1',
+        hasLocalMetadata: true,
+        isPinned: true,
+        cardsComplete: true,
+        cacheSuppressed: false,
+        remoteMissing: false,
+        downloadedAt: DateTime.utc(2026),
+      ),
+    );
+
+    await tester.tap(find.byIcon(Icons.more_vert));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Remove offline copy'), findsOneWidget);
+    expect(find.text('Delete deck'), findsOneWidget);
+    expect(find.text('Available offline'), findsOneWidget);
   });
 }

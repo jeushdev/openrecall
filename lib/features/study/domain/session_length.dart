@@ -12,10 +12,10 @@ const List<int?> sessionCapPresets = [10, 20, 30, null];
 
 extension SessionLengthModeDb on SessionLengthMode {
   /// The `study_sessions.length_mode` string this mode is stored as.
-  String get db =>
-      this == SessionLengthMode.capped ? 'capped' : 'uncapped';
+  String get db => this == SessionLengthMode.capped ? 'capped' : 'uncapped';
 }
 
 /// Reads a `study_sessions.length_mode` string back into a [SessionLengthMode].
-SessionLengthMode sessionLengthModeFromDb(String value) =>
-    value == 'capped' ? SessionLengthMode.capped : SessionLengthMode.untilMastered;
+SessionLengthMode sessionLengthModeFromDb(String value) => value == 'capped'
+    ? SessionLengthMode.capped
+    : SessionLengthMode.untilMastered;

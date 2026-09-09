@@ -32,11 +32,7 @@ void main() {
 
   test('a run entirely in the past still counts', () {
     expect(
-      longestStreak([
-        day(2020, 1, 1),
-        day(2020, 1, 2),
-        day(2020, 1, 3),
-      ]),
+      longestStreak([day(2020, 1, 1), day(2020, 1, 2), day(2020, 1, 3)]),
       3,
     );
   });
@@ -54,11 +50,7 @@ void main() {
 
   test('input order does not matter', () {
     expect(
-      longestStreak([
-        day(2026, 8, 3),
-        day(2026, 8, 1),
-        day(2026, 8, 2),
-      ]),
+      longestStreak([day(2026, 8, 3), day(2026, 8, 1), day(2026, 8, 2)]),
       3,
     );
   });

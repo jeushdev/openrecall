@@ -9,9 +9,9 @@ class DeleteAccountDialog extends StatefulWidget {
   const DeleteAccountDialog({super.key});
 
   static Future<bool?> show(BuildContext context) => showDialog<bool>(
-        context: context,
-        builder: (_) => const DeleteAccountDialog(),
-      );
+    context: context,
+    builder: (_) => const DeleteAccountDialog(),
+  );
 
   @override
   State<DeleteAccountDialog> createState() => _DeleteAccountDialogState();
@@ -73,8 +73,7 @@ class _DeleteAccountDialogState extends State<DeleteAccountDialog> {
             backgroundColor: colors.error,
             foregroundColor: colors.onError,
           ),
-          onPressed:
-              _confirmed ? () => Navigator.of(context).pop(true) : null,
+          onPressed: _confirmed ? () => Navigator.of(context).pop(true) : null,
           child: const Text('Delete account'),
         ),
       ],

@@ -32,12 +32,15 @@ class SupabaseCourseRepository implements CourseRepository {
     // One batched round-trip via a SECURITY INVOKER function — RLS
     // (`courses_owner`) still scopes the UPDATE, so ids the user does not own
     // simply match no row. `updated_at` is left to the database trigger.
-    await _client.rpc('set_course_positions', params: {
-      'items': [
-        for (final e in positionsForOrder(orderedIds).entries)
-          {'id': e.key, 'position': e.value},
-      ],
-    });
+    await _client.rpc(
+      'set_course_positions',
+      params: {
+        'items': [
+          for (final e in positionsForOrder(orderedIds).entries)
+            {'id': e.key, 'position': e.value},
+        ],
+      },
+    );
   }
 
   @override
@@ -49,11 +52,7 @@ class SupabaseCourseRepository implements CourseRepository {
     // user_id we pass matches the signed-in user.
     final row = await _client
         .from('courses')
-        .insert({
-          'user_id': _userId,
-          'name': name,
-          'accent_color': accentColor,
-        })
+        .insert({'user_id': _userId, 'name': name, 'accent_color': accentColor})
         .select(_columns)
         .single();
     return Course.fromJson(row);
@@ -68,10 +67,7 @@ class SupabaseCourseRepository implements CourseRepository {
     // updated_at is left to the database trigger (CLAUDE.md).
     final row = await _client
         .from('courses')
-        .update({
-          'name': ?name,
-          'accent_color': ?accentColor,
-        })
+        .update({'name': ?name, 'accent_color': ?accentColor})
         .eq('id', id)
         .select(_columns)
         .single();
@@ -79,14 +75,18 @@ class SupabaseCourseRepository implements CourseRepository {
   }
 
   @override
-  Future<void> deleteCourse(String id, {required String defaultCourseId}) async {
+  Future<void> deleteCourse(
+    String id, {
+    required String defaultCourseId,
+  }) async {
     // Two RLS-scoped statements, in order (ui-spec-v2 §3.1). The decks FK is
     // NO ACTION, so this course's decks must move to the default course before
     // the course row can be deleted. The default course id comes from the
     // caller (milestone R1) — no self-lookup here.
     await _client
         .from('decks')
-        .update({'course_id': defaultCourseId}).eq('course_id', id);
+        .update({'course_id': defaultCourseId})
+        .eq('course_id', id);
     await _client.from('courses').delete().eq('id', id);
   }
 }

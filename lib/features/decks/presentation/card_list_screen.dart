@@ -5,6 +5,8 @@ import 'package:go_router/go_router.dart';
 import '../../../routing/app_routes.dart';
 import '../../../theme/app_tokens.dart';
 import '../application/deck_providers.dart';
+import '../application/offline_runtime_providers.dart';
+import '../data/cache_first_deck_repository.dart';
 import '../application/pending_deletions.dart';
 import '../domain/deck.dart';
 import 'widgets/card_list_item.dart';
@@ -25,6 +27,7 @@ class CardListScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    ref.watch(offlineDeckObservationProvider(deckId));
     ref.listen(decksControllerProvider, (_, next) {
       if (next case AsyncError(:final error)) {
         ScaffoldMessenger.of(context)
@@ -44,9 +47,11 @@ class CardListScreen extends ConsumerWidget {
       appBar: AppBar(title: Text(deckName ?? 'Cards')),
       body: cards.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (_, _) => _CardsError(
-          onRetry: () => ref.invalidate(deckCardsProvider(deckId)),
-        ),
+        error: (error, _) => error is DeckUnavailableOfflineException
+            ? const _UnavailableOffline()
+            : _CardsError(
+                onRetry: () => ref.invalidate(deckCardsProvider(deckId)),
+              ),
         data: (all) {
           // Subtract cards whose deletion is still in flight (milestone R1).
           final pendingCards = ref.watch(
@@ -145,6 +150,25 @@ class _CardsError extends StatelessWidget {
             const SizedBox(height: 12),
             FilledButton(onPressed: onRetry, child: const Text('Retry')),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _UnavailableOffline extends StatelessWidget {
+  const _UnavailableOffline();
+
+  @override
+  Widget build(BuildContext context) {
+    final tokens = Theme.of(context).extension<AppTokens>()!;
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Text(
+          "This deck isn't available offline. Connect to the internet to download it.",
+          textAlign: TextAlign.center,
+          style: TextStyle(fontSize: 15, color: tokens.textPrimary),
         ),
       ),
     );

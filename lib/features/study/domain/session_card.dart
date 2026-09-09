@@ -16,13 +16,13 @@ class SessionCard {
   });
 
   factory SessionCard.fromJson(Map<String, dynamic> json) => SessionCard(
-        id: json['id'] as String,
-        sessionId: json['session_id'] as String,
-        cardId: json['card_id'] as String,
-        position: json['position'] as int,
-        consecutiveFails: json['consecutive_fails'] as int,
-        isParked: json['is_parked'] as bool,
-      );
+    id: json['id'] as String,
+    sessionId: json['session_id'] as String,
+    cardId: json['card_id'] as String,
+    position: json['position'] as int,
+    consecutiveFails: json['consecutive_fails'] as int,
+    isParked: json['is_parked'] as bool,
+  );
 
   final String id;
   final String sessionId;

@@ -8,11 +8,7 @@ import '../../domain/card.dart';
 /// marker. Tapping it opens the card editor; there is no inline edit / delete
 /// button any more (delete lives in the editor's title bar).
 class CardListItem extends StatelessWidget {
-  const CardListItem({
-    super.key,
-    required this.card,
-    required this.onTap,
-  });
+  const CardListItem({super.key, required this.card, required this.onTap});
 
   final FlashCard card;
   final VoidCallback onTap;

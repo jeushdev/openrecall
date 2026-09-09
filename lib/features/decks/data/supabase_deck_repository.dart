@@ -1,6 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/reorder.dart';
+import '../../courses/domain/course.dart';
 import '../domain/bulk_paste_parser.dart';
 import '../domain/card.dart';
 import '../domain/deck.dart';
@@ -9,20 +10,47 @@ import '../domain/deck_repository.dart';
 /// The only class in the decks feature that talks to Supabase Postgres
 /// directly. RLS scopes every query to the signed-in user, so no `user_id`
 /// filter is needed on reads.
-class SupabaseDeckRepository
-    implements DeckRepository, OfflineDownloadSource {
+class SupabaseDeckRepository implements DeckRepository, OfflineDownloadSource {
   SupabaseDeckRepository(this._client);
 
   final SupabaseClient _client;
 
   String get _userId => _client.auth.currentUser!.id;
 
+  static const _deckColumns =
+      'id, name, course_id, position, last_studied_at, created_at, updated_at';
+  static const _courseColumns =
+      'id, user_id, name, accent_color, is_default, position, created_at, '
+      'updated_at';
+
+  @override
+  Future<Deck?> fetchDeck(String deckId) async {
+    final row = await _client
+        .from('decks')
+        .select(_deckColumns)
+        .eq('id', deckId)
+        .maybeSingle();
+    return row == null ? null : Deck.fromJson(row);
+  }
+
+  @override
+  Future<Course?> fetchCourse(String courseId) async {
+    final row = await _client
+        .from('courses')
+        .select(_courseColumns)
+        .eq('id', courseId)
+        .maybeSingle();
+    return row == null ? null : Course.fromJson(row);
+  }
+
   @override
   Future<List<DeckSummary>> fetchDecks() async {
     final rows = await _client
         .from('decks')
-        .select('id, name, course_id, position, last_studied_at, created_at, '
-            'updated_at, cards(mastery_level)')
+        .select(
+          'id, name, course_id, position, last_studied_at, created_at, '
+          'updated_at, cards(mastery_level)',
+        )
         .order('position')
         .order('created_at');
     return rows.map(DeckSummary.fromJson).toList();
@@ -33,12 +61,15 @@ class SupabaseDeckRepository
     // One batched round-trip via a SECURITY INVOKER function — RLS
     // (`decks_owner`) still scopes the UPDATE, so ids the user does not own
     // simply match no row. `updated_at` is left to the database trigger.
-    await _client.rpc('set_deck_positions', params: {
-      'items': [
-        for (final e in positionsForOrder(orderedIds).entries)
-          {'id': e.key, 'position': e.value},
-      ],
-    });
+    await _client.rpc(
+      'set_deck_positions',
+      params: {
+        'items': [
+          for (final e in positionsForOrder(orderedIds).entries)
+            {'id': e.key, 'position': e.value},
+        ],
+      },
+    );
   }
 
   @override
@@ -48,11 +79,7 @@ class SupabaseDeckRepository
     // when given, belongs to the signed-in user.
     final row = await _client
         .from('decks')
-        .insert({
-          'user_id': _userId,
-          'name': name,
-          'course_id': ?courseId,
-        })
+        .insert({'user_id': _userId, 'name': name, 'course_id': ?courseId})
         .select()
         .single();
     return Deck.fromJson(row);
@@ -68,10 +95,7 @@ class SupabaseDeckRepository
     // validates a new course_id belongs to the signed-in user.
     final row = await _client
         .from('decks')
-        .update({
-          'name': ?name,
-          'course_id': ?courseId,
-        })
+        .update({'name': ?name, 'course_id': ?courseId})
         .eq('id', id)
         .select()
         .single();
@@ -155,14 +179,14 @@ class SupabaseDeckRepository
   }
 
   @override
-  Future<List<FlashCard>> addCards(String deckId, List<ParsedCard> cards) async {
-    final rows = await _client
-        .from('cards')
-        .insert([
-          for (final c in cards)
-            _cardValues(deckId, c.front, c.back, c.keywords, c.isConcept),
-        ])
-        .select();
+  Future<List<FlashCard>> addCards(
+    String deckId,
+    List<ParsedCard> cards,
+  ) async {
+    final rows = await _client.from('cards').insert([
+      for (final c in cards)
+        _cardValues(deckId, c.front, c.back, c.keywords, c.isConcept),
+    ]).select();
     return rows.map(FlashCard.fromJson).toList();
   }
 
@@ -248,12 +272,11 @@ class SupabaseDeckRepository
     String back,
     List<String> keywords,
     bool isConcept,
-  ) =>
-      {
-        'deck_id': deckId,
-        'front': front,
-        'back': back,
-        'keywords': keywords,
-        'is_concept': isConcept,
-      };
+  ) => {
+    'deck_id': deckId,
+    'front': front,
+    'back': back,
+    'keywords': keywords,
+    'is_concept': isConcept,
+  };
 }

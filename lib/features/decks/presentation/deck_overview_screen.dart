@@ -42,7 +42,8 @@ class _DeckOverviewScreenState extends ConsumerState<DeckOverviewScreen> {
   Widget build(BuildContext context) {
     final cards = ref.watch(deckCardsProvider(widget.deckId));
     final session = ref.watch(sessionControllerProvider).value;
-    final canResume = session != null &&
+    final canResume =
+        session != null &&
         session.deckId == widget.deckId &&
         !session.isComplete;
     final hasCards = cards.value?.isNotEmpty ?? false;
@@ -81,7 +82,9 @@ class _DeckOverviewScreenState extends ConsumerState<DeckOverviewScreen> {
               },
               itemBuilder: (_) => [
                 const PopupMenuItem(
-                    value: 'reset', child: Text('Reset mastery')),
+                  value: 'reset',
+                  child: Text('Reset mastery'),
+                ),
                 if (canUpdateOffline)
                   const PopupMenuItem(
                     value: 'update-offline',
@@ -96,8 +99,7 @@ class _DeckOverviewScreenState extends ConsumerState<DeckOverviewScreen> {
         error: (err, _) => err is DeckUnavailableOfflineException
             ? const _UnavailableOffline()
             : _LoadError(
-                onRetry: () =>
-                    ref.invalidate(deckCardsProvider(widget.deckId)),
+                onRetry: () => ref.invalidate(deckCardsProvider(widget.deckId)),
               ),
         data: (list) => _Body(
           deckId: widget.deckId,
@@ -163,9 +165,7 @@ class _DeckOverviewScreenState extends ConsumerState<DeckOverviewScreen> {
     if (!ref.read(offlineControllerProvider).hasError) {
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
-        ..showSnackBar(
-          const SnackBar(content: Text('Offline copy updated')),
-        );
+        ..showSnackBar(const SnackBar(content: Text('Offline copy updated')));
     }
     // The error path surfaces via the OfflineToggle's own ref.listen.
   }
@@ -374,8 +374,11 @@ class _UnavailableOffline extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.cloud_off_outlined,
-                size: 40, color: theme.colorScheme.outline),
+            Icon(
+              Icons.cloud_off_outlined,
+              size: 40,
+              color: theme.colorScheme.outline,
+            ),
             const SizedBox(height: 12),
             Text(
               "This deck isn't available offline.",

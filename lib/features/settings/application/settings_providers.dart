@@ -21,15 +21,18 @@ final accountRepositoryProvider = Provider<AccountRepository>((ref) {
 });
 
 /// Device-local store for the reminders on/off preference.
-final notificationPreferencesProvider = Provider<NotificationPreferences>((ref) {
+final notificationPreferencesProvider = Provider<NotificationPreferences>((
+  ref,
+) {
   return NotificationPreferences();
 });
 
 /// Device-local store for the "Study appearance" toggles (ui-spec-v1 §6.5).
-final studyAppearancePreferencesProvider =
-    Provider<StudyAppearancePreferences>((ref) {
-  return StudyAppearancePreferences();
-});
+final studyAppearancePreferencesProvider = Provider<StudyAppearancePreferences>(
+  (ref) {
+    return StudyAppearancePreferences();
+  },
+);
 
 /// Device-local store for the theme override (`docs/spec-v5-dark-mode.md` §4).
 final themeModePreferenceProvider = Provider<ThemeModePreference>((ref) {
@@ -49,8 +52,9 @@ final initialThemeModeProvider = Provider<ThemeMode?>((ref) => null);
 /// otherwise reads the persisted value and degrades to [ThemeMode.system] on a
 /// storage error (mirrors how [StudyAppearanceController] degrades). Writes are
 /// optimistic with rollback.
-final themeModeProvider =
-    AsyncNotifierProvider<ThemeModeController, ThemeMode>(ThemeModeController.new);
+final themeModeProvider = AsyncNotifierProvider<ThemeModeController, ThemeMode>(
+  ThemeModeController.new,
+);
 
 class ThemeModeController extends AsyncNotifier<ThemeMode> {
   ThemeModePreference get _prefs => ref.read(themeModePreferenceProvider);
@@ -91,8 +95,8 @@ final appVersionProvider = FutureProvider<String>((ref) async {
 /// writes it and pushes the new value into the [NotificationService] gate.
 final notificationsEnabledProvider =
     AsyncNotifierProvider<NotificationsEnabledController, bool>(
-  NotificationsEnabledController.new,
-);
+      NotificationsEnabledController.new,
+    );
 
 class NotificationsEnabledController extends AsyncNotifier<bool> {
   @override
@@ -162,8 +166,8 @@ class StudyAppearance {
 /// optimistic with rollback on error, like [NotificationsEnabledController].
 final studyAppearanceProvider =
     AsyncNotifierProvider<StudyAppearanceController, StudyAppearance>(
-  StudyAppearanceController.new,
-);
+      StudyAppearanceController.new,
+    );
 
 class StudyAppearanceController extends AsyncNotifier<StudyAppearance> {
   StudyAppearancePreferences get _prefs =>
@@ -224,8 +228,8 @@ class StudyAppearanceController extends AsyncNotifier<StudyAppearance> {
 /// `AuthController` in the auth feature).
 final accountActionsProvider =
     AsyncNotifierProvider<AccountActionsController, void>(
-  AccountActionsController.new,
-);
+      AccountActionsController.new,
+    );
 
 class AccountActionsController extends AsyncNotifier<void> {
   @override

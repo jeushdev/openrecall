@@ -5,6 +5,7 @@ import '../connectivity/connectivity_service.dart';
 import '../local_db/local_db_providers.dart';
 import 'sync_service.dart';
 import '../../features/home/application/home_providers.dart';
+import '../../features/decks/application/offline_runtime_providers.dart';
 import '../../features/stats/application/stats_providers.dart';
 
 void _invalidateSessionReads(Ref ref) {
@@ -31,6 +32,7 @@ final syncServiceProvider = Provider<SyncService?>((ref) {
     ref.watch(localStudyStoreProvider),
     ref.watch(connectivityServiceProvider),
     isCurrent: ref.watch(localDeckStoreProvider).isCurrent,
+    commitBus: ref.watch(offlineDeckCommitBusProvider),
   );
   ref.onDispose(service.dispose);
   return service;

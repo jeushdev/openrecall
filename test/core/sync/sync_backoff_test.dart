@@ -81,22 +81,26 @@ void main() {
     addTearDown(service.dispose);
   });
 
-  test('a pass that drains nothing reports failed and arms the backoff',
-      () async {
-    await service.syncPending();
+  test(
+    'a pass that drains nothing reports failed and arms the backoff',
+    () async {
+      await service.syncPending();
 
-    expect(service.pushDecksCalls, 1);
-    expect(service.lastOutcome.kind, SyncOutcomeKind.failed);
-    expect(service.nextAllowedAt, isNotNull);
-  });
+      expect(service.pushDecksCalls, 1);
+      expect(service.lastOutcome.kind, SyncOutcomeKind.failed);
+      expect(service.nextAllowedAt, isNotNull);
+    },
+  );
 
-  test('syncPending is a no-op inside the backoff window after a failure',
-      () async {
-    await service.syncPending(); // fails, arms backoff
-    await service.syncPending(); // within the window → returns early
+  test(
+    'syncPending is a no-op inside the backoff window after a failure',
+    () async {
+      await service.syncPending(); // fails, arms backoff
+      await service.syncPending(); // within the window → returns early
 
-    expect(service.pushDecksCalls, 1);
-  });
+      expect(service.pushDecksCalls, 1);
+    },
+  );
 
   test('force bypasses the backoff window', () async {
     await service.syncPending();

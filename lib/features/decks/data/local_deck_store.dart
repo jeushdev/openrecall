@@ -5,8 +5,10 @@ import 'package:sqflite/sqflite.dart';
 import '../../../core/local_db/stale_account_scope.dart';
 
 import '../../../core/local_db/local_deletion.dart';
+import '../../courses/domain/course.dart';
 import '../domain/card.dart';
 import '../domain/deck.dart';
+import '../domain/offline_download.dart';
 
 /// A card row that has an unsynced local mastery/fail edit waiting to go up to
 /// Supabase, together with [baseUpdatedAt] — the Supabase `updated_at` last seen
@@ -14,6 +16,7 @@ import '../domain/deck.dart';
 class DirtyCard {
   DirtyCard({
     required this.id,
+    required this.deckId,
     required this.masteryLevel,
     required this.failCount,
     required this.updatedAt,
@@ -21,6 +24,7 @@ class DirtyCard {
   });
 
   final String id;
+  final String deckId;
   final int masteryLevel;
   final int failCount;
   final DateTime updatedAt;
@@ -80,6 +84,36 @@ class LocalDeckStore {
 
   /// True when there is no local database, so nothing can be cached or synced.
   bool get isNoop => _db == null;
+
+  /// Rechecked inside guarded package transactions so an account switch that
+  /// happens while SQLite work is queued cannot commit through an old handle.
+  bool get isScopeCurrent => isCurrent?.call() ?? true;
+
+  /// A pending local re-course is authoritative over fetched deck metadata.
+  Future<String?> locallyAuthoritativeCourseId(String deckId) async {
+    final db = _db;
+    if (db == null) return null;
+    final rows = await db.query(
+      'offline_decks',
+      columns: ['course_id'],
+      where: 'id = ? AND is_synced = 0',
+      whereArgs: [deckId],
+      limit: 1,
+    );
+    return rows.isEmpty ? null : rows.single['course_id'] as String?;
+  }
+
+  Future<bool> hasCourseMetadata(String courseId) async {
+    final db = _db;
+    if (db == null) return false;
+    return (await db.query(
+      'offline_courses',
+      columns: ['id'],
+      where: 'id = ?',
+      whereArgs: [courseId],
+      limit: 1,
+    )).isNotEmpty;
+  }
 
   Future<bool> hasFetchedDeckMetadata() async {
     final db = _db;
@@ -152,6 +186,77 @@ class LocalDeckStore {
     return rows.isNotEmpty;
   }
 
+  /// The complete persisted package contract for one deck. Unlike provider
+  /// operation state, this survives process restart.
+  Future<OfflinePackageStatus> packageStatus(String deckId) async {
+    final db = _db;
+    if (db == null) return OfflinePackageStatus.missing(deckId);
+    final rows = await db.query(
+      'offline_decks',
+      columns: [
+        'is_pinned',
+        'cards_complete',
+        'cache_suppressed',
+        'remote_missing',
+        'downloaded_at',
+      ],
+      where: 'id = ?',
+      whereArgs: [deckId],
+      limit: 1,
+    );
+    if (rows.isEmpty) return OfflinePackageStatus.missing(deckId);
+    final row = rows.single;
+    return OfflinePackageStatus(
+      deckId: deckId,
+      hasLocalMetadata: true,
+      isPinned: (row['is_pinned'] as int? ?? 0) == 1,
+      cardsComplete: (row['cards_complete'] as int? ?? 0) == 1,
+      cacheSuppressed: (row['cache_suppressed'] as int? ?? 0) == 1,
+      remoteMissing: (row['remote_missing'] as int? ?? 0) == 1,
+      downloadedAt: _parseNullable(row['downloaded_at']),
+    );
+  }
+
+  /// Stores only a confirmed targeted remote result. Callers must not use an
+  /// absent row in an account-wide list as proof of remote deletion.
+  Future<void> setRemoteMissing(String deckId, {required bool missing}) async {
+    await setRemoteMissingGuarded(deckId, missing: missing);
+  }
+
+  /// Applies targeted remote-presence evidence only while [operation] still
+  /// owns the deck. Returns whether the persisted flag actually changed.
+  Future<bool> setRemoteMissingGuarded(
+    String deckId, {
+    required bool missing,
+    OfflinePackageOperation? operation,
+    bool Function(OfflinePackageOperation operation)? isOperationCurrent,
+  }) async {
+    final db = _db;
+    if (db == null) return false;
+    return db.transaction((txn) async {
+      _checkOperation(operation, isOperationCurrent);
+      final changed = await txn.update(
+        'offline_decks',
+        {'remote_missing': missing ? 1 : 0},
+        where: 'id = ? AND remote_missing != ?',
+        whereArgs: [deckId, missing ? 1 : 0],
+      );
+      _checkOperation(operation, isOperationCurrent);
+      return changed > 0;
+    });
+  }
+
+  Future<Set<String>> confirmedMissingDeckIds() async {
+    final db = _db;
+    if (db == null) return <String>{};
+    final rows = await db.query(
+      'offline_decks',
+      columns: ['id'],
+      where: 'remote_missing = 1',
+    );
+    return {for (final row in rows) row['id'] as String};
+  }
+
   // ---- download / remove --------------------------------------------------
 
   /// Marks [deckId] pinned "available offline" and refreshes its cached header.
@@ -176,7 +281,12 @@ class LocalDeckStore {
     if (exists) {
       await db.update(
         'offline_decks',
-        {'name': name, 'course_id': ?courseId, 'is_pinned': 1},
+        {
+          'name': name,
+          'course_id': ?courseId,
+          'is_pinned': 1,
+          'cache_suppressed': 0,
+        },
         where: 'id = ?',
         whereArgs: [deckId],
       );
@@ -186,6 +296,7 @@ class LocalDeckStore {
         'name': name,
         'course_id': ?courseId,
         'is_pinned': 1,
+        'cache_suppressed': 0,
         'is_synced': 1,
       });
     }
@@ -194,14 +305,41 @@ class LocalDeckStore {
   /// Unpins a deck without deleting application history. Clean package cards
   /// are discarded, except cards referenced by an active session or pending
   /// local queue work. Dirty cards and deletion tombstones are always retained.
-  Future<void> removeDeck(String deckId) async {
+  Future<void> removeDeck(
+    String deckId, {
+    OfflinePackageOperation? operation,
+    bool Function(OfflinePackageOperation operation)? isOperationCurrent,
+    bool Function(String deckId)? hasStartupLease,
+  }) async {
     final db = _db;
     if (db == null) return;
     await db.transaction((txn) async {
+      _checkOperation(operation, isOperationCurrent);
+      if (hasStartupLease?.call(deckId) == true) {
+        throw OfflinePackageActiveSessionException(deckId);
+      }
+      if (await _hasActiveSession(txn, deckId)) {
+        throw OfflinePackageActiveSessionException(deckId);
+      }
+      _checkOperation(operation, isOperationCurrent);
+      if (hasStartupLease?.call(deckId) == true) {
+        throw OfflinePackageActiveSessionException(deckId);
+      }
       await txn.update(
         'offline_decks',
-        {'is_pinned': 0, 'cards_complete': 0, 'downloaded_at': null},
+        {
+          'is_pinned': 0,
+          'cards_complete': 0,
+          'downloaded_at': null,
+          'cache_suppressed': 1,
+        },
         where: 'id = ?',
+        whereArgs: [deckId],
+      );
+      await txn.update(
+        'offline_cards',
+        {'in_current_package': 0},
+        where: 'deck_id = ?',
         whereArgs: [deckId],
       );
       await txn.delete(
@@ -219,6 +357,23 @@ class LocalDeckStore {
         whereArgs: [deckId, deckId],
       );
     });
+  }
+
+  Future<bool> hasActiveSession(String deckId) async {
+    final db = _db;
+    if (db == null) return false;
+    return _hasActiveSession(db, deckId);
+  }
+
+  Future<bool> _hasActiveSession(DatabaseExecutor txn, String deckId) async {
+    final rows = await txn.query(
+      'offline_study_sessions',
+      columns: ['id'],
+      where: "deck_id = ? AND status = 'active'",
+      whereArgs: [deckId],
+      limit: 1,
+    );
+    return rows.isNotEmpty;
   }
 
   /// Whether this deck still holds local work that hasn't reached Supabase — an
@@ -255,7 +410,28 @@ class LocalDeckStore {
       whereArgs: [deckId],
       limit: 1,
     );
-    return session.isNotEmpty;
+    if (session.isNotEmpty) return true;
+    final queue = await txn.rawQuery(
+      '''
+      SELECT sc.id
+      FROM offline_session_cards sc
+      JOIN offline_study_sessions s ON s.id = sc.session_id
+      WHERE s.deck_id = ? AND sc.is_synced = 0
+      LIMIT 1
+      ''',
+      [deckId],
+    );
+    if (queue.isNotEmpty) return true;
+    final tombstone = await txn.query(
+      'offline_deletions',
+      columns: ['entity_id'],
+      where:
+          "(entity_type = 'deck' AND entity_id = ?) OR "
+          "(entity_type = 'card' AND deck_id = ?)",
+      whereArgs: [deckId, deckId],
+      limit: 1,
+    );
+    return tombstone.isNotEmpty;
   }
 
   // ---- read-through refresh ---------------------------------------------------
@@ -287,9 +463,17 @@ class LocalDeckStore {
       };
       final remoteIds = {for (final d in remote) d.id};
       const retainPendingWork =
+          'is_pinned = 1 OR cache_suppressed = 1 OR remote_missing = 1 OR '
           'id IN (SELECT deck_id FROM offline_cards WHERE is_synced = 0) OR '
           'id IN (SELECT deck_id FROM offline_study_sessions '
-          'WHERE is_synced = 0)';
+          "WHERE is_synced = 0 OR status = 'active') OR "
+          'id IN (SELECT s.deck_id FROM offline_session_cards sc '
+          'JOIN offline_study_sessions s ON s.id = sc.session_id '
+          'WHERE sc.is_synced = 0) OR '
+          "id IN (SELECT entity_id FROM offline_deletions "
+          "WHERE entity_type = 'deck') OR "
+          "id IN (SELECT deck_id FROM offline_deletions "
+          "WHERE entity_type = 'card')";
       if (remoteIds.isEmpty) {
         await txn.delete(
           'offline_decks',
@@ -305,6 +489,24 @@ class LocalDeckStore {
           whereArgs: remoteIds.toList(),
         );
       }
+      await txn.delete(
+        'offline_cards',
+        where: '''
+          deck_id NOT IN (SELECT id FROM offline_decks)
+          AND is_synced = 1
+          AND content_dirty = 0
+          AND id NOT IN (
+            SELECT entity_id FROM offline_deletions
+            WHERE entity_type = 'card'
+          )
+          AND id NOT IN (
+            SELECT sc.card_id
+            FROM offline_session_cards sc
+            JOIN offline_study_sessions s ON s.id = sc.session_id
+            WHERE s.status = 'active' OR s.is_synced = 0 OR sc.is_synced = 0
+          )
+        ''',
+      );
       for (final d in remote) {
         if (dirtyIds.contains(d.id) || tombstonedIds.contains(d.id)) continue;
         final exists = (await txn.query(
@@ -409,30 +611,134 @@ class LocalDeckStore {
     required List<FlashCard> cards,
     String? deckName,
     String? courseId,
+    Deck? deck,
+    List<Course> courses = const [],
     bool? pin,
+    OfflinePackageOperation? operation,
+    bool Function(OfflinePackageOperation operation)? isOperationCurrent,
+    bool Function(String deckId)? hasStartupLease,
   }) async {
     final db = _db;
     if (db == null) return;
+    if (deck != null && (deck.id != deckId || deck.courseId == null)) {
+      throw StateError('Invalid deck metadata for $deckId');
+    }
     _validateCompletePackage(deckId, cards);
     await db.transaction((txn) async {
-      final exists = (await txn.query(
+      _checkOperation(operation, isOperationCurrent);
+      if (operation?.kind == OfflinePackageOperationKind.refresh) {
+        if (hasStartupLease?.call(deckId) == true ||
+            await _hasActiveSession(txn, deckId)) {
+          throw OfflinePackageActiveSessionException(deckId);
+        }
+      }
+      final suppressionRows = await txn.query(
         'offline_decks',
-        columns: ['id'],
+        columns: ['cache_suppressed'],
         where: 'id = ?',
         whereArgs: [deckId],
         limit: 1,
-      )).isNotEmpty;
+      );
+      if (suppressionRows.isNotEmpty &&
+          (suppressionRows.single['cache_suppressed'] as int? ?? 0) == 1 &&
+          pin != true) {
+        return;
+      }
+      if (operation?.kind == OfflinePackageOperationKind.refresh &&
+          hasStartupLease?.call(deckId) == true) {
+        throw OfflinePackageActiveSessionException(deckId);
+      }
+      for (final course in courses) {
+        if (course.id.isEmpty ||
+            course.name.trim().isEmpty ||
+            course.accentColor.trim().isEmpty) {
+          throw StateError('Invalid course metadata for $deckId');
+        }
+        final deleted = await txn.query(
+          'offline_deletions',
+          columns: ['entity_id'],
+          where: "entity_type = 'course' AND entity_id = ?",
+          whereArgs: [course.id],
+          limit: 1,
+        );
+        if (deleted.isNotEmpty) continue;
+        final values = <String, Object?>{
+          'id': course.id,
+          'user_id': course.userId.isEmpty ? null : course.userId,
+          'name': course.name,
+          'accent_color': course.accentColor,
+          'is_default': course.isDefault ? 1 : 0,
+          'position': course.position,
+          'created_at': course.createdAt.toUtc().toIso8601String(),
+          'updated_at': course.updatedAt.toUtc().toIso8601String(),
+          'base_updated_at': course.updatedAt.toUtc().toIso8601String(),
+          'is_synced': 1,
+        };
+        final changed = await txn.update(
+          'offline_courses',
+          values,
+          where: 'id = ? AND is_synced = 1',
+          whereArgs: [course.id],
+        );
+        if (changed == 0) {
+          final existingCourse = await txn.query(
+            'offline_courses',
+            columns: ['id'],
+            where: 'id = ?',
+            whereArgs: [course.id],
+            limit: 1,
+          );
+          if (existingCourse.isEmpty) {
+            await txn.insert('offline_courses', values);
+          }
+        }
+      }
+      final existingRows = await txn.query(
+        'offline_decks',
+        columns: ['id', 'cache_suppressed'],
+        where: 'id = ?',
+        whereArgs: [deckId],
+        limit: 1,
+      );
+      final exists = existingRows.isNotEmpty;
+      final suppressed =
+          exists && (existingRows.single['cache_suppressed'] as int? ?? 0) == 1;
+      // Incidental read-through caching may display remote rows, but cannot
+      // recreate a package the user intentionally removed. An explicit
+      // download (pin == true) is the only M1 path that clears suppression.
+      if (suppressed && pin != true) return;
       if (!exists) {
+        final remote = deck;
         await txn.insert('offline_decks', {
           'id': deckId,
-          'name': deckName ?? '',
-          'course_id': courseId,
+          'name': remote?.name ?? deckName ?? '',
+          'course_id': remote?.courseId ?? courseId,
+          if (remote != null) ...{
+            'position': remote.position,
+            'last_studied_at': remote.lastStudiedAt?.toUtc().toIso8601String(),
+            'created_at': remote.createdAt.toUtc().toIso8601String(),
+            'updated_at': remote.updatedAt.toUtc().toIso8601String(),
+            'base_updated_at': remote.updatedAt.toUtc().toIso8601String(),
+          },
           'is_synced': 1,
         });
-      } else if (deckName != null) {
+      } else if (deck != null || deckName != null) {
+        final remote = deck;
         await txn.update(
           'offline_decks',
-          {'name': deckName},
+          {
+            'name': remote?.name ?? deckName,
+            if (remote != null) ...{
+              'course_id': remote.courseId,
+              'position': remote.position,
+              'last_studied_at': remote.lastStudiedAt
+                  ?.toUtc()
+                  .toIso8601String(),
+              'created_at': remote.createdAt.toUtc().toIso8601String(),
+              'updated_at': remote.updatedAt.toUtc().toIso8601String(),
+              'base_updated_at': remote.updatedAt.toUtc().toIso8601String(),
+            },
+          },
           where: 'id = ? AND is_synced = 1',
           whereArgs: [deckId],
         );
@@ -478,7 +784,6 @@ class LocalDeckStore {
         ))
           r['entity_id'] as String,
       };
-      final remoteIds = {for (final c in cards) c.id};
       const retainForSession = '''
         id IN (
           SELECT sc.card_id
@@ -489,46 +794,76 @@ class LocalDeckStore {
           )
         )
       ''';
-      if (remoteIds.isEmpty) {
-        await txn.delete(
-          'offline_cards',
-          where: 'deck_id = ? AND is_synced = 1 AND NOT ($retainForSession)',
-          whereArgs: [deckId, deckId],
-        );
-      } else {
-        await txn.delete(
-          'offline_cards',
-          where:
-              'deck_id = ? AND is_synced = 1 AND id NOT IN '
-              "(${List.filled(remoteIds.length, '?').join(',')}) "
-              'AND NOT ($retainForSession)',
-          whereArgs: [deckId, ...remoteIds, deckId],
-        );
-      }
+      // Mark first, then install the fetched set. This avoids SQLite bind
+      // limits for large packages and separates membership from retention.
+      await txn.update(
+        'offline_cards',
+        {'in_current_package': 0},
+        where: 'deck_id = ?',
+        whereArgs: [deckId],
+      );
       for (final c in cards) {
-        if (dirtyIds.contains(c.id) || tombstonedIds.contains(c.id)) continue;
-        await txn.insert(
-          'offline_cards',
-          _cardValues(c),
-          conflictAlgorithm: ConflictAlgorithm.replace,
-        );
+        if (tombstonedIds.contains(c.id)) continue;
+        if (dirtyIds.contains(c.id)) {
+          await txn.update(
+            'offline_cards',
+            {'in_current_package': 1},
+            where: 'id = ?',
+            whereArgs: [c.id],
+          );
+          continue;
+        }
+        await txn.insert('offline_cards', {
+          ..._cardValues(c),
+          'in_current_package': 1,
+        }, conflictAlgorithm: ConflictAlgorithm.replace);
       }
+      await txn.delete(
+        'offline_cards',
+        where:
+            'deck_id = ? AND is_synced = 1 AND in_current_package = 0 '
+            'AND NOT ($retainForSession)',
+        whereArgs: [deckId, deckId],
+      );
+      _checkOperation(operation, isOperationCurrent);
+      final effectiveRows = await txn.query(
+        'offline_cards',
+        columns: ['mastery_level'],
+        where: 'deck_id = ? AND (in_current_package = 1 OR is_synced = 0)',
+        whereArgs: [deckId],
+      );
+      final effectiveLevels = [
+        for (final row in effectiveRows) row['mastery_level'] as int,
+      ];
+      _checkOperation(operation, isOperationCurrent);
       await txn.update(
         'offline_decks',
         {
           'cards_complete': 1,
           'downloaded_at': DateTime.now().toUtc().toIso8601String(),
           if (pin != null) 'is_pinned': pin ? 1 : 0,
-          'total_cards': cards.length,
-          'mastery_level_sum': cards.fold<int>(
-            0,
-            (sum, card) => sum + card.masteryLevel,
-          ),
+          if (pin == true) 'cache_suppressed': 0,
+          'remote_missing': 0,
+          'total_cards': effectiveLevels.length,
+          'mastery_level_sum': effectiveLevels.fold<int>(0, (a, b) => a + b),
         },
         where: 'id = ?',
         whereArgs: [deckId],
       );
+      _checkOperation(operation, isOperationCurrent);
     });
+  }
+
+  void _checkOperation(
+    OfflinePackageOperation? operation,
+    bool Function(OfflinePackageOperation operation)? isOperationCurrent,
+  ) {
+    if (operation == null && isOperationCurrent == null) return;
+    if (operation == null ||
+        isOperationCurrent == null ||
+        !isOperationCurrent(operation)) {
+      throw OfflinePackageOperationSuperseded(operation?.deckId ?? 'unknown');
+    }
   }
 
   void _validateCompletePackage(String deckId, List<FlashCard> cards) {
@@ -561,7 +896,7 @@ class LocalDeckStore {
         for (final r in await db.query(
           'offline_cards',
           columns: ['mastery_level'],
-          where: 'deck_id = ?',
+          where: 'deck_id = ? AND (in_current_package = 1 OR is_synced = 0)',
           whereArgs: [id],
         ))
           r['mastery_level'] as int,
@@ -608,9 +943,9 @@ class LocalDeckStore {
     if (db == null) return const [];
     final rows = await db.query(
       'offline_cards',
-      where: 'deck_id = ?',
+      where: 'deck_id = ? AND (in_current_package = 1 OR is_synced = 0)',
       whereArgs: [deckId],
-      orderBy: 'created_at',
+      orderBy: 'created_at, id',
     );
     return rows.map(_cardFromRow).toList();
   }
@@ -762,6 +1097,18 @@ class LocalDeckStore {
   Future<void> insertCards(List<FlashCard> cards) async {
     final db = _db;
     if (db == null) return;
+    final deckIds = {for (final card in cards) card.deckId};
+    final completeDeckIds = <String>{};
+    for (final deckId in deckIds) {
+      final rows = await db.query(
+        'offline_decks',
+        columns: ['id'],
+        where: 'id = ? AND cards_complete = 1',
+        whereArgs: [deckId],
+        limit: 1,
+      );
+      if (rows.isNotEmpty) completeDeckIds.add(deckId);
+    }
     final batch = db.batch();
     for (final c in cards) {
       batch.insert('offline_cards', {
@@ -769,6 +1116,9 @@ class LocalDeckStore {
         'is_synced': 0,
         'content_dirty': 1,
         'created_locally': 1,
+        // Authored cards extend a verified package, but never manufacture
+        // completeness for a partial/metadata-only deck.
+        'in_current_package': completeDeckIds.contains(c.deckId) ? 1 : 0,
       });
     }
     await batch.commit(noResult: true);
@@ -931,6 +1281,7 @@ class LocalDeckStore {
       for (final r in rows)
         DirtyCard(
           id: r['id'] as String,
+          deckId: r['deck_id'] as String,
           masteryLevel: r['mastery_level'] as int,
           failCount: r['fail_count'] as int,
           updatedAt: DateTime.parse(r['updated_at'] as String),
@@ -1059,6 +1410,57 @@ class LocalDeckStore {
         ],
       ],
     );
+  }
+
+  /// Removes only retained package leftovers whose exact pending references
+  /// have now been acknowledged. The predicates are rechecked together in the
+  /// transaction, so a concurrent local edit or new session keeps the row.
+  Future<Set<String>> cleanupRetainedCards({Set<String>? deckIds}) async {
+    final db = _db;
+    if (db == null) return <String>{};
+    return db.transaction((txn) async {
+      final candidateRows = await txn.query(
+        'offline_cards',
+        columns: ['id', 'deck_id'],
+        where: [
+          'in_current_package = 0',
+          'is_synced = 1',
+          'content_dirty = 0',
+          if (deckIds != null && deckIds.isNotEmpty)
+            "deck_id IN (${List.filled(deckIds.length, '?').join(',')})",
+        ].join(' AND '),
+        whereArgs: deckIds == null || deckIds.isEmpty ? null : deckIds.toList(),
+      );
+      final changedDecks = <String>{};
+      for (final row in candidateRows) {
+        final id = row['id'] as String;
+        final deckId = row['deck_id'] as String;
+        final deleted = await txn.delete(
+          'offline_cards',
+          where: '''
+            id = ?
+            AND in_current_package = 0
+            AND is_synced = 1
+            AND content_dirty = 0
+            AND NOT EXISTS (
+              SELECT 1 FROM offline_deletions d
+              WHERE d.entity_type = 'card' AND d.entity_id = offline_cards.id
+            )
+            AND NOT EXISTS (
+              SELECT 1
+              FROM offline_session_cards sc
+              JOIN offline_study_sessions s ON s.id = sc.session_id
+              WHERE sc.card_id = offline_cards.id AND (
+                s.status = 'active' OR s.is_synced = 0 OR sc.is_synced = 0
+              )
+            )
+          ''',
+          whereArgs: [id],
+        );
+        if (deleted > 0) changedDecks.add(deckId);
+      }
+      return changedDecks;
+    });
   }
 
   Future<List<LocalDeletion>> deckDeletions() => _deletions('deck');

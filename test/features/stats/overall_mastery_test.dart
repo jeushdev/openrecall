@@ -7,18 +7,15 @@ DeckSummary _deck({
   String id = 'deck',
   required int totalCards,
   required int masteryLevelSum,
-}) =>
-    DeckSummary(
-      id: id,
-      name: id,
-      lastStudiedAt: null,
-      totalCards: totalCards,
-      dueCards: totalCards,
-      masteryPercent: masteryPercentFromLevels(
-        List.filled(totalCards, 0),
-      ),
-      masteryLevelSum: masteryLevelSum,
-    );
+}) => DeckSummary(
+  id: id,
+  name: id,
+  lastStudiedAt: null,
+  totalCards: totalCards,
+  dueCards: totalCards,
+  masteryPercent: masteryPercentFromLevels(List.filled(totalCards, 0)),
+  masteryLevelSum: masteryLevelSum,
+);
 
 void main() {
   group('overallMasteryPercent', () {
@@ -39,24 +36,25 @@ void main() {
     test('a single deck matches the shared per-deck helper', () {
       // levels [1, 4] -> sum 5 over 2 cards
       expect(
-        overallMasteryPercent([
-          _deck(totalCards: 2, masteryLevelSum: 5),
-        ]),
+        overallMasteryPercent([_deck(totalCards: 2, masteryLevelSum: 5)]),
         masteryPercentFromLevels(const [1, 4]),
       );
     });
 
-    test('is card-weighted: a large unfamiliar deck drags the average down', () {
-      // 2 fully-mastered cards (sum 8) + 10 unfamiliar cards (sum 0):
-      // card-weighted  = 8 / (12 * 4) * 100  = 16.67 -> 17
-      // deck-averaged  = (100 + 0) / 2       = 50   (what we must NOT get)
-      final percent = overallMasteryPercent([
-        _deck(id: 'small', totalCards: 2, masteryLevelSum: 8),
-        _deck(id: 'large', totalCards: 10, masteryLevelSum: 0),
-      ]);
+    test(
+      'is card-weighted: a large unfamiliar deck drags the average down',
+      () {
+        // 2 fully-mastered cards (sum 8) + 10 unfamiliar cards (sum 0):
+        // card-weighted  = 8 / (12 * 4) * 100  = 16.67 -> 17
+        // deck-averaged  = (100 + 0) / 2       = 50   (what we must NOT get)
+        final percent = overallMasteryPercent([
+          _deck(id: 'small', totalCards: 2, masteryLevelSum: 8),
+          _deck(id: 'large', totalCards: 10, masteryLevelSum: 0),
+        ]);
 
-      expect(percent, 17);
-    });
+        expect(percent, 17);
+      },
+    );
 
     test('all cards mastered is 100%', () {
       expect(

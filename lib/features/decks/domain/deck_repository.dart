@@ -1,6 +1,7 @@
 import 'bulk_paste_parser.dart';
 import 'card.dart';
 import 'deck.dart';
+import '../../courses/domain/course.dart';
 
 /// The app's window onto the `decks` and `cards` tables.
 ///
@@ -103,6 +104,13 @@ abstract interface class DeckRepository {
 /// [SupabaseDeckRepository] implements both; tests override
 /// `offlineDownloadSourceProvider` with a fake that implements only this.
 abstract interface class OfflineDownloadSource {
+  /// The current authoritative deck row, or `null` when it is not visible to
+  /// the signed-in account.
+  Future<Deck?> fetchDeck(String deckId);
+
+  /// The required parent course row, or `null` when it is not visible.
+  Future<Course?> fetchCourse(String courseId);
+
   /// The number of cards in [deckId] — a `HEAD` request, no rows transferred.
   Future<int> countCards(String deckId);
 

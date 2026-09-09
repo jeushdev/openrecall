@@ -12,8 +12,8 @@ enum ClozeOutcome { correct, overridden, missed }
 extension ClozeOutcomeX on ClozeOutcome {
   /// The `cards.mastery_level` this outcome writes.
   int get masteryLevel => switch (this) {
-        ClozeOutcome.correct => FlipRating.mastered.level,
-        ClozeOutcome.overridden => FlipRating.familiar.level,
-        ClozeOutcome.missed => FlipRating.forgotten.level,
-      };
+    ClozeOutcome.correct => FlipRating.mastered.level,
+    ClozeOutcome.overridden => FlipRating.familiar.level,
+    ClozeOutcome.missed => FlipRating.forgotten.level,
+  };
 }

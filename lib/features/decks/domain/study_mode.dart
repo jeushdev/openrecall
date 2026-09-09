@@ -10,10 +10,10 @@ enum StudyMode { flip, cloze, feynman }
 extension StudyModeLabel on StudyMode {
   /// The button label shown on the deck mode selector.
   String get label => switch (this) {
-        StudyMode.flip => 'Flip & Rate',
-        StudyMode.cloze => 'Cloze Type-in',
-        StudyMode.feynman => 'Feynman Synthesis',
-      };
+    StudyMode.flip => 'Flip & Rate',
+    StudyMode.cloze => 'Cloze Type-in',
+    StudyMode.feynman => 'Feynman Synthesis',
+  };
 }
 
 /// Whether [card] carries at least one keyword worth blanking — the Cloze

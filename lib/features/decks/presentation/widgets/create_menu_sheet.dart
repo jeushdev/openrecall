@@ -64,9 +64,7 @@ class _CreateMenuSheetState extends ConsumerState<CreateMenuSheet> {
       router.push(AppRoutes.deckCreatorPath);
       messenger
         ..hideCurrentSnackBar()
-        ..showSnackBar(
-          const SnackBar(content: Text('Create a deck first.')),
-        );
+        ..showSnackBar(const SnackBar(content: Text('Create a deck first.')));
       return;
     }
     setState(() => _importExpanded = !_importExpanded);

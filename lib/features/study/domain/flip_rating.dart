@@ -12,19 +12,19 @@ extension FlipRatingX on FlipRating {
   /// The `mastery_level` this rating writes. Not the enum index — the mapping is
   /// explicit so removing "Okay" (which was level 2) didn't renumber the rest.
   int get level => switch (this) {
-        FlipRating.unfamiliar => 0,
-        FlipRating.forgotten => 1,
-        FlipRating.familiar => 3,
-        FlipRating.mastered => 4,
-      };
+    FlipRating.unfamiliar => 0,
+    FlipRating.forgotten => 1,
+    FlipRating.familiar => 3,
+    FlipRating.mastered => 4,
+  };
 
   /// The button label on the rating bar.
   String get label => switch (this) {
-        FlipRating.unfamiliar => 'Unfamiliar',
-        FlipRating.forgotten => 'Forgotten',
-        FlipRating.familiar => 'Familiar',
-        FlipRating.mastered => 'Mastered',
-      };
+    FlipRating.unfamiliar => 'Unfamiliar',
+    FlipRating.forgotten => 'Forgotten',
+    FlipRating.familiar => 'Familiar',
+    FlipRating.mastered => 'Mastered',
+  };
 
   /// Whether this rating reaches Mastered.
   bool get isMastered => level >= masteredLevel;

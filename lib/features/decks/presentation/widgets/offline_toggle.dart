@@ -112,33 +112,45 @@ class OfflineToggle extends ConsumerWidget {
   }
 
   Future<void> _confirmRemove(BuildContext context, WidgetRef ref) async {
-    final unsynced = await ref.read(deckHasUnsyncedWorkProvider(deckId).future);
-    if (!context.mounted) return;
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Remove offline copy?'),
-        content: Text(
-          unsynced
-              ? "This deck won't be kept for offline study. Pending changes "
-                    'will stay on this device until they are safely synced.'
-              : "This deck's cards will no longer be kept on this device for "
-                    'offline study.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Remove'),
-          ),
-        ],
-      ),
-    );
-    if (confirmed == true) {
+    final confirmed = await confirmRemoveOfflineCopy(context, ref, deckId);
+    if (confirmed) {
       await ref.read(offlineControllerProvider.notifier).remove(deckId);
     }
   }
+}
+
+/// Shared wording for local package removal. This deliberately names the
+/// cloud distinction so it cannot be confused with the separate Delete action.
+Future<bool> confirmRemoveOfflineCopy(
+  BuildContext context,
+  WidgetRef ref,
+  String deckId,
+) async {
+  final unsynced = await ref.read(deckHasUnsyncedWorkProvider(deckId).future);
+  if (!context.mounted) return false;
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (_) => AlertDialog(
+      title: const Text('Remove offline copy?'),
+      content: Text(
+        unsynced
+            ? 'The cloud deck will remain unchanged. This copy will no '
+                  'longer be kept for offline study. Pending changes will '
+                  'stay on this device until they are safely synced.'
+            : 'The cloud deck will remain unchanged. This copy will no '
+                  'longer be kept on this device for offline study.',
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(false),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.of(context).pop(true),
+          child: const Text('Remove'),
+        ),
+      ],
+    ),
+  );
+  return confirmed == true;
 }

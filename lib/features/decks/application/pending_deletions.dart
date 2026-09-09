@@ -20,19 +20,17 @@ class PendingDeletions {
   final Set<String> deckIds;
   final Set<String> cardIds;
 
-  bool get isEmpty =>
-      courseIds.isEmpty && deckIds.isEmpty && cardIds.isEmpty;
+  bool get isEmpty => courseIds.isEmpty && deckIds.isEmpty && cardIds.isEmpty;
 
   PendingDeletions copyWith({
     Set<String>? courseIds,
     Set<String>? deckIds,
     Set<String>? cardIds,
-  }) =>
-      PendingDeletions(
-        courseIds: courseIds ?? this.courseIds,
-        deckIds: deckIds ?? this.deckIds,
-        cardIds: cardIds ?? this.cardIds,
-      );
+  }) => PendingDeletions(
+    courseIds: courseIds ?? this.courseIds,
+    deckIds: deckIds ?? this.deckIds,
+    cardIds: cardIds ?? this.cardIds,
+  );
 }
 
 class PendingDeletionsNotifier extends Notifier<PendingDeletions> {
@@ -62,5 +60,5 @@ class PendingDeletionsNotifier extends Notifier<PendingDeletions> {
 /// restart would just be reconciled by the next fetch anyway.
 final pendingDeletionsProvider =
     NotifierProvider<PendingDeletionsNotifier, PendingDeletions>(
-  PendingDeletionsNotifier.new,
-);
+      PendingDeletionsNotifier.new,
+    );

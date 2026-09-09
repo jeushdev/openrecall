@@ -84,8 +84,7 @@ List<String> clozeBlankAnswers(
   List<String> keywords,
 ) {
   final (frontSegments, next) = clozeSegments(front, keywords);
-  final (backSegments, _) =
-      clozeSegments(back, keywords, startIndex: next);
+  final (backSegments, _) = clozeSegments(back, keywords, startIndex: next);
   return [
     for (final s in frontSegments)
       if (s.isBlank) s.text,

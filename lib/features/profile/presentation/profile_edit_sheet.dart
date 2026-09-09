@@ -44,8 +44,9 @@ class ProfileEditSheet extends ConsumerStatefulWidget {
 
 class _ProfileEditSheetState extends ConsumerState<ProfileEditSheet> {
   late final String _initial = widget.currentName?.trim() ?? '';
-  late final TextEditingController _name =
-      TextEditingController(text: _initial);
+  late final TextEditingController _name = TextEditingController(
+    text: _initial,
+  );
 
   @override
   void dispose() {
@@ -119,7 +120,9 @@ class _ProfileEditSheetState extends ConsumerState<ProfileEditSheet> {
               const SizedBox(height: 8),
               Text(
                 'Keep it under 30 characters.',
-                style: AppType.caption.copyWith(color: tokens.accent('red').text),
+                style: AppType.caption.copyWith(
+                  color: tokens.accent('red').text,
+                ),
               ),
             ],
             const SizedBox(height: 20),

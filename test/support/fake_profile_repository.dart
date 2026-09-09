@@ -5,8 +5,9 @@ import 'package:open_recall/features/profile/domain/profile_repository.dart';
 /// `Supabase.initialize()`.
 class FakeProfileRepository implements ProfileRepository {
   FakeProfileRepository({Profile? profile})
-      : profile = profile ??
-            (id: 'user-1', email: 'jeush.b@example.com', username: null);
+    : profile =
+          profile ??
+          (id: 'user-1', email: 'jeush.b@example.com', username: null);
 
   /// The row [fetch] returns and [updateUsername] mutates.
   Profile profile;

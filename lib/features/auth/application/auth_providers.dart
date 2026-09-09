@@ -27,8 +27,9 @@ final authStateChangesProvider = StreamProvider<bool>((ref) {
 /// Drives the auth screens' buttons: `isLoading` disables them, `hasError`
 /// feeds the SnackBar. Holds no value of its own — it only tracks the
 /// in-flight state of the most recent action.
-final authControllerProvider =
-    AsyncNotifierProvider<AuthController, void>(AuthController.new);
+final authControllerProvider = AsyncNotifierProvider<AuthController, void>(
+  AuthController.new,
+);
 
 class AuthController extends AsyncNotifier<void> {
   @override
@@ -42,7 +43,9 @@ class AuthController extends AsyncNotifier<void> {
   }
 
   Future<void> signIn({required String email, required String password}) {
-    return _run(() => _repo.signInWithPassword(email: email, password: password));
+    return _run(
+      () => _repo.signInWithPassword(email: email, password: password),
+    );
   }
 
   Future<void> signUp({required String email, required String password}) {

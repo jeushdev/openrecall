@@ -22,15 +22,15 @@ class Course {
   });
 
   factory Course.fromJson(Map<String, dynamic> json) => Course(
-        id: json['id'] as String,
-        userId: json['user_id'] as String,
-        name: json['name'] as String,
-        accentColor: json['accent_color'] as String,
-        isDefault: json['is_default'] as bool,
-        createdAt: DateTime.parse(json['created_at'] as String),
-        updatedAt: DateTime.parse(json['updated_at'] as String),
-        position: json['position'] as int? ?? 0,
-      );
+    id: json['id'] as String,
+    userId: json['user_id'] as String,
+    name: json['name'] as String,
+    accentColor: json['accent_color'] as String,
+    isDefault: json['is_default'] as bool,
+    createdAt: DateTime.parse(json['created_at'] as String),
+    updatedAt: DateTime.parse(json['updated_at'] as String),
+    position: json['position'] as int? ?? 0,
+  );
 
   final String id;
   final String userId;
@@ -59,13 +59,13 @@ class Course {
 
   @override
   int get hashCode => Object.hash(
-        id,
-        userId,
-        name,
-        accentColor,
-        isDefault,
-        createdAt,
-        updatedAt,
-        position,
-      );
+    id,
+    userId,
+    name,
+    accentColor,
+    isDefault,
+    createdAt,
+    updatedAt,
+    position,
+  );
 }

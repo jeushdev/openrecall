@@ -39,7 +39,9 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
 
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text('If that email has an account, a reset link is on its way.'),
+        content: Text(
+          'If that email has an account, a reset link is on its way.',
+        ),
       ),
     );
     context.goNamed(AppRoutes.loginName);

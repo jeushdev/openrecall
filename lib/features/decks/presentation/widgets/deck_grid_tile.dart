@@ -49,6 +49,8 @@ double deckGridTileExtent(
             _offlineStyle,
             (contentWidth - 16).clamp(1.0, double.infinity),
           )
+        : deck.isAvailableOffline
+        ? textHeight('Available offline', _offlineStyle, contentWidth)
         : deck.cardCount == 0
         ? textHeight(
             'no cards yet',
@@ -149,12 +151,38 @@ class DeckGridTile extends StatelessWidget {
                     const SizedBox(height: _tileDetailGap),
                     if (deck.isLockedOffline)
                       _OfflineLockAffordance(color: tokens.textSecondary)
+                    else if (deck.isAvailableOffline)
+                      _OfflineAvailableAffordance(color: tokens.textSecondary)
                     else
                       DeckBadge(deck: deck, accent: accent),
                   ],
                 ),
               ),
             ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _OfflineAvailableAffordance extends StatelessWidget {
+  const _OfflineAvailableAffordance({required this.color});
+
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(Icons.download_done_outlined, size: 12, color: color),
+        const SizedBox(width: 4),
+        Flexible(
+          child: Text(
+            'Available offline',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 10, color: color),
           ),
         ),
       ],

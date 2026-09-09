@@ -29,19 +29,18 @@ FlashCard _card({
   String back = 'Paris',
   List<String> keywords = const [],
   bool isConcept = false,
-}) =>
-    FlashCard(
-      id: id,
-      deckId: 'deck-1',
-      front: front,
-      back: back,
-      keywords: keywords,
-      isConcept: isConcept,
-      masteryLevel: 0,
-      failCount: 0,
-      createdAt: DateTime.utc(2026),
-      updatedAt: DateTime.utc(2026),
-    );
+}) => FlashCard(
+  id: id,
+  deckId: 'deck-1',
+  front: front,
+  back: back,
+  keywords: keywords,
+  isConcept: isConcept,
+  masteryLevel: 0,
+  failCount: 0,
+  createdAt: DateTime.utc(2026),
+  updatedAt: DateTime.utc(2026),
+);
 
 class _Recorder {
   String? location;
@@ -55,7 +54,10 @@ Future<void> _pump(
   final router = GoRouter(
     initialLocation: '/',
     routes: [
-      GoRoute(path: '/', builder: (_, _) => const Scaffold(body: Text('home'))),
+      GoRoute(
+        path: '/',
+        builder: (_, _) => const Scaffold(body: Text('home')),
+      ),
       GoRoute(
         path: AppRoutes.cardListPath,
         name: AppRoutes.cardListName,
@@ -73,10 +75,12 @@ Future<void> _pump(
     ],
   );
 
-  await tester.pumpWidget(ProviderScope(
-    overrides: [deckRepositoryProvider.overrideWithValue(decks)],
-    child: MaterialApp.router(theme: AppTheme.light, routerConfig: router),
-  ));
+  await tester.pumpWidget(
+    ProviderScope(
+      overrides: [deckRepositoryProvider.overrideWithValue(decks)],
+      child: MaterialApp.router(theme: AppTheme.light, routerConfig: router),
+    ),
+  );
   router.push('/deck/deck-1/cards');
   await tester.pumpAndSettle();
 }
@@ -106,8 +110,9 @@ void main() {
     );
   });
 
-  testWidgets('renders one row per card with a front/back/keyword preview',
-      (tester) async {
+  testWidgets('renders one row per card with a front/back/keyword preview', (
+    tester,
+  ) async {
     await _pump(
       tester,
       _Recorder(),
@@ -127,10 +132,15 @@ void main() {
     expect(find.text('Paris'), findsNWidgets(2));
   });
 
-  testWidgets('an empty deck offers an Add cards CTA into import',
-      (tester) async {
+  testWidgets('an empty deck offers an Add cards CTA into import', (
+    tester,
+  ) async {
     final rec = _Recorder();
-    await _pump(tester, rec, decks: FakeDeckRepository(decks: [_deck('deck-1')]));
+    await _pump(
+      tester,
+      rec,
+      decks: FakeDeckRepository(decks: [_deck('deck-1')]),
+    );
 
     expect(find.text('No cards yet.'), findsOneWidget);
 
@@ -152,10 +162,13 @@ void main() {
     expect(find.text('Edit card'), findsOneWidget);
   });
 
-  testWidgets('editing fields and saving calls updateCard, then closes',
-      (tester) async {
-    final decks =
-        FakeDeckRepository(decks: [_deck('deck-1')], cards: [_card()]);
+  testWidgets('editing fields and saving calls updateCard, then closes', (
+    tester,
+  ) async {
+    final decks = FakeDeckRepository(
+      decks: [_deck('deck-1')],
+      cards: [_card()],
+    );
     await _pump(tester, _Recorder(), decks: decks);
 
     await _openEditor(tester);
@@ -165,16 +178,21 @@ void main() {
 
     expect(
       decks.calls,
-      contains('updateCard(id=card-1, front=New front, back=Paris, '
-          'keywords=[], concept=false)'),
+      contains(
+        'updateCard(id=card-1, front=New front, back=Paris, '
+        'keywords=[], concept=false)',
+      ),
     );
     expect(find.text('Edit card'), findsNothing);
   });
 
-  testWidgets('a keyword absent from the front and back is rejected',
-      (tester) async {
-    final decks =
-        FakeDeckRepository(decks: [_deck('deck-1')], cards: [_card()]);
+  testWidgets('a keyword absent from the front and back is rejected', (
+    tester,
+  ) async {
+    final decks = FakeDeckRepository(
+      decks: [_deck('deck-1')],
+      cards: [_card()],
+    );
     await _pump(tester, _Recorder(), decks: decks);
 
     await _openEditor(tester);
@@ -186,23 +204,30 @@ void main() {
     await tester.pumpAndSettle();
 
     // The chip was not added; an inline error explains why.
-    expect(find.text('Keyword must appear in the front or back text.'),
-        findsOneWidget);
+    expect(
+      find.text('Keyword must appear in the front or back text.'),
+      findsOneWidget,
+    );
 
     await tester.tap(find.widgetWithText(FilledButton, 'Save'));
     await tester.pumpAndSettle();
 
     expect(
       decks.calls,
-      contains('updateCard(id=card-1, front=Capital of France, back=Paris, '
-          'keywords=[], concept=false)'),
+      contains(
+        'updateCard(id=card-1, front=Capital of France, back=Paris, '
+        'keywords=[], concept=false)',
+      ),
     );
   });
 
-  testWidgets('Delete in the editor confirms, calls deleteCard, then closes',
-      (tester) async {
-    final decks =
-        FakeDeckRepository(decks: [_deck('deck-1')], cards: [_card()]);
+  testWidgets('Delete in the editor confirms, calls deleteCard, then closes', (
+    tester,
+  ) async {
+    final decks = FakeDeckRepository(
+      decks: [_deck('deck-1')],
+      cards: [_card()],
+    );
     await _pump(tester, _Recorder(), decks: decks);
 
     await _openEditor(tester);
@@ -218,8 +243,10 @@ void main() {
   });
 
   testWidgets('Delete can be cancelled', (tester) async {
-    final decks =
-        FakeDeckRepository(decks: [_deck('deck-1')], cards: [_card()]);
+    final decks = FakeDeckRepository(
+      decks: [_deck('deck-1')],
+      cards: [_card()],
+    );
     await _pump(tester, _Recorder(), decks: decks);
 
     await _openEditor(tester);

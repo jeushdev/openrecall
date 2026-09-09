@@ -4,17 +4,21 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/cache/stale_first.dart';
+import '../../../core/connectivity/connectivity_service.dart';
 import '../../../core/local_db/local_db_providers.dart';
 import '../../../core/sync/sync_providers.dart';
 import '../../../core/ui/app_messenger.dart';
 import '../data/cache_first_deck_repository.dart';
+import '../data/local_deck_store.dart';
 import '../data/supabase_deck_repository.dart';
 import '../domain/bulk_paste_parser.dart';
 import '../domain/card.dart';
 import '../domain/deck.dart';
 import '../domain/deck_repository.dart';
+import '../domain/offline_download.dart';
 import '../domain/sample_deck.dart';
 import 'decks_tab_view.dart';
+import 'offline_runtime_providers.dart';
 import 'pending_deletions.dart';
 
 /// The live repository is the Supabase-backed one wrapped in the cache-first
@@ -37,16 +41,8 @@ final deckRepositoryProvider = Provider<DeckRepository>((ref) {
 final decksProvider = StreamProvider<List<DeckSummary>>((ref) {
   final local = ref.watch(localDeckStoreProvider);
   final repository = ref.watch(deckRepositoryProvider);
-  return staleFirst(
-    cached: () async {
-      if (local.isNoop) return null;
-      final decks = await local.cachedDeckSummaries();
-      return decks.isNotEmpty || await local.hasFetchedDeckMetadata()
-          ? decks
-          : null;
-    },
-    remote: repository.fetchDecks,
-  );
+  final commitEvents = ref.watch(offlineDeckCommitBusProvider).events;
+  return _deckListReads(ref, local, repository, commitEvents);
 });
 
 /// The cards in one deck, for the Deck Creator. Keyed by deck id.
@@ -54,14 +50,85 @@ final deckCardsProvider = StreamProvider.family<List<FlashCard>, String>((
   ref,
   deckId,
 ) {
+  ref.watch(offlineDeckObservationProvider(deckId));
+  ref.watch(offlineDeckCommitRevisionProvider(deckId));
   final local = ref.watch(localDeckStoreProvider);
   final repository = ref.watch(deckRepositoryProvider);
-  return staleFirst(
-    cached: () async =>
-        await local.isCardSetComplete(deckId) ? local.cards(deckId) : null,
-    remote: () => repository.fetchCards(deckId),
-  );
-});
+  return _deckCardReads(ref, deckId, local, repository);
+}, retry: (_, _) => null);
+
+Future<bool> _onlineHint(Ref ref) async {
+  final known = ref.read(onlineStatusProvider).asData?.value;
+  return known ?? ref.read(connectivityServiceProvider).isOnline();
+}
+
+Stream<List<DeckSummary>> _deckListReads(
+  Ref ref,
+  LocalDeckStore local,
+  DeckRepository repository,
+  Stream<OfflineDeckCommitEvent> commitEvents,
+) async* {
+  List<DeckSummary>? seed;
+  if (!local.isNoop) {
+    try {
+      final cached = await local.cachedDeckSummaries();
+      if (cached.isNotEmpty || await local.hasFetchedDeckMetadata()) {
+        seed = cached;
+        yield cached;
+      }
+    } catch (_) {
+      // A broken local mirror must not take down the online-only path.
+    }
+  }
+
+  final online = local.isNoop || await _onlineHint(ref);
+  if (online) {
+    try {
+      yield await repository.fetchDecks().timeout(kRevalidateTimeout);
+    } catch (_) {
+      if (seed == null) rethrow;
+    }
+  } else if (seed == null) {
+    yield const <DeckSummary>[];
+  }
+
+  if (local.isNoop) return;
+  await for (final _ in commitEvents) {
+    yield await local.cachedDeckSummaries();
+  }
+}
+
+Stream<List<FlashCard>> _deckCardReads(
+  Ref ref,
+  String deckId,
+  LocalDeckStore local,
+  DeckRepository repository,
+) async* {
+  final status = await local.packageStatus(deckId);
+  final cardsComplete =
+      status.cardsComplete ||
+      (!local.isNoop && await local.isCardSetComplete(deckId));
+  if (cardsComplete) {
+    yield await local.cards(deckId);
+  }
+
+  // Explicit packages revalidate only through OfflineDeckService. Their local
+  // value above is never held behind that background network operation.
+  if (!local.isNoop && status.isExplicitlyAvailable) {
+    return;
+  }
+
+  if (!local.isNoop && !await _onlineHint(ref)) {
+    if (!cardsComplete) throw DeckUnavailableOfflineException(deckId);
+    return;
+  }
+
+  try {
+    yield await repository.fetchCards(deckId).timeout(kRevalidateTimeout);
+  } catch (_) {
+    if (!cardsComplete) rethrow;
+  }
+}
 
 /// Drives the create-deck and card add/edit/delete actions: `isLoading`
 /// disables the relevant button, `AsyncError` feeds a SnackBar. Holds no value

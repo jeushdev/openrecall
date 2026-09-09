@@ -14,7 +14,10 @@ void main() {
 
   group('sessionLengthModeFromDb', () {
     test('reads both stored strings back', () {
-      expect(sessionLengthModeFromDb('uncapped'), SessionLengthMode.untilMastered);
+      expect(
+        sessionLengthModeFromDb('uncapped'),
+        SessionLengthMode.untilMastered,
+      );
       expect(sessionLengthModeFromDb('capped'), SessionLengthMode.capped);
     });
   });

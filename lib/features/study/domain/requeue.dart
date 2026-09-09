@@ -11,10 +11,7 @@ import 'session_queue_selection.dart' show kPositionStep;
 /// - Otherwise (exactly 3, fewer than 3, or the 3rd/4th are packed too tight
 ///   to interleave): go to the back of the queue.
 /// - Nothing ahead (it was the only card): repeat immediately.
-int requeuePosition(
-  List<int> aheadPositions, {
-  required int currentPosition,
-}) {
+int requeuePosition(List<int> aheadPositions, {required int currentPosition}) {
   if (aheadPositions.isEmpty) return currentPosition + kPositionStep;
   if (aheadPositions.length >= 4) {
     final third = aheadPositions[2];

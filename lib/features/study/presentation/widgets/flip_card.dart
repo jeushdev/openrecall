@@ -92,14 +92,14 @@ class _FlipCardState extends ConsumerState<FlipCard>
             child: Center(
               child: switch (transition) {
                 CardTransition.flip3d => _Flip3d(
-                    controller: _controller,
-                    front: _face(context, back: false),
-                    back: _face(context, back: true),
-                  ),
+                  controller: _controller,
+                  front: _face(context, back: false),
+                  back: _face(context, back: true),
+                ),
                 CardTransition.fade => _FadeSlide(
-                    flipped: _flipped,
-                    child: _face(context, back: _flipped),
-                  ),
+                  flipped: _flipped,
+                  child: _face(context, back: _flipped),
+                ),
               },
             ),
           ),

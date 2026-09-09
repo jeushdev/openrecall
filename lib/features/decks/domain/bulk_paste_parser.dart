@@ -161,9 +161,8 @@ BulkParseLine _parseBlock(int lineNumber, List<String> block) {
       .allMatches(front)
       .followedBy(_keywordPattern.allMatches(back))
       .toList();
-  final keywords = [
-    for (final m in markers) m.group(1)!.trim(),
-  ]..removeWhere((k) => k.isEmpty);
+  final keywords = [for (final m in markers) m.group(1)!.trim()]
+    ..removeWhere((k) => k.isEmpty);
   if (markers.isNotEmpty) {
     front = _stripBraces(front);
     back = _stripBraces(back);

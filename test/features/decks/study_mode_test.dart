@@ -7,19 +7,18 @@ FlashCard _card({
   String back = 'Back',
   List<String> keywords = const [],
   bool isConcept = false,
-}) =>
-    FlashCard(
-      id: 'card-1',
-      deckId: 'deck-1',
-      front: front,
-      back: back,
-      keywords: keywords,
-      isConcept: isConcept,
-      masteryLevel: 0,
-      failCount: 0,
-      createdAt: DateTime.utc(2026),
-      updatedAt: DateTime.utc(2026),
-    );
+}) => FlashCard(
+  id: 'card-1',
+  deckId: 'deck-1',
+  front: front,
+  back: back,
+  keywords: keywords,
+  isConcept: isConcept,
+  masteryLevel: 0,
+  failCount: 0,
+  createdAt: DateTime.utc(2026),
+  updatedAt: DateTime.utc(2026),
+);
 
 void main() {
   group('availableModes', () {
@@ -33,24 +32,34 @@ void main() {
 
     test('a keyword on any card adds Cloze', () {
       expect(
-        availableModes([_card(), _card(keywords: ['Paris'], front: 'Paris x')]),
+        availableModes([
+          _card(),
+          _card(keywords: ['Paris'], front: 'Paris x'),
+        ]),
         {StudyMode.flip, StudyMode.cloze},
       );
     });
 
     test('only blank keywords do not add Cloze', () {
-      expect(availableModes([_card(keywords: ['   '])]), {StudyMode.flip});
-    });
-
-    test('a concept card adds Feynman', () {
       expect(
-        availableModes([_card(isConcept: true)]),
-        {StudyMode.flip, StudyMode.feynman},
+        availableModes([
+          _card(keywords: ['   ']),
+        ]),
+        {StudyMode.flip},
       );
     });
 
+    test('a concept card adds Feynman', () {
+      expect(availableModes([_card(isConcept: true)]), {
+        StudyMode.flip,
+        StudyMode.feynman,
+      });
+    });
+
     test('a multi-line back alone does not add Feynman', () {
-      expect(availableModes([_card(back: 'one\ntwo\nthree')]), {StudyMode.flip});
+      expect(availableModes([_card(back: 'one\ntwo\nthree')]), {
+        StudyMode.flip,
+      });
     });
 
     test('a deck can offer every mode', () {
@@ -71,6 +80,10 @@ void main() {
   });
 
   test('List mode is gone', () {
-    expect(StudyMode.values, [StudyMode.flip, StudyMode.cloze, StudyMode.feynman]);
+    expect(StudyMode.values, [
+      StudyMode.flip,
+      StudyMode.cloze,
+      StudyMode.feynman,
+    ]);
   });
 }

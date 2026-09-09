@@ -20,7 +20,9 @@ class DeckLibraryScreen extends ConsumerWidget {
       if (next case AsyncError(:final error)) {
         ScaffoldMessenger.of(context)
           ..hideCurrentSnackBar()
-          ..showSnackBar(SnackBar(content: Text('Something went wrong: $error')));
+          ..showSnackBar(
+            SnackBar(content: Text('Something went wrong: $error')),
+          );
       }
     });
 
@@ -29,7 +31,8 @@ class DeckLibraryScreen extends ConsumerWidget {
     // (spec-web-mvp §5.3).
     final offlineIds = kIsWeb
         ? const <String>{}
-        : ref.watch(studiableOfflineDeckIdsProvider).asData?.value ?? const <String>{};
+        : ref.watch(studiableOfflineDeckIdsProvider).asData?.value ??
+              const <String>{};
 
     return Scaffold(
       appBar: AppBar(
@@ -44,7 +47,8 @@ class DeckLibraryScreen extends ConsumerWidget {
       ),
       body: decks.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, _) => _LoadError(onRetry: () => ref.invalidate(decksProvider)),
+        error: (error, _) =>
+            _LoadError(onRetry: () => ref.invalidate(decksProvider)),
         data: (decks) => decks.isEmpty
             ? const _EmptyLibrary()
             : ListView.builder(
@@ -52,7 +56,8 @@ class DeckLibraryScreen extends ConsumerWidget {
                 itemBuilder: (context, i) => DeckTile(
                   summary: decks[i],
                   offline: offlineIds.contains(decks[i].id),
-                  onTap: () => _openOverview(context, decks[i].id, decks[i].name),
+                  onTap: () =>
+                      _openOverview(context, decks[i].id, decks[i].name),
                 ),
               ),
       ),
@@ -68,8 +73,9 @@ class DeckLibraryScreen extends ConsumerWidget {
     final name = await showCreateDeckDialog(context);
     if (name == null) return;
 
-    final deck =
-        await ref.read(decksControllerProvider.notifier).createDeck(name);
+    final deck = await ref
+        .read(decksControllerProvider.notifier)
+        .createDeck(name);
     if (deck == null || !context.mounted) return;
 
     // Spec §2: a brand-new deck goes straight into the Deck Creator to add
@@ -102,8 +108,9 @@ class _EmptyLibraryState extends ConsumerState<_EmptyLibrary> {
 
   Future<void> _trySampleDeck() async {
     setState(() => _seeding = true);
-    final deck =
-        await ref.read(decksControllerProvider.notifier).seedSampleDeck();
+    final deck = await ref
+        .read(decksControllerProvider.notifier)
+        .seedSampleDeck();
     if (!mounted) return;
     setState(() => _seeding = false);
     // seedSampleDeck returns null on failure; the error is already surfaced by
@@ -138,7 +145,9 @@ class _EmptyLibraryState extends ConsumerState<_EmptyLibrary> {
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
                   : const Icon(Icons.auto_stories_outlined),
-              label: Text(_seeding ? 'Adding sample deck…' : 'Try a sample deck'),
+              label: Text(
+                _seeding ? 'Adding sample deck…' : 'Try a sample deck',
+              ),
             ),
           ],
         ),

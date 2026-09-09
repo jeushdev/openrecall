@@ -14,12 +14,11 @@ const int kPositionStep = 1000;
 Iterable<FlashCard> cardsSupportingMode(
   Iterable<FlashCard> cards,
   StudyMode mode,
-) =>
-    switch (mode) {
-      StudyMode.flip => cards,
-      StudyMode.cloze => cards.where(cardHasKeywords),
-      StudyMode.feynman => cards.where(cardIsConcept),
-    };
+) => switch (mode) {
+  StudyMode.flip => cards,
+  StudyMode.cloze => cards.where(cardHasKeywords),
+  StudyMode.feynman => cards.where(cardIsConcept),
+};
 
 /// The queue for a new session (spec §4, engine-v2-spec §4.2). For
 /// [CardScope.due] (the V1 behaviour) only cards below Mastered are eligible;
@@ -33,8 +32,9 @@ List<FlashCard> selectSessionCards({
   required int? cap,
   required CardScope cardScope,
 }) {
-  final eligible =
-      cardScope == CardScope.all ? cards : cards.where((c) => c.isDue);
+  final eligible = cardScope == CardScope.all
+      ? cards
+      : cards.where((c) => c.isDue);
   final supported = cardsSupportingMode(eligible, mode).toList();
   if (cap == null || cap >= supported.length) return supported;
   return supported.take(cap).toList();
@@ -43,6 +43,6 @@ List<FlashCard> selectSessionCards({
 /// Turns the ordered queue into [QueueSeed]s with sparse positions
 /// (1000, 2000, 3000, …).
 List<QueueSeed> seedsFrom(List<FlashCard> ordered) => [
-      for (var i = 0; i < ordered.length; i++)
-        QueueSeed(cardId: ordered[i].id, position: (i + 1) * kPositionStep),
-    ];
+  for (var i = 0; i < ordered.length; i++)
+    QueueSeed(cardId: ordered[i].id, position: (i + 1) * kPositionStep),
+];

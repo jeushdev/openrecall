@@ -16,3 +16,8 @@ void initLocalDbTestFfi() {
 /// persisted between tests.
 Future<AppDatabase> openTestDatabase() =>
     AppDatabase.open(path: inMemoryDatabasePath);
+
+/// Opens a caller-owned, named SQLite file for lifecycle tests. The caller is
+/// responsible for closing the handle and deleting the temporary file.
+Future<AppDatabase> openNamedTestDatabase(String path) =>
+    AppDatabase.open(path: path);

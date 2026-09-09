@@ -6,8 +6,9 @@ import 'package:open_recall/theme/app_tokens.dart';
 
 void main() {
   group('AppTokens resolution', () {
-    testWidgets('resolves from context via AppTheme.light without throwing',
-        (tester) async {
+    testWidgets('resolves from context via AppTheme.light without throwing', (
+      tester,
+    ) async {
       AppTokens? resolved;
       await tester.pumpWidget(
         MaterialApp(
@@ -60,43 +61,58 @@ void main() {
     const t = AppTokens.light;
 
     test('contains exactly the 8 named accent_color keys', () {
-      expect(
-        t.accents.keys.toSet(),
-        <String>{
-          'slate',
-          'red',
-          'amber',
-          'green',
-          'teal',
-          'blue',
-          'violet',
-          'pink',
-        },
-      );
+      expect(t.accents.keys.toSet(), <String>{
+        'slate',
+        'red',
+        'amber',
+        'green',
+        'teal',
+        'blue',
+        'violet',
+        'pink',
+      });
     });
 
     test('each key maps to its exact fill/text hex pair', () {
-      expect(t.accents['slate'],
-          const AccentPair(Color(0xFFC7C7CC), Color(0xFF8E8E93)));
-      expect(t.accents['red'],
-          const AccentPair(Color(0xFFFF6961), Color(0xFFFF3B30)));
-      expect(t.accents['amber'],
-          const AccentPair(Color(0xFFFFB340), Color(0xFFFF9500)));
-      expect(t.accents['green'],
-          const AccentPair(Color(0xFF63DA83), Color(0xFF34C759)));
-      expect(t.accents['teal'],
-          const AccentPair(Color(0xFF5AC8E0), Color(0xFF30B0C7)));
-      expect(t.accents['blue'],
-          const AccentPair(Color(0xFF4DA2FF), Color(0xFF007AFF)));
-      expect(t.accents['violet'],
-          const AccentPair(Color(0xFF8886E0), Color(0xFF5856D6)));
-      expect(t.accents['pink'],
-          const AccentPair(Color(0xFFFF6482), Color(0xFFFF2D55)));
+      expect(
+        t.accents['slate'],
+        const AccentPair(Color(0xFFC7C7CC), Color(0xFF8E8E93)),
+      );
+      expect(
+        t.accents['red'],
+        const AccentPair(Color(0xFFFF6961), Color(0xFFFF3B30)),
+      );
+      expect(
+        t.accents['amber'],
+        const AccentPair(Color(0xFFFFB340), Color(0xFFFF9500)),
+      );
+      expect(
+        t.accents['green'],
+        const AccentPair(Color(0xFF63DA83), Color(0xFF34C759)),
+      );
+      expect(
+        t.accents['teal'],
+        const AccentPair(Color(0xFF5AC8E0), Color(0xFF30B0C7)),
+      );
+      expect(
+        t.accents['blue'],
+        const AccentPair(Color(0xFF4DA2FF), Color(0xFF007AFF)),
+      );
+      expect(
+        t.accents['violet'],
+        const AccentPair(Color(0xFF8886E0), Color(0xFF5856D6)),
+      );
+      expect(
+        t.accents['pink'],
+        const AccentPair(Color(0xFFFF6482), Color(0xFFFF2D55)),
+      );
     });
 
     test('accent() falls back to slate for an unknown key', () {
-      expect(AppTokens.light.accent('not-a-real-key'),
-          AppTokens.light.accents['slate']);
+      expect(
+        AppTokens.light.accent('not-a-real-key'),
+        AppTokens.light.accents['slate'],
+      );
       expect(AppTokens.light.accent('blue'), AppTokens.light.accents['blue']);
     });
   });

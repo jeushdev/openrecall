@@ -41,14 +41,8 @@ class CourseSummary {
       other.masteryPercent == masteryPercent;
 
   @override
-  int get hashCode => Object.hash(
-        id,
-        name,
-        accentColor,
-        deckCount,
-        totalCards,
-        masteryPercent,
-      );
+  int get hashCode =>
+      Object.hash(id, name, accentColor, deckCount, totalCards, masteryPercent);
 }
 
 /// Rolls [decks] up under [courses], one [CourseSummary] per course, in the

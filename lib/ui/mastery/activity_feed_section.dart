@@ -84,22 +84,22 @@ class _ActivityRow extends StatelessWidget {
   }
 
   static IconData _icon(ActivityKind kind) => switch (kind) {
-        ActivityKind.sessionCompleted => Icons.school_outlined,
-        ActivityKind.deckCreated => Icons.style_outlined,
-        ActivityKind.courseCreated => Icons.folder_outlined,
-      };
+    ActivityKind.sessionCompleted => Icons.school_outlined,
+    ActivityKind.deckCreated => Icons.style_outlined,
+    ActivityKind.courseCreated => Icons.folder_outlined,
+  };
 
   static String _iconLabel(ActivityKind kind) => switch (kind) {
-        ActivityKind.sessionCompleted => 'Session completed',
-        ActivityKind.deckCreated => 'Deck created',
-        ActivityKind.courseCreated => 'Course created',
-      };
+    ActivityKind.sessionCompleted => 'Session completed',
+    ActivityKind.deckCreated => 'Deck created',
+    ActivityKind.courseCreated => 'Course created',
+  };
 
   static String _label(ActivityItem item) => switch (item.kind) {
-        ActivityKind.sessionCompleted => 'Completed ${item.title}',
-        ActivityKind.deckCreated => 'Created deck ${item.title}',
-        ActivityKind.courseCreated => 'Created course ${item.title}',
-      };
+    ActivityKind.sessionCompleted => 'Completed ${item.title}',
+    ActivityKind.deckCreated => 'Created deck ${item.title}',
+    ActivityKind.courseCreated => 'Created course ${item.title}',
+  };
 }
 
 class _DeltaBadge extends StatelessWidget {

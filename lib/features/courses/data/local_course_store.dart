@@ -96,8 +96,36 @@ class LocalCourseStore {
           r['entity_id'] as String,
       };
       final remoteIds = {for (final c in remote) c.id};
-      const retainPendingDecks =
-          'id IN (SELECT course_id FROM offline_decks WHERE is_synced = 0)';
+      const retainPendingDecks = '''
+        id IN (
+          SELECT course_id FROM offline_decks d
+          WHERE d.course_id IS NOT NULL AND (
+            d.is_pinned = 1 OR d.cache_suppressed = 1 OR
+            d.remote_missing = 1 OR d.is_synced = 0 OR
+            d.id IN (
+              SELECT deck_id FROM offline_cards WHERE is_synced = 0
+            ) OR
+            d.id IN (
+              SELECT deck_id FROM offline_study_sessions
+              WHERE is_synced = 0 OR status = 'active'
+            ) OR
+            d.id IN (
+              SELECT s.deck_id
+              FROM offline_session_cards sc
+              JOIN offline_study_sessions s ON s.id = sc.session_id
+              WHERE sc.is_synced = 0
+            ) OR
+            d.id IN (
+              SELECT entity_id FROM offline_deletions
+              WHERE entity_type = 'deck'
+            ) OR
+            d.id IN (
+              SELECT deck_id FROM offline_deletions
+              WHERE entity_type = 'card'
+            )
+          )
+        )
+      ''';
       if (remoteIds.isEmpty) {
         await txn.delete(
           'offline_courses',

@@ -12,8 +12,9 @@ void main() {
     final sp = await SharedPreferences.getInstance();
     final c = ProviderContainer(
       overrides: [
-        studyAppearancePreferencesProvider
-            .overrideWithValue(StudyAppearancePreferences(sp)),
+        studyAppearancePreferencesProvider.overrideWithValue(
+          StudyAppearancePreferences(sp),
+        ),
       ],
     );
     addTearDown(c.dispose);
@@ -63,25 +64,27 @@ void main() {
     expect(reloaded.progressIndicator, ProgressIndicatorStyle.pill);
   });
 
-  test('card font size defaults to medium and round-trips through the provider',
-      () async {
-    final c = await container({});
-    expect(
-      (await c.read(studyAppearanceProvider.future)).cardFontSize,
-      CardFontSize.medium,
-    );
+  test(
+    'card font size defaults to medium and round-trips through the provider',
+    () async {
+      final c = await container({});
+      expect(
+        (await c.read(studyAppearanceProvider.future)).cardFontSize,
+        CardFontSize.medium,
+      );
 
-    await c
-        .read(studyAppearanceProvider.notifier)
-        .setCardFontSize(CardFontSize.large);
+      await c
+          .read(studyAppearanceProvider.notifier)
+          .setCardFontSize(CardFontSize.large);
 
-    expect(
-      c.read(studyAppearanceProvider).asData?.value.cardFontSize,
-      CardFontSize.large,
-    );
+      expect(
+        c.read(studyAppearanceProvider).asData?.value.cardFontSize,
+        CardFontSize.large,
+      );
 
-    c.invalidate(studyAppearanceProvider);
-    final reloaded = await c.read(studyAppearanceProvider.future);
-    expect(reloaded.cardFontSize, CardFontSize.large);
-  });
+      c.invalidate(studyAppearanceProvider);
+      final reloaded = await c.read(studyAppearanceProvider.future);
+      expect(reloaded.cardFontSize, CardFontSize.large);
+    },
+  );
 }

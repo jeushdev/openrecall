@@ -8,10 +8,10 @@ class ParkPromptDialog extends StatelessWidget {
   const ParkPromptDialog({super.key});
 
   static Future<bool?> show(BuildContext context) => showDialog<bool>(
-        context: context,
-        barrierDismissible: false,
-        builder: (_) => const ParkPromptDialog(),
-      );
+    context: context,
+    barrierDismissible: false,
+    builder: (_) => const ParkPromptDialog(),
+  );
 
   @override
   Widget build(BuildContext context) {

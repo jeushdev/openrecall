@@ -7,14 +7,14 @@ import 'package:open_recall/features/stats/domain/history_log.dart';
 import '../../support/fake_course_repository.dart';
 
 DeckSummary _deck(String id, String name, {String? courseId}) => DeckSummary(
-      id: id,
-      name: name,
-      lastStudiedAt: null,
-      totalCards: 0,
-      dueCards: 0,
-      masteryPercent: 0,
-      courseId: courseId,
-    );
+  id: id,
+  name: name,
+  lastStudiedAt: null,
+  totalCards: 0,
+  dueCards: 0,
+  masteryPercent: 0,
+  courseId: courseId,
+);
 
 CompletedSessionActivity _session(
   String deckId,
@@ -22,19 +22,16 @@ CompletedSessionActivity _session(
   StudyMode mode = StudyMode.flip,
   int? cards = 6,
   int? delta = 4,
-}) =>
-    CompletedSessionActivity(
-      deckId: deckId,
-      completedAt: at,
-      masteryDelta: delta,
-      studyMode: mode,
-      cardsReviewed: cards,
-    );
+}) => CompletedSessionActivity(
+  deckId: deckId,
+  completedAt: at,
+  masteryDelta: delta,
+  studyMode: mode,
+  cardsReviewed: cards,
+);
 
 void main() {
-  final courses = [
-    fakeCourse(id: 'c1', name: 'Biology', accentColor: 'green'),
-  ];
+  final courses = [fakeCourse(id: 'c1', name: 'Biology', accentColor: 'green')];
 
   group('buildHistoryLog', () {
     test('joins sessions to deck + course, newest first', () {
@@ -47,8 +44,10 @@ void main() {
         courses: courses,
       );
 
-      expect(log.map((e) => e.completedAt),
-          [DateTime(2026, 8, 20), DateTime(2026, 8, 18)]);
+      expect(log.map((e) => e.completedAt), [
+        DateTime(2026, 8, 20),
+        DateTime(2026, 8, 18),
+      ]);
       expect(log.first.deckName, 'Cells');
       expect(log.first.courseName, 'Biology');
       expect(log.first.accentColor, 'green');
@@ -65,17 +64,19 @@ void main() {
       expect(log, isEmpty);
     });
 
-    test('falls back to the slate accent and null course for a course-less deck',
-        () {
-      final log = buildHistoryLog(
-        sessions: [_session('d2', DateTime(2026, 8, 20))],
-        decks: [_deck('d2', 'Loose')],
-        courses: courses,
-      );
+    test(
+      'falls back to the slate accent and null course for a course-less deck',
+      () {
+        final log = buildHistoryLog(
+          sessions: [_session('d2', DateTime(2026, 8, 20))],
+          decks: [_deck('d2', 'Loose')],
+          courses: courses,
+        );
 
-      expect(log.single.courseName, isNull);
-      expect(log.single.accentColor, 'slate');
-    });
+        expect(log.single.courseName, isNull);
+        expect(log.single.accentColor, 'slate');
+      },
+    );
   });
 
   group('groupHistoryByDeck', () {

@@ -25,20 +25,27 @@ Future<void> _pumpAt(WidgetTester tester, Size size) async {
 }
 
 void main() {
-  testWidgets('above the breakpoint the child is constrained to the content width',
-      (tester) async {
-    await _pumpAt(tester, const Size(1200, 900));
-    expect(tester.getSize(find.byKey(_childKey)).width, kWebFrameContentWidth);
-  });
+  testWidgets(
+    'above the breakpoint the child is constrained to the content width',
+    (tester) async {
+      await _pumpAt(tester, const Size(1200, 900));
+      expect(
+        tester.getSize(find.byKey(_childKey)).width,
+        kWebFrameContentWidth,
+      );
+    },
+  );
 
-  testWidgets('below the breakpoint the child is passed through full-width',
-      (tester) async {
+  testWidgets('below the breakpoint the child is passed through full-width', (
+    tester,
+  ) async {
     await _pumpAt(tester, const Size(375, 800));
     expect(tester.getSize(find.byKey(_childKey)).width, 375);
   });
 
-  testWidgets('disabled is always a pass-through even on a wide viewport',
-      (tester) async {
+  testWidgets('disabled is always a pass-through even on a wide viewport', (
+    tester,
+  ) async {
     tester.view.physicalSize = const Size(1200, 900);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);

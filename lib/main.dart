@@ -29,14 +29,12 @@ Future<void> main() async {
   // in-app licenses page. Lazily read — the SIL OFL text is only loaded if the
   // user opens that page.
   LicenseRegistry.addLicense(() async* {
-    yield LicenseEntryWithLineBreaks(
-      const ['Figtree'],
-      await rootBundle.loadString('assets/fonts/Figtree-OFL.txt'),
-    );
-    yield LicenseEntryWithLineBreaks(
-      const ['Inter'],
-      await rootBundle.loadString('assets/fonts/Inter-OFL.txt'),
-    );
+    yield LicenseEntryWithLineBreaks(const [
+      'Figtree',
+    ], await rootBundle.loadString('assets/fonts/Figtree-OFL.txt'));
+    yield LicenseEntryWithLineBreaks(const [
+      'Inter',
+    ], await rootBundle.loadString('assets/fonts/Inter-OFL.txt'));
   });
 
   // Both awaits below are local-only — dotenv reads a bundled asset and
@@ -62,8 +60,9 @@ Future<void> main() async {
     try {
       await notifications.init();
       // Honor the user's saved reminders on/off choice (spec §9) from cold start.
-      await notifications
-          .setEnabled(await NotificationPreferences().isEnabled());
+      await notifications.setEnabled(
+        await NotificationPreferences().isEnabled(),
+      );
     } catch (_) {
       // Reminders stay off for this launch.
     }
@@ -92,12 +91,14 @@ Future<void> main() async {
     }
   }
 
-  runApp(ProviderScope(
-    overrides: [
-      notificationServiceProvider.overrideWithValue(notifications),
-      initialThemeModeProvider.overrideWithValue(themeMode),
-      if (database != null) appDatabaseProvider.overrideWithValue(database),
-    ],
-    child: const OpenRecallApp(),
-  ));
+  runApp(
+    ProviderScope(
+      overrides: [
+        notificationServiceProvider.overrideWithValue(notifications),
+        initialThemeModeProvider.overrideWithValue(themeMode),
+        if (database != null) appDatabaseProvider.overrideWithValue(database),
+      ],
+      child: const OpenRecallApp(),
+    ),
+  );
 }

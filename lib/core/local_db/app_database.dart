@@ -21,7 +21,7 @@ import 'local_meta_store.dart';
 ///
 /// The schema is defined as ordered statement lists so [_createSchema] (a fresh
 /// install) and [_onUpgrade] (an in-place migration) cannot drift apart. The
-/// schema-parity tests compare fresh v7 databases with upgraded databases.
+/// schema-parity tests compare fresh v8 databases with upgraded databases.
 class AppDatabase {
   AppDatabase._(this._db);
 
@@ -56,7 +56,7 @@ class AppDatabase {
 
   /// Bump this and add a step to [_onUpgrade] whenever [schemaStatements]
   /// changes.
-  static const _version = 7;
+  static const _version = 8;
 
   /// Opens (creating on first run) the database. [path] overrides the platform
   /// default and is only passed by tests.
@@ -117,6 +117,8 @@ class AppDatabase {
       is_pinned         INTEGER NOT NULL DEFAULT 0,
       cards_complete    INTEGER NOT NULL DEFAULT 0,
       downloaded_at     TEXT,
+      remote_missing    INTEGER NOT NULL DEFAULT 0,
+      cache_suppressed  INTEGER NOT NULL DEFAULT 0,
       mastery_level_sum INTEGER NOT NULL DEFAULT 0,
       total_cards       INTEGER NOT NULL DEFAULT 0,
       position          INTEGER NOT NULL DEFAULT 0
@@ -171,7 +173,8 @@ class AppDatabase {
       base_updated_at TEXT NOT NULL,
       is_synced       INTEGER NOT NULL DEFAULT 1,
       content_dirty   INTEGER NOT NULL DEFAULT 0,
-      created_locally INTEGER NOT NULL DEFAULT 0
+      created_locally INTEGER NOT NULL DEFAULT 0,
+      in_current_package INTEGER NOT NULL DEFAULT 0
     )
     ''',
     'CREATE INDEX idx_offline_cards_deck ON offline_cards(deck_id)',
@@ -341,6 +344,19 @@ class AppDatabase {
     'ALTER TABLE offline_decks ADD COLUMN downloaded_at TEXT',
   ];
 
+  /// The delta from schema version 7 to version 8 (Phase 2 milestone 1).
+  /// Package membership is separate from row retention, while the two deck
+  /// flags record confirmed remote absence and intentional cache suppression.
+  @visibleForTesting
+  static const upgradeToV8Statements = <String>[
+    'ALTER TABLE offline_cards '
+        'ADD COLUMN in_current_package INTEGER NOT NULL DEFAULT 0',
+    'ALTER TABLE offline_decks '
+        'ADD COLUMN remote_missing INTEGER NOT NULL DEFAULT 0',
+    'ALTER TABLE offline_decks '
+        'ADD COLUMN cache_suppressed INTEGER NOT NULL DEFAULT 0',
+  ];
+
   static Future<void> _createSchema(Database db, int version) async {
     final batch = db.batch();
     for (final statement in schemaStatements) {
@@ -384,6 +400,21 @@ class AppDatabase {
       for (final statement in upgradeToV7Statements) {
         batch.execute(statement);
       }
+    }
+    if (oldVersion < 8) {
+      for (final statement in upgradeToV8Statements) {
+        batch.execute(statement);
+      }
+      // A v7 complete set is the only legacy state with verified coverage.
+      // Partial/metadata-only sets deliberately remain nonmembers, so an
+      // incomplete legacy cache can never become a complete v8 package.
+      batch.execute('''
+        UPDATE offline_cards
+        SET in_current_package = 1
+        WHERE deck_id IN (
+          SELECT id FROM offline_decks WHERE cards_complete = 1
+        )
+      ''');
     }
     await batch.commit(noResult: true);
   }

@@ -3,13 +3,13 @@ import 'package:open_recall/features/decks/domain/deck.dart';
 import 'package:open_recall/features/stats/domain/deck_completion.dart';
 
 DeckSummary _deck(String id, String name) => DeckSummary(
-      id: id,
-      name: name,
-      lastStudiedAt: null,
-      totalCards: 0,
-      dueCards: 0,
-      masteryPercent: 0,
-    );
+  id: id,
+  name: name,
+  lastStudiedAt: null,
+  totalCards: 0,
+  dueCards: 0,
+  masteryPercent: 0,
+);
 
 void main() {
   test('joins run-through counts to deck names, most cleared first', () {

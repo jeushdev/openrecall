@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/local_db/local_db_providers.dart';
 import '../../../core/sync/sync_providers.dart';
 import '../../decks/application/deck_providers.dart';
+import '../../decks/application/offline_runtime_providers.dart';
 import '../../decks/domain/card.dart';
 import '../../decks/domain/deck_repository.dart';
 import '../../decks/domain/study_mode.dart';
@@ -174,34 +175,40 @@ class SessionController extends Notifier<AsyncValue<StudySessionState?>> {
       await _flushAllPendingWrites();
     }
 
+    final offline = ref.read(offlineDeckServiceProvider);
+    final startupLease = offline.acquireStartupLease(deckId);
     _resetInternals();
     state = const AsyncLoading();
-    state = await AsyncValue.guard(() async {
-      await _study.abandonActiveSessions(deckId);
+    try {
+      state = await AsyncValue.guard(() async {
+        await _study.abandonActiveSessions(deckId);
 
-      // Local-first and timeout-bounded (spec §2 / §10) — a started session can
-      // never hang between the mode pick and the first card.
-      final cards = await loadStudyDeckCards(ref, deckId);
-      _deckMasteryAtStart = {for (final c in cards) c.id: c.masteryLevel};
-      final capNum = lengthMode == SessionLengthMode.capped ? cap : null;
-      final ordered = selectSessionCards(
-        cards: cards,
-        mode: mode,
-        cap: capNum,
-        cardScope: cardScope,
-      );
-      if (ordered.isEmpty) throw const EmptyQueueException();
+        // Local-first and timeout-bounded (spec §2 / §10) — a started session
+        // can never hang between the mode pick and the first card.
+        final cards = await loadStudyDeckCards(ref, deckId);
+        _deckMasteryAtStart = {for (final c in cards) c.id: c.masteryLevel};
+        final capNum = lengthMode == SessionLengthMode.capped ? cap : null;
+        final ordered = selectSessionCards(
+          cards: cards,
+          mode: mode,
+          cap: capNum,
+          cardScope: cardScope,
+        );
+        if (ordered.isEmpty) throw const EmptyQueueException();
 
-      return _seedSession(
-        deckId: deckId,
-        deckName: deckName,
-        mode: mode,
-        lengthMode: lengthMode,
-        cap: capNum,
-        cardScope: cardScope,
-        ordered: ordered,
-      );
-    });
+        return _seedSession(
+          deckId: deckId,
+          deckName: deckName,
+          mode: mode,
+          lengthMode: lengthMode,
+          cap: capNum,
+          cardScope: cardScope,
+          ordered: ordered,
+        );
+      });
+    } finally {
+      offline.releaseStartupLease(startupLease);
+    }
 
     if (state.hasValue) {
       ref.invalidate(decksProvider);
@@ -224,27 +231,33 @@ class SessionController extends Notifier<AsyncValue<StudySessionState?>> {
     required List<String> parkedCardIds,
   }) async {
     await _flushAllPendingWrites();
+    final offline = ref.read(offlineDeckServiceProvider);
+    final startupLease = offline.acquireStartupLease(deckId);
     _resetInternals();
     state = const AsyncLoading();
-    state = await AsyncValue.guard(() async {
-      await _study.abandonActiveSessions(deckId);
+    try {
+      state = await AsyncValue.guard(() async {
+        await _study.abandonActiveSessions(deckId);
 
-      final cards = await loadStudyDeckCards(ref, deckId);
-      _deckMasteryAtStart = {for (final c in cards) c.id: c.masteryLevel};
-      final wanted = parkedCardIds.toSet();
-      final ordered = cards.where((c) => wanted.contains(c.id)).toList();
-      if (ordered.isEmpty) throw const EmptyQueueException();
+        final cards = await loadStudyDeckCards(ref, deckId);
+        _deckMasteryAtStart = {for (final c in cards) c.id: c.masteryLevel};
+        final wanted = parkedCardIds.toSet();
+        final ordered = cards.where((c) => wanted.contains(c.id)).toList();
+        if (ordered.isEmpty) throw const EmptyQueueException();
 
-      return _seedSession(
-        deckId: deckId,
-        deckName: deckName,
-        mode: mode,
-        lengthMode: SessionLengthMode.untilMastered,
-        cap: null,
-        cardScope: CardScope.due,
-        ordered: ordered,
-      );
-    });
+        return _seedSession(
+          deckId: deckId,
+          deckName: deckName,
+          mode: mode,
+          lengthMode: SessionLengthMode.untilMastered,
+          cap: null,
+          cardScope: CardScope.due,
+          ordered: ordered,
+        );
+      });
+    } finally {
+      offline.releaseStartupLease(startupLease);
+    }
 
     if (state.hasValue) {
       ref.invalidate(decksProvider);

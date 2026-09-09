@@ -33,9 +33,6 @@ class SupabaseProfileRepository implements ProfileRepository {
     if (user == null) {
       throw StateError('No signed-in user to update.');
     }
-    await _client
-        .from('profiles')
-        .update({'username': name})
-        .eq('id', user.id);
+    await _client.from('profiles').update({'username': name}).eq('id', user.id);
   }
 }

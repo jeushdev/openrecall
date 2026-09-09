@@ -33,21 +33,26 @@ void main() {
   });
 
   testWidgets('Avatar uses name initials when name is given', (tester) async {
-    await tester.pumpWidget(MaterialApp(
-      theme: AppTheme.light,
-      home: const Scaffold(
-        body: Avatar(email: 'jeush.b@example.com', name: 'Ada Lovelace'),
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: const Scaffold(
+          body: Avatar(email: 'jeush.b@example.com', name: 'Ada Lovelace'),
+        ),
       ),
-    ));
+    );
     expect(find.text('AL'), findsOneWidget);
   });
 
-  testWidgets('Avatar falls back to email initials when name is null',
-      (tester) async {
-    await tester.pumpWidget(MaterialApp(
-      theme: AppTheme.light,
-      home: const Scaffold(body: Avatar(email: 'jeush.b@example.com')),
-    ));
+  testWidgets('Avatar falls back to email initials when name is null', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: const Scaffold(body: Avatar(email: 'jeush.b@example.com')),
+      ),
+    );
     expect(find.text('JE'), findsOneWidget);
   });
 }

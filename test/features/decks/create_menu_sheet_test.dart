@@ -11,13 +11,13 @@ import 'package:open_recall/theme/app_theme.dart';
 import '../../support/fake_deck_repository.dart';
 
 DeckSummary _deck(String id, String name) => DeckSummary(
-      id: id,
-      name: name,
-      lastStudiedAt: null,
-      totalCards: 3,
-      dueCards: 3,
-      masteryPercent: 0,
-    );
+  id: id,
+  name: name,
+  lastStudiedAt: null,
+  totalCards: 3,
+  dueCards: 3,
+  masteryPercent: 0,
+);
 
 Future<void> _pump(
   WidgetTester tester, {
@@ -56,10 +56,12 @@ Future<void> _pump(
     ],
   );
 
-  await tester.pumpWidget(ProviderScope(
-    overrides: [deckRepositoryProvider.overrideWithValue(decks)],
-    child: MaterialApp.router(theme: AppTheme.light, routerConfig: router),
-  ));
+  await tester.pumpWidget(
+    ProviderScope(
+      overrides: [deckRepositoryProvider.overrideWithValue(decks)],
+      child: MaterialApp.router(theme: AppTheme.light, routerConfig: router),
+    ),
+  );
   await tester.pumpAndSettle();
 }
 
@@ -69,8 +71,9 @@ Future<void> _openSheet(WidgetTester tester) async {
 }
 
 void main() {
-  testWidgets('expanded imports scroll to the final deck on a short phone',
-      (tester) async {
+  testWidgets('expanded imports scroll to the final deck on a short phone', (
+    tester,
+  ) async {
     tester.view.physicalSize = const Size(320, 568);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
@@ -90,8 +93,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(tester.takeException(), isNull);
-    final lastTarget =
-        find.byKey(const ValueKey('create-menu-import-deck-19'));
+    final lastTarget = find.byKey(const ValueKey('create-menu-import-deck-19'));
     final sheetScrollable = find.descendant(
       of: find.byType(BottomSheet),
       matching: find.byType(Scrollable),
@@ -156,15 +158,17 @@ void main() {
     expect(find.text('import-stub deck-1'), findsOneWidget);
   });
 
-  testWidgets('Import card with no decks routes to the Deck Creator with a hint',
-      (tester) async {
-    await _pump(tester, decks: FakeDeckRepository());
-    await _openSheet(tester);
+  testWidgets(
+    'Import card with no decks routes to the Deck Creator with a hint',
+    (tester) async {
+      await _pump(tester, decks: FakeDeckRepository());
+      await _openSheet(tester);
 
-    await tester.tap(find.text('Import card'));
-    await tester.pumpAndSettle();
+      await tester.tap(find.text('Import card'));
+      await tester.pumpAndSettle();
 
-    expect(find.text('deck-creator-stub'), findsOneWidget);
-    expect(find.textContaining('Create a deck first'), findsOneWidget);
-  });
+      expect(find.text('deck-creator-stub'), findsOneWidget);
+      expect(find.textContaining('Create a deck first'), findsOneWidget);
+    },
+  );
 }

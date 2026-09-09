@@ -31,30 +31,47 @@ void main() {
     expect(await meta.lastUserId(), 'user-b');
   });
 
-  test('wipeMirror clears every offline_* table but leaves offline_meta',
-      () async {
-    await meta.setLastUserId('user-a');
-    await decks.pinDeck(deckId: 'd1', name: 'A');
-    await decks.insertCards([
-      FlashCard(
-        id: 'k1', deckId: 'd1', front: 'Q', back: 'A',
-        keywords: const [], isConcept: false, masteryLevel: 0, failCount: 0,
-        createdAt: DateTime.utc(2026), updatedAt: DateTime.utc(2026),
-      ),
-    ]);
-    await courses.refreshCourses([
-      Course(
-        id: 'c1', userId: 'user-a', name: 'Bio', accentColor: 'green',
-        isDefault: false, createdAt: DateTime.utc(2026),
-        updatedAt: DateTime.utc(2026),
-      ),
-    ]);
+  test(
+    'wipeMirror clears every offline_* table but leaves offline_meta',
+    () async {
+      await meta.setLastUserId('user-a');
+      await decks.pinDeck(deckId: 'd1', name: 'A');
+      await decks.insertCards([
+        FlashCard(
+          id: 'k1',
+          deckId: 'd1',
+          front: 'Q',
+          back: 'A',
+          keywords: const [],
+          isConcept: false,
+          masteryLevel: 0,
+          failCount: 0,
+          createdAt: DateTime.utc(2026),
+          updatedAt: DateTime.utc(2026),
+        ),
+      ]);
+      await courses.refreshCourses([
+        Course(
+          id: 'c1',
+          userId: 'user-a',
+          name: 'Bio',
+          accentColor: 'green',
+          isDefault: false,
+          createdAt: DateTime.utc(2026),
+          updatedAt: DateTime.utc(2026),
+        ),
+      ]);
 
-    await meta.wipeMirror();
+      await meta.wipeMirror();
 
-    expect(await decks.cachedDeckSummaries(), isEmpty);
-    expect(await decks.cards('d1'), isEmpty);
-    expect(await courses.cachedCourses(), isEmpty);
-    expect(await meta.lastUserId(), 'user-a', reason: 'meta survives the wipe');
-  });
+      expect(await decks.cachedDeckSummaries(), isEmpty);
+      expect(await decks.cards('d1'), isEmpty);
+      expect(await courses.cachedCourses(), isEmpty);
+      expect(
+        await meta.lastUserId(),
+        'user-a',
+        reason: 'meta survives the wipe',
+      );
+    },
+  );
 }

@@ -18,5 +18,5 @@ List<T> moveItemToIndex<T>(List<T> items, int oldIndex, int newIndex) {
 /// first id gets `position` 0, the next 1, and so on. Stable: feeding the result
 /// back in (in position order) yields the same mapping.
 Map<String, int> positionsForOrder(List<String> orderedIds) => {
-      for (final (i, id) in orderedIds.indexed) id: i,
-    };
+  for (final (i, id) in orderedIds.indexed) id: i,
+};

@@ -38,7 +38,9 @@ class _EditCardDialogState extends ConsumerState<EditCardDialog> {
 
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
-    final card = await ref.read(decksControllerProvider.notifier).updateCard(
+    final card = await ref
+        .read(decksControllerProvider.notifier)
+        .updateCard(
           deckId: widget.deckId,
           id: widget.card.id,
           front: _front.text.trim(),
@@ -72,10 +74,9 @@ class _EditCardDialogState extends ConsumerState<EditCardDialog> {
     // Optimistic (milestone R1): the row drops from the card list at once and
     // the dialog closes now; the repo write runs in the background and rolls
     // back with a snackbar on failure.
-    ref.read(decksControllerProvider.notifier).deleteCard(
-          deckId: widget.deckId,
-          id: widget.card.id,
-        );
+    ref
+        .read(decksControllerProvider.notifier)
+        .deleteCard(deckId: widget.deckId, id: widget.card.id);
     Navigator.of(context).pop();
   }
 
@@ -113,10 +114,7 @@ class _EditCardDialogState extends ConsumerState<EditCardDialog> {
           onPressed: busy ? null : () => Navigator.of(context).pop(),
           child: const Text('Cancel'),
         ),
-        FilledButton(
-          onPressed: busy ? null : _save,
-          child: const Text('Save'),
-        ),
+        FilledButton(onPressed: busy ? null : _save, child: const Text('Save')),
       ],
     );
   }

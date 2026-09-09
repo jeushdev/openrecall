@@ -19,11 +19,11 @@ enum CardFontSize { small, medium, large, xlarge }
 extension CardFontSizeScale on CardFontSize {
   /// The linear `textScaler` multiplier this preset applies to study-card text.
   double get scale => switch (this) {
-        CardFontSize.small => 0.9,
-        CardFontSize.medium => 1.0,
-        CardFontSize.large => 1.15,
-        CardFontSize.xlarge => 1.3,
-      };
+    CardFontSize.small => 0.9,
+    CardFontSize.medium => 1.0,
+    CardFontSize.large => 1.15,
+    CardFontSize.xlarge => 1.3,
+  };
 }
 
 /// Device-local store for the "Study appearance" toggles (ui-spec-v1 §6.5).

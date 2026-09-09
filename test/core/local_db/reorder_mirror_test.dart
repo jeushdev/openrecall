@@ -6,14 +6,14 @@ import 'package:open_recall/features/decks/data/local_deck_store.dart';
 import '../../support/local_db_harness.dart';
 
 Course _course(String id, String name) => Course(
-      id: id,
-      userId: 'u1',
-      name: name,
-      accentColor: 'green',
-      isDefault: false,
-      createdAt: DateTime.utc(2026),
-      updatedAt: DateTime.utc(2026),
-    );
+  id: id,
+  userId: 'u1',
+  name: name,
+  accentColor: 'green',
+  isDefault: false,
+  createdAt: DateTime.utc(2026),
+  updatedAt: DateTime.utc(2026),
+);
 
 /// A drag-reorder made offline (milestone E3): each id's list index becomes its
 /// `position`, the rows are marked `is_synced = 0` for the reconnect push, and
@@ -31,22 +31,27 @@ void main() {
     courses = LocalCourseStore(db.db);
   });
 
-  test('reorderDecks stamps position, marks rows unsynced, and reorders reads',
-      () async {
-    await decks.pinDeck(deckId: 'a', name: 'A');
-    await decks.pinDeck(deckId: 'b', name: 'B');
-    await decks.pinDeck(deckId: 'c', name: 'C');
+  test(
+    'reorderDecks stamps position, marks rows unsynced, and reorders reads',
+    () async {
+      await decks.pinDeck(deckId: 'a', name: 'A');
+      await decks.pinDeck(deckId: 'b', name: 'B');
+      await decks.pinDeck(deckId: 'c', name: 'C');
 
-    await decks.reorderDecks(['c', 'a', 'b']);
+      await decks.reorderDecks(['c', 'a', 'b']);
 
-    final summaries = await decks.cachedDeckSummaries();
-    expect(summaries.map((d) => d.id), ['c', 'a', 'b']);
-    expect(summaries.map((d) => d.position), [0, 1, 2]);
+      final summaries = await decks.cachedDeckSummaries();
+      expect(summaries.map((d) => d.id), ['c', 'a', 'b']);
+      expect(summaries.map((d) => d.position), [0, 1, 2]);
 
-    final dirty = await decks.unsyncedDecks();
-    expect(dirty.map((d) => d.id).toSet(), {'a', 'b', 'c'});
-    expect({for (final d in dirty) d.id: d.position}, {'c': 0, 'a': 1, 'b': 2});
-  });
+      final dirty = await decks.unsyncedDecks();
+      expect(dirty.map((d) => d.id).toSet(), {'a', 'b', 'c'});
+      expect(
+        {for (final d in dirty) d.id: d.position},
+        {'c': 0, 'a': 1, 'b': 2},
+      );
+    },
+  );
 
   test('reorderCourses does the same for offline_courses', () async {
     await courses.refreshCourses([
